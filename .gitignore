@@ -1,0 +1,27 @@
+node_modules
+dist
+target
+dist-release
+.env*
+
+# The local [patch] pointing at a core checkout rewrites Cargo.lock.
+.cargo/config.toml
+
+# Android build output and machine-local settings
+.gradle
+local.properties
+src-tauri/gen/android/app/build
+src-tauri/gen/android/build
+
+# Signing material never enters the repository
+*.jks
+*.keystore
+*.p12
+*.mobileprovision
+keystore.properties
+
+# Local tooling state
+.claude/
+.idea/
+.vscode/
+private/
