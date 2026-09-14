@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "default",
+  "description": "Default capabilities for SilentSilo mobile",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

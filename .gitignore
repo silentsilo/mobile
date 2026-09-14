@@ -25,3 +25,6 @@ keystore.properties
 .idea/
 .vscode/
 private/
+
+# Regenerated on every build
+src-tauri/gen/schemas

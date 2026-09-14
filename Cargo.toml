@@ -1,0 +1,21 @@
+[workspace]
+resolver = "2"
+members = ["src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+license = "AGPL-3.0-or-later"
+
+# Pinned to a core tag, never a branch, and the lockfile pins the commit.
+# Same tag as desktop, so both clients are tested against the same engine.
+[workspace.dependencies]
+silentsilo-core = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
+silentsilo-crypto = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
+silentsilo-vault = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
+silentsilo-vfs = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
+silentsilo-store = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
+silentsilo-sync = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
+# No HID stack on a phone: only the key-agreement math.
+silentsilo-fido = { git = "https://github.com/silentsilo/core", tag = "v1.1.0", default-features = false }
