@@ -1,3 +1,4 @@
+mod background;
 mod commands;
 mod device_key;
 mod host;
@@ -9,6 +10,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(device_key::init())
         .manage(silentsilo_app::AppState::default())
+        .manage(background::BackgroundLock::default())
         .register_asynchronous_uri_scheme_protocol("silo", |ctx, request, responder| {
             commands::serve_file(ctx.app_handle().clone(), request, responder)
         })
@@ -21,6 +23,16 @@ pub fn run() {
             commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());
             commands::spawn_auto_sync(handle);
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            #[cfg(mobile)]
+            match event {
+                tauri::WindowEvent::Suspended => background::suspended(window.app_handle()),
+                tauri::WindowEvent::Resumed => background::resumed(window.app_handle()),
+                _ => {}
+            }
+            #[cfg(not(mobile))]
+            let _ = (window, event);
         })
         .invoke_handler(tauri::generate_handler![
             device_key::device_check,
@@ -43,6 +55,8 @@ pub fn run() {
             commands::fido_list_keys,
             commands::fido_remove_key,
             commands::recovery_status,
+            background::lock_after_get,
+            background::lock_after_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SilentSilo");

@@ -1,4 +1,5 @@
 import { Folder, KeyRound, ShieldCheck } from "lucide-react";
+import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
 import { api, type DeviceCheck as Check, type JoinPreview, type StoreConfigInput, type SyncStatus } from "./api";
 import { blockingFailures, DeviceCheck } from "./screens/DeviceCheck";
@@ -66,6 +67,22 @@ export default function App() {
   useEffect(() => {
     void start();
   }, [start]);
+
+  // The phone locks an open silo itself once the app has been away too long.
+  // The event can be lost while the page is paused, so coming back to the
+  // screen asks again.
+  const open = phase.at === "open";
+  useEffect(() => {
+    if (!open) return;
+    const recheck = () => void refresh();
+    const onVisible = () => document.visibilityState === "visible" && recheck();
+    const unlisten = listen("silos-locked", recheck);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      void unlisten.then((stop) => stop());
+    };
+  }, [open, refresh]);
 
   return <ToastProvider>{render()}</ToastProvider>;
 

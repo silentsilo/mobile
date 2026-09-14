@@ -7,22 +7,12 @@ import { Sheet, useToast } from "../ui/chrome";
 import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
 
-const LOCK_KEY = "lockAfterSeconds";
 const LOCK_CHOICES = [
   { seconds: 0, label: "Immediately" },
   { seconds: 30, label: "After 30 seconds" },
   { seconds: 60, label: "After 1 minute" },
   { seconds: 300, label: "After 5 minutes" },
 ];
-
-export function lockAfterSeconds(): number {
-  try {
-    const v = Number(localStorage.getItem(LOCK_KEY));
-    return LOCK_CHOICES.some((c) => c.seconds === v) && localStorage.getItem(LOCK_KEY) !== null ? v : 30;
-  } catch {
-    return 30;
-  }
-}
 
 function shortLock(seconds: number) {
   return seconds === 0 ? "Now" : seconds < 60 ? `${seconds} s` : `${seconds / 60} min`;
@@ -43,7 +33,7 @@ export function Silo({
 }) {
   const [keyCount, setKeyCount] = useState<number | null>(null);
   const [recovery, setRecovery] = useState<RecoveryStatus | null>(null);
-  const [lockAfter, setLockAfter] = useState(lockAfterSeconds);
+  const [lockAfter, setLockAfter] = useState<number | null>(null);
   const [choosingLock, setChoosingLock] = useState(false);
   const [aboutRecovery, setAboutRecovery] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -53,6 +43,7 @@ export function Silo({
   useEffect(() => {
     api.listKeys().then((k) => setKeyCount(k.length), () => setKeyCount(null));
     api.recoveryStatus().then(setRecovery, () => setRecovery(null));
+    api.lockAfter().then(setLockAfter, () => setLockAfter(null));
   }, []);
 
   const syncNow = async () => {
@@ -71,14 +62,14 @@ export function Silo({
     }
   };
 
-  const chooseLock = (seconds: number) => {
-    try {
-      localStorage.setItem(LOCK_KEY, String(seconds));
-    } catch {
-      // A preference that does not persist still applies to this session.
-    }
-    setLockAfter(seconds);
+  const chooseLock = async (seconds: number) => {
     setChoosingLock(false);
+    try {
+      await api.setLockAfter(seconds);
+      setLockAfter(seconds);
+    } catch (e) {
+      toast(formatAppError(e));
+    }
   };
 
   const lockNow = async () => {
@@ -124,7 +115,7 @@ export function Silo({
           <div className="panel">
             {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys, true)}
             {navRow(LockKeyhole, "Recovery code", recovery?.enabled ? "Active" : recovery ? "Not set" : "", () => setAboutRecovery(true))}
-            {navRow(Smartphone, "Lock in the background", shortLock(lockAfter), () => setChoosingLock(true))}
+            {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -161,7 +152,7 @@ export function Silo({
         <p className="hint">How long the silo stays open after you switch to another app.</p>
         <div className="panel">
           {LOCK_CHOICES.map((c, i) => (
-            <button key={c.seconds} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => chooseLock(c.seconds)} aria-pressed={lockAfter === c.seconds}>
+            <button key={c.seconds} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void chooseLock(c.seconds)} aria-pressed={lockAfter === c.seconds}>
               <span style={{ flex: 1 }}>{c.label}</span>
               {lockAfter === c.seconds && <span style={{ color: "var(--accent-hover)", fontWeight: 700 }}>Selected</span>}
             </button>

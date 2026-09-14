@@ -75,6 +75,8 @@ export const api = {
   unlock: () => invoke<VaultMeta>("vault_unlock"),
   unlockWithRecovery: (code: string) => invoke<VaultMeta>("vault_unlock_with_recovery", { code }),
   lock: () => invoke<void>("vault_lock", { id: null }),
+  lockAfter: () => invoke<number>("lock_after_get"),
+  setLockAfter: (seconds: number) => invoke<void>("lock_after_set", { seconds }),
 
   readPasswords: async (): Promise<PasswordEntry[]> => {
     const rows = JSON.parse(await invoke<string>("vault_read_passwords")) as unknown[];

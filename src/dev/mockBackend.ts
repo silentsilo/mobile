@@ -13,6 +13,7 @@ const scenario = new URLSearchParams(location.search).get("mock") ?? import.meta
 
 let joined = scenario === "locked" || scenario === "unlocked";
 let unlocked = scenario === "unlocked";
+let lockAfter = 30;
 let phoneKey = joined;
 
 const silo = {
@@ -174,6 +175,12 @@ const handlers: Record<string, Handler> = {
     return { withheld: [] };
   },
   recovery_status: () => ({ enabled: true, created_at: 1769000000 }),
+  lock_after_get: () => lockAfter,
+  lock_after_set: (args) => {
+    lockAfter = Number(args.seconds);
+  },
+  "plugin:event|listen": () => 1,
+  "plugin:event|unlisten": () => undefined,
 };
 
 export function installMockBackend() {

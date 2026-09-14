@@ -237,6 +237,8 @@ pub async fn device_key_enroll(
     label: String,
 ) -> Result<(), String> {
     let silo = active_silo(&state)?;
+    let lock = app.state::<crate::background::BackgroundLock>();
+    let _prompt = lock.prompt();
     let enrolled = app
         .state::<crate::device_key::DeviceKey<tauri::Wry>>()
         .enrol(&silo.id.to_string())
@@ -270,6 +272,9 @@ pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<
     if ids.is_empty() {
         return Err("This phone has no key for this silo. Use the recovery code.".into());
     }
+    app.state::<crate::background::BackgroundLock>()
+        .on_screen()
+        .await;
     let unlocked = app
         .state::<crate::device_key::DeviceKey<tauri::Wry>>()
         .unlock(&silo.id.to_string(), &ids)
