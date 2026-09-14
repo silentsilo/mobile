@@ -1,11 +1,20 @@
 import { LockKeyhole, ScanFace } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { Field, StepBar } from "../ui/chrome";
 
 export function JoinKey({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
-  const [label, setLabel] = useState("This phone");
+  const [label, setLabel] = useState("");
+  const [edited, setEdited] = useState(false);
+
+  // The phone's own name, unless the user already typed one.
+  useEffect(() => {
+    api.deviceName().then(
+      (name) => !edited && name && setLabel(name),
+      () => {},
+    );
+  }, [edited]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +68,14 @@ export function JoinKey({ onBack, onDone }: { onBack: () => void; onDone: () => 
         </div>
         <Field label="Name this key">
           <div className="input">
-            <input value={label} onChange={(e) => setLabel(e.target.value)} />
+            <input
+              value={label}
+              placeholder="This phone"
+              onChange={(e) => {
+                setEdited(true);
+                setLabel(e.target.value);
+              }}
+            />
           </div>
         </Field>
         {error && <div className="notice error">{error}</div>}

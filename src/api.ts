@@ -94,6 +94,7 @@ export type Offered = { uri: string; name: string; size: number; mimeType: strin
 export const api = {
   bootstrap: () => invoke<Bootstrap>("app_bootstrap"),
   deviceCheck: () => invoke<DeviceCheck>("device_check"),
+  deviceName: () => invoke<string>("device_name"),
 
   probeHostKey: (host: string, port: number) => invoke<string>("sftp_probe_host_key", { host, port }),
   previewJoin: (config: StoreConfigInput) => invoke<JoinPreview>("vault_preview_join", { config }),

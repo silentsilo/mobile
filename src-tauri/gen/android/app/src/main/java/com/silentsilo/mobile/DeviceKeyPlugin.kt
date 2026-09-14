@@ -74,6 +74,22 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     }
   }
 
+  // What the owner calls this phone: the name set in Settings, which Samsung
+  // and Pixel fill with the marketing name, else maker and model.
+  @Command
+  fun deviceName(invoke: Invoke) {
+    val resolver = activity.contentResolver
+    val named = listOf(
+      Settings.Global.getString(resolver, Settings.Global.DEVICE_NAME),
+      Settings.Secure.getString(resolver, "bluetooth_name"),
+    ).firstOrNull { !it.isNullOrBlank() }
+    val model = if (Build.MODEL.startsWith(Build.MANUFACTURER, ignoreCase = true)) Build.MODEL
+      else "${Build.MANUFACTURER.replaceFirstChar { it.uppercase() }} ${Build.MODEL}"
+    val result = JSObject()
+    result.put("name", (named ?: model).trim())
+    invoke.resolve(result)
+  }
+
   // Whether Android offers autofill here, and whether SilentSilo is the service.
   @Command
   fun autofillStatus(invoke: Invoke) {

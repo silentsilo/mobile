@@ -73,6 +73,9 @@ impl<R: Runtime> DeviceKey<R> {
     pub async fn autofill_status(&self) -> Result<AutofillStatus, String> {
         Err(Self::ABSENT.into())
     }
+    pub async fn device_name(&self) -> Result<String, String> {
+        Err(Self::ABSENT.into())
+    }
     pub async fn autofill_enable(&self) -> Result<(), String> {
         Err(Self::ABSENT.into())
     }
@@ -119,6 +122,16 @@ impl<R: Runtime> DeviceKey<R> {
 
     pub async fn autofill_status(&self) -> Result<AutofillStatus, String> {
         self.call("autofillStatus", serde_json::json!({})).await
+    }
+
+    pub async fn device_name(&self) -> Result<String, String> {
+        #[derive(Deserialize)]
+        struct Named {
+            name: String,
+        }
+        self.call::<Named>("deviceName", serde_json::json!({}))
+            .await
+            .map(|n| n.name)
     }
 
     pub async fn autofill_enable(&self) -> Result<(), String> {
@@ -174,4 +187,10 @@ pub async fn autofill_enable(app: tauri::AppHandle) -> Result<(), String> {
     let lock = app.state::<crate::background::BackgroundLock>();
     let _prompt = lock.prompt();
     app.state::<DeviceKey<tauri::Wry>>().autofill_enable().await
+}
+
+/// The phone's own name, to suggest for its key.
+#[tauri::command]
+pub async fn device_name(app: tauri::AppHandle) -> Result<String, String> {
+    app.state::<DeviceKey<tauri::Wry>>().device_name().await
 }

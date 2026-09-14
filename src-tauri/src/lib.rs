@@ -50,6 +50,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             device_key::device_check,
             device_key::autofill_status,
+            device_key::device_name,
             device_key::autofill_enable,
             commands::app_bootstrap,
             commands::sftp_probe_host_key,
