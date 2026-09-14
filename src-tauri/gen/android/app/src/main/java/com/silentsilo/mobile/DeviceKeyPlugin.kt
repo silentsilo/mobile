@@ -44,6 +44,14 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
 
   @Command
   fun check(invoke: Invoke) {
+    try {
+      invoke.resolve(measure())
+    } catch (e: Exception) {
+      invoke.reject("Could not check this phone: ${e.message}")
+    }
+  }
+
+  private fun measure(): JSObject {
     val keyguard = activity.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
     val biometrics = activity.getSystemService(BiometricManager::class.java)
     val strongBiometric =
@@ -61,7 +69,7 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     result.put("webview_version", webview)
     result.put("webview_ok", webviewMajor >= MIN_WEBVIEW_MAJOR)
     result.put("free_bytes", StatFs(activity.filesDir.path).availableBytes)
-    invoke.resolve(result)
+    return result
   }
 
   // Makes and deletes a key with the real parameters, StrongBox first.
