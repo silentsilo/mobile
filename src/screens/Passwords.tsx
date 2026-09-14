@@ -1,4 +1,4 @@
-import { ChevronDown, Copy, Search } from "lucide-react";
+import { ChevronDown, Copy, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -27,7 +27,19 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
   );
 }
 
-export function Passwords({ siloName, sync, onOpen }: { siloName: string; sync: SyncStatus | null; onOpen: (entry: PasswordEntry) => void }) {
+export function Passwords({
+  siloName,
+  sync,
+  reloadKey,
+  onOpen,
+  onAdd,
+}: {
+  siloName: string;
+  sync: SyncStatus | null;
+  reloadKey: number;
+  onOpen: (entry: PasswordEntry) => void;
+  onAdd: () => void;
+}) {
   const [entries, setEntries] = useState<PasswordEntry[] | null>(null);
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +50,7 @@ export function Passwords({ siloName, sync, onOpen }: { siloName: string; sync: 
       (rows) => setEntries([...rows].sort((a, b) => a.service.localeCompare(b.service))),
       (e) => setError(formatAppError(e)),
     );
-  }, []);
+  }, [reloadKey]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -56,7 +68,15 @@ export function Passwords({ siloName, sync, onOpen }: { siloName: string; sync: 
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-      <SiloHeader siloName={siloName} sync={sync} />
+      <SiloHeader
+        siloName={siloName}
+        sync={sync}
+        action={
+          <button className="icon-btn framed" aria-label="New entry" onClick={onAdd}>
+            <Plus size={22} />
+          </button>
+        }
+      />
       <div style={{ padding: "0 16px 10px" }}>
         <div className="input" style={{ background: "var(--surface-muted)" }}>
           <Search size={20} color="var(--text-dim)" />

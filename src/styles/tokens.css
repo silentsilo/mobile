@@ -17,6 +17,9 @@
   --warning: #f59e0b;
   --danger: #ef4444;
   --danger-on-dark: #f87171;
+  --strength-weak: #f59e0b;
+  --strength-fair: #eab308;
+  --strength-good: #84cc16;
   --field-bg: rgba(0, 0, 0, 0.4);
   --panel-bg: rgba(255, 255, 255, 0.02);
   --tabbar-bg: rgba(10, 14, 26, 0.94);
@@ -50,6 +53,9 @@
     --success: #047857;
     --warning: #b45309;
     --danger-on-dark: #dc2626;
+    --strength-weak: #b45309;
+    --strength-fair: #a16207;
+    --strength-good: #4d7c0f;
     --field-bg: #ffffff;
     --panel-bg: #ffffff;
     --tabbar-bg: rgba(255, 255, 255, 0.94);

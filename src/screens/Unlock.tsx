@@ -6,7 +6,7 @@ import { isComplete } from "../shared/recoveryCode";
 import { Sheet } from "../ui/chrome";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
 
-export function Unlock({ siloName, onUnlocked }: { siloName: string; onUnlocked: () => void }) {
+export function Unlock({ siloName, autoPrompt, onUnlocked }: { siloName: string; autoPrompt: boolean; onUnlocked: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recovering, setRecovering] = useState(false);
@@ -26,12 +26,13 @@ export function Unlock({ siloName, onUnlocked }: { siloName: string; onUnlocked:
     }
   }, [onUnlocked]);
 
-  // The prompt starts by itself; the button is for after it was dismissed.
+  // The prompt starts by itself, except right after "Lock now": someone who
+  // just locked the silo does not want it asking to be opened again.
   useEffect(() => {
-    if (asked.current) return;
+    if (asked.current || !autoPrompt) return;
     asked.current = true;
     void unlock();
-  }, [unlock]);
+  }, [unlock, autoPrompt]);
 
   const unlockWithCode = async () => {
     setBusy(true);

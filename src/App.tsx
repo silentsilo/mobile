@@ -1,15 +1,21 @@
 import { Folder, KeyRound, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { api, type JoinPreview, type StoreConfigInput, type SyncStatus } from "./api";
+import { Entry } from "./screens/Entry";
+import { EntryEdit } from "./screens/EntryEdit";
+import { Files } from "./screens/Files";
 import { JoinCode } from "./screens/JoinCode";
 import { JoinKey } from "./screens/JoinKey";
 import { JoinStorage } from "./screens/JoinStorage";
+import { Keys } from "./screens/Keys";
 import { Passwords } from "./screens/Passwords";
+import { Preview } from "./screens/Preview";
+import { Silo } from "./screens/Silo";
 import { Unlock } from "./screens/Unlock";
 import { Welcome } from "./screens/Welcome";
 import { formatAppError } from "./shared/errors";
-import type { Bootstrap, PasswordEntry } from "./shared/types";
-import { ToastProvider } from "./ui/chrome";
+import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
+import { ToastProvider, useToast } from "./ui/chrome";
 
 type Phase =
   | { at: "loading" }
@@ -18,25 +24,23 @@ type Phase =
   | { at: "join-storage" }
   | { at: "join-code"; config: StoreConfigInput; preview: JoinPreview }
   | { at: "join-key" }
-  | { at: "locked"; siloName: string }
+  | { at: "locked"; siloName: string; autoPrompt: boolean }
   | { at: "open"; siloName: string };
-
-type Tab = "passwords" | "files" | "silo";
 
 // Where a silo in this state belongs. A joined silo without this phone's key
 // goes back to the last join step rather than to the unlock screen.
-function phaseFor(boot: Bootstrap): Phase {
+function phaseFor(boot: Bootstrap, autoPrompt = true): Phase {
   if (!boot.silo) return { at: "welcome" };
   if (!boot.platform_enrolled && !boot.locked) return { at: "join-key" };
-  return boot.locked ? { at: "locked", siloName: boot.silo.name } : { at: "open", siloName: boot.silo.name };
+  return boot.locked ? { at: "locked", siloName: boot.silo.name, autoPrompt } : { at: "open", siloName: boot.silo.name };
 }
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>({ at: "loading" });
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (autoPrompt = true) => {
     try {
-      setPhase(phaseFor(await api.bootstrap()));
+      setPhase(phaseFor(await api.bootstrap(), autoPrompt));
     } catch (e) {
       setPhase({ at: "failed", message: formatAppError(e) });
     }
@@ -63,12 +67,7 @@ export default function App() {
       case "welcome":
         return <Welcome onStart={() => setPhase({ at: "join-storage" })} />;
       case "join-storage":
-        return (
-          <JoinStorage
-            onBack={() => setPhase({ at: "welcome" })}
-            onFound={(config, preview) => setPhase({ at: "join-code", config, preview })}
-          />
-        );
+        return <JoinStorage onBack={() => setPhase({ at: "welcome" })} onFound={(config, preview) => setPhase({ at: "join-code", config, preview })} />;
       case "join-code":
         return (
           <JoinCode
@@ -81,21 +80,65 @@ export default function App() {
       case "join-key":
         return <JoinKey onBack={() => void refresh()} onDone={() => void refresh()} />;
       case "locked":
-        return <Unlock siloName={phase.siloName} onUnlocked={() => void refresh()} />;
+        return <Unlock key={String(phase.autoPrompt)} siloName={phase.siloName} autoPrompt={phase.autoPrompt} onUnlocked={() => void refresh()} />;
       case "open":
-        return <OpenSilo siloName={phase.siloName} />;
+        return <OpenSilo siloName={phase.siloName} onLocked={() => void refresh(false)} />;
     }
   }
 }
 
-function OpenSilo({ siloName }: { siloName: string }) {
-  const [tab, setTab] = useState<Tab>("passwords");
-  const [sync, setSync] = useState<SyncStatus | null>(null);
-  const [, setOpened] = useState<PasswordEntry | null>(null);
+type Tab = "passwords" | "files" | "silo";
 
-  useEffect(() => {
+type Detail =
+  | { at: "entry"; entry: PasswordEntry }
+  | { at: "edit"; entry: PasswordEntry | null }
+  | { at: "preview"; file: FileEntry }
+  | { at: "keys" };
+
+function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => void }) {
+  const [tab, setTab] = useState<Tab>("passwords");
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [sync, setSync] = useState<SyncStatus | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const toast = useToast();
+
+  const refreshSync = useCallback(() => {
     api.syncStatus().then(setSync, () => setSync(null));
   }, []);
+
+  useEffect(refreshSync, [refreshSync]);
+
+  const changed = () => {
+    setReloadKey((k) => k + 1);
+    refreshSync();
+  };
+
+  if (detail) {
+    switch (detail.at) {
+      case "entry":
+        return <Entry entry={detail.entry} onBack={() => setDetail(null)} onEdit={() => setDetail({ at: "edit", entry: detail.entry })} />;
+      case "edit":
+        return (
+          <EntryEdit
+            entry={detail.entry}
+            onCancel={() => setDetail(detail.entry ? { at: "entry", entry: detail.entry } : null)}
+            onSaved={(saved) => {
+              changed();
+              setDetail({ at: "entry", entry: saved });
+            }}
+            onDeleted={() => {
+              changed();
+              setDetail(null);
+              toast("Entry deleted.");
+            }}
+          />
+        );
+      case "preview":
+        return <Preview file={detail.file} onBack={() => setDetail(null)} />;
+      case "keys":
+        return <Keys onBack={() => setDetail(null)} />;
+    }
+  }
 
   const tabs: { id: Tab; label: string; Icon: typeof KeyRound }[] = [
     { id: "passwords", label: "Passwords", Icon: KeyRound },
@@ -105,8 +148,17 @@ function OpenSilo({ siloName }: { siloName: string }) {
 
   return (
     <div className="screen">
-      {tab === "passwords" && <Passwords siloName={siloName} sync={sync} onOpen={setOpened} />}
-      {tab !== "passwords" && <div style={{ flex: 1 }} />}
+      {tab === "passwords" && (
+        <Passwords
+          siloName={siloName}
+          sync={sync}
+          reloadKey={reloadKey}
+          onOpen={(entry) => setDetail({ at: "entry", entry })}
+          onAdd={() => setDetail({ at: "edit", entry: null })}
+        />
+      )}
+      {tab === "files" && <Files siloName={siloName} sync={sync} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
+      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onLocked={onLocked} />}
       <nav className="tabbar" role="tablist">
         {tabs.map(({ id, label, Icon }) => (
           <button key={id} className="tab" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
