@@ -1,7 +1,7 @@
 import { Folder, KeyRound, ShieldCheck } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { useCallback, useEffect, useState } from "react";
-import { api, type DeviceCheck as Check, type JoinPreview, type StoreConfigInput, type SyncStatus } from "./api";
+import { api, type DeviceCheck as Check, type JoinPreview, type Offered, type StoreConfigInput, type SyncStatus } from "./api";
 import { blockingFailures, DeviceCheck } from "./screens/DeviceCheck";
 import { Entry } from "./screens/Entry";
 import { EntryEdit } from "./screens/EntryEdit";
@@ -13,6 +13,7 @@ import { Keys } from "./screens/Keys";
 import { Passwords } from "./screens/Passwords";
 import { PhoneBackup } from "./screens/PhoneBackup";
 import { Preview } from "./screens/Preview";
+import { SaveShared } from "./screens/SaveShared";
 import { Silo } from "./screens/Silo";
 import { Unlock } from "./screens/Unlock";
 import { Welcome } from "./screens/Welcome";
@@ -41,6 +42,19 @@ function phaseFor(boot: Bootstrap, autoPrompt = true): Phase {
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>({ at: "loading" });
+  // Files another app shared, waiting for the silo to be open.
+  const [shared, setShared] = useState<Offered[]>([]);
+
+  const takeShared = useCallback(() => {
+    api.takeShared().then((files) => files.length && setShared(files), () => {});
+  }, []);
+
+  useEffect(() => {
+    takeShared();
+    const onVisible = () => document.visibilityState === "visible" && takeShared();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [takeShared]);
 
   const refresh = useCallback(async (autoPrompt = true) => {
     try {
@@ -126,9 +140,22 @@ export default function App() {
       case "join-key":
         return <JoinKey onBack={() => void refresh()} onDone={() => void refresh()} />;
       case "locked":
-        return <Unlock key={String(phase.autoPrompt)} siloName={phase.siloName} autoPrompt={phase.autoPrompt} onUnlocked={() => void refresh()} />;
+        return (
+          <Unlock
+            key={String(phase.autoPrompt)}
+            siloName={phase.siloName}
+            autoPrompt={phase.autoPrompt}
+            shared={shared}
+            onSentShared={() => setShared([])}
+            onUnlocked={() => void refresh()}
+          />
+        );
       case "open":
-        return <OpenSilo siloName={phase.siloName} onLocked={() => void refresh(false)} />;
+        return shared.length ? (
+          <SaveShared files={shared} siloName={phase.siloName} onDone={() => setShared([])} />
+        ) : (
+          <OpenSilo siloName={phase.siloName} onLocked={() => void refresh(false)} />
+        );
     }
   }
 }

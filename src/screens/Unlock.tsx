@@ -1,12 +1,24 @@
 import { ScanFace } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../api";
+import { api, type Offered } from "../api";
 import { formatAppError } from "../shared/errors";
 import { isComplete } from "../shared/recoveryCode";
 import { Sheet } from "../ui/chrome";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
 
-export function Unlock({ siloName, autoPrompt, onUnlocked }: { siloName: string; autoPrompt: boolean; onUnlocked: () => void }) {
+export function Unlock({
+  siloName,
+  autoPrompt,
+  shared = [],
+  onSentShared,
+  onUnlocked,
+}: {
+  siloName: string;
+  autoPrompt: boolean;
+  shared?: Offered[];
+  onSentShared?: () => void;
+  onUnlocked: () => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recovering, setRecovering] = useState(false);
@@ -33,6 +45,21 @@ export function Unlock({ siloName, autoPrompt, onUnlocked }: { siloName: string;
     asked.current = true;
     void unlock();
   }, [unlock, autoPrompt]);
+
+  // Shared files can go to the inbox without opening the silo, when this
+  // phone is set up to send.
+  const sendShared = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      for (const file of shared) await api.shareToInbox(file);
+      onSentShared?.();
+    } catch (e) {
+      setError(formatAppError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const unlockWithCode = async () => {
     setBusy(true);
@@ -87,6 +114,12 @@ export function Unlock({ siloName, autoPrompt, onUnlocked }: { siloName: string;
           </h1>
           <p className="hint">{busy ? "Waiting for your fingerprint or face" : "Unlock with your fingerprint or face"}</p>
         </div>
+        {shared.length > 0 && (
+          <div className="notice" style={{ alignSelf: "stretch" }}>
+            Unlock to choose where {shared.length === 1 ? "the shared file goes" : `the ${shared.length} shared files go`}, or send{" "}
+            {shared.length === 1 ? "it" : "them"} to Phone backup without unlocking.
+          </div>
+        )}
         {error && !recovering && (
           <div className="notice error" style={{ alignSelf: "stretch" }}>
             {error}
@@ -97,6 +130,11 @@ export function Unlock({ siloName, autoPrompt, onUnlocked }: { siloName: string;
           <button className="btn" disabled={busy} onClick={unlock}>
             Unlock
           </button>
+          {shared.length > 0 && (
+            <button className="btn secondary" disabled={busy} onClick={() => void sendShared()}>
+              Send without unlocking
+            </button>
+          )}
           <button className="btn secondary" disabled={busy} onClick={() => { setError(null); setRecovering(true); }}>
             Use recovery code
           </button>

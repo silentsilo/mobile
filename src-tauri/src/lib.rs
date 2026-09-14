@@ -5,6 +5,8 @@ mod backup;
 mod commands;
 mod device_key;
 mod host;
+mod incoming;
+mod viewer;
 
 use tauri::Manager;
 
@@ -13,6 +15,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(device_key::init())
         .plugin(backup::init())
+        .plugin(incoming::init())
         .manage(silentsilo_app::AppState::default())
         .manage(background::BackgroundLock::default())
         .register_asynchronous_uri_scheme_protocol("silo", |ctx, request, responder| {
@@ -69,6 +72,14 @@ pub fn run() {
             backup::backup_run_now,
             backup::backup_photo_count,
             backup::backup_waiting,
+            incoming::files_pick,
+            incoming::files_take_shared,
+            incoming::files_take_photo,
+            incoming::vault_import_offered,
+            incoming::vault_import_photo,
+            incoming::vault_create_folder,
+            incoming::share_to_inbox,
+            viewer::file_open_with,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SilentSilo");

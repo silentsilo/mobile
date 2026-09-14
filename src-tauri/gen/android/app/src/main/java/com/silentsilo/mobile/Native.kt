@@ -13,6 +13,9 @@ object Native {
   @Synchronized
   fun start(context: Context) {
     if (started) return
+    // Photos taken for the silo and files opened with other apps, left by a
+    // process that ended before it removed them.
+    listOf("camera", "open").forEach { java.io.File(context.cacheDir, it).deleteRecursively() }
     Os.setenv("TMPDIR", context.cacheDir.absolutePath, true)
     System.loadLibrary("silentsilo_mobile_lib")
     init(context.dataDir.absolutePath)

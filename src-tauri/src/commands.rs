@@ -29,7 +29,7 @@ pub(crate) fn active_silo(state: &AppState) -> Result<SiloEntry, String> {
         .ok_or_else(|| "No silo is open".to_string())
 }
 
-fn host(app: &AppHandle) -> MobileHost {
+pub(crate) fn host(app: &AppHandle) -> MobileHost {
     MobileHost(app.clone())
 }
 
@@ -326,6 +326,7 @@ pub async fn vault_lock(
     for id in ids {
         state.close_session(&host(&app), id)?;
     }
+    crate::viewer::wipe_opened(&app);
     Ok(())
 }
 
@@ -405,10 +406,29 @@ pub fn serve_file(
                 .body(body)
                 .unwrap_or_default()
         };
-        let id = request
-            .uri()
-            .path()
-            .trim_matches('/')
+        let path = request.uri().path().trim_matches('/').to_string();
+        // `pdf/<file id>/pages` or `pdf/<file id>/<page>?w=<width>`.
+        if let Some(rest) = path.strip_prefix("pdf/") {
+            let mut parts = rest.split('/');
+            let id = parts.next().and_then(|s| Uuid::parse_str(s).ok());
+            let what = parts.next().unwrap_or("pages").to_string();
+            let width = request
+                .uri()
+                .query()
+                .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("w=")))
+                .and_then(|w| w.parse().ok())
+                .unwrap_or(1080);
+            let response = match id {
+                Some(id) => match crate::viewer::serve_pdf(&app, id, &what, width).await {
+                    Ok((mime, body)) => respond(200, mime, body),
+                    Err(e) => respond(500, "text/plain", e.into_bytes()),
+                },
+                None => respond(404, "text/plain", b"not found".to_vec()),
+            };
+            responder.respond(response);
+            return;
+        }
+        let id = path
             .rsplit('/')
             .next()
             .and_then(|last| Uuid::parse_str(last).ok());

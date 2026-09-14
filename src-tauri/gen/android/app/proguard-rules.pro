@@ -22,7 +22,9 @@
 # Created by name from Rust; its commands are found by annotation.
 -keep class com.silentsilo.mobile.DeviceKeyPlugin { *; }
 -keep class com.silentsilo.mobile.BackupPlugin { *; }
+-keep class com.silentsilo.mobile.FilesPlugin { *; }
 # Called from Rust by name.
 -keep class com.silentsilo.mobile.LocalSecrets { *; }
 -keep class com.silentsilo.mobile.SenderKeys { *; }
+-keep class com.silentsilo.mobile.PdfPages { *; }
 -keep class com.silentsilo.mobile.Native { *; }

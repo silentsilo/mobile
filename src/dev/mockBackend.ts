@@ -196,6 +196,17 @@ const handlers: Record<string, Handler> = {
     backup = { ...backup, ...settings, vaultId: settings.photos || settings.contacts ? silo.id : "", photosAllowed: true, contactsAllowed: true };
     return backup;
   },
+  files_pick: () => [{ uri: "content://mock/1", name: "Scan.pdf", size: 120000, mimeType: "application/pdf" }],
+  files_take_shared: () => [],
+  files_take_photo: () => null,
+  vault_import_offered: async () => {
+    await wait(300);
+    return {};
+  },
+  vault_create_folder: (args) => ({ id: crypto.randomUUID(), name: args.name }),
+  share_to_inbox: async () => {
+    await wait(300);
+  },
   backup_waiting: () => (backup.photos || backup.contacts ? 3 : null),
   backup_photo_count: () => ({ count: 48213, bytes: 256 * 1024 ** 3 }),
   backup_run_now: () => {

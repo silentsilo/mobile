@@ -14,6 +14,7 @@ struct Bridge {
     vm: JavaVM,
     secrets: GlobalRef,
     senders: GlobalRef,
+    pdf: GlobalRef,
 }
 
 static BRIDGE: OnceLock<Bridge> = OnceLock::new();
@@ -33,10 +34,12 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_init(
     let bridge = (|| {
         let secrets = env.find_class("com/silentsilo/mobile/LocalSecrets").ok()?;
         let senders = env.find_class("com/silentsilo/mobile/SenderKeys").ok()?;
+        let pdf = env.find_class("com/silentsilo/mobile/PdfPages").ok()?;
         Some(Bridge {
             vm: env.get_java_vm().ok()?,
             secrets: env.new_global_ref(secrets).ok()?,
             senders: env.new_global_ref(senders).ok()?,
+            pdf: env.new_global_ref(pdf).ok()?,
         })
     })();
     let _ = env.exception_clear();
@@ -183,7 +186,8 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_sendItem(
         |value: &JString| -> String { env.get_string(value).map(String::from).unwrap_or_default() };
     let item = crate::backup::JobItem {
         data_dir: PathBuf::from(text(&data_dir)),
-        source: PathBuf::from(format!("/proc/self/fd/{fd}")),
+        // SAFETY: Kotlin keeps the descriptor open until this call returns.
+        source: unsafe { std::os::fd::BorrowedFd::borrow_raw(fd) },
         item_id: text(&item_id),
         name: text(&name),
         mime_type: Some(text(&mime_type)).filter(|m| !m.is_empty()),
@@ -208,4 +212,57 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_waitingCount(
         return -1;
     };
     crate::backup::waiting_from_job(std::path::Path::new(&data_dir))
+}
+
+/// How many pages the PDF at `path` has.
+pub fn pdf_pages(path: &str) -> Option<u32> {
+    let bridge = BRIDGE.get()?;
+    let mut env = bridge.vm.attach_current_thread().ok()?;
+    let result = (|| {
+        let path = env.new_string(path).ok()?;
+        let class: &JClass = bridge.pdf.as_obj().into();
+        let count = env
+            .call_static_method(
+                class,
+                "count",
+                "(Ljava/lang/String;)I",
+                &[JValue::Object(&path)],
+            )
+            .ok()?
+            .i()
+            .ok()?;
+        u32::try_from(count).ok()
+    })();
+    let _ = env.exception_clear();
+    result
+}
+
+/// Page `index` of the PDF at `path`, as a PNG `width` pixels wide.
+pub fn pdf_page(path: &str, index: u32, width: u32) -> Option<Vec<u8>> {
+    let bridge = BRIDGE.get()?;
+    let mut env = bridge.vm.attach_current_thread().ok()?;
+    let result = (|| {
+        let path = env.new_string(path).ok()?;
+        let class: &JClass = bridge.pdf.as_obj().into();
+        let png = env
+            .call_static_method(
+                class,
+                "render",
+                "(Ljava/lang/String;II)[B",
+                &[
+                    JValue::Object(&path),
+                    JValue::Int(index as i32),
+                    JValue::Int(width as i32),
+                ],
+            )
+            .ok()?
+            .l()
+            .ok()?;
+        if png.is_null() {
+            return None;
+        }
+        env.convert_byte_array(JByteArray::from(png)).ok()
+    })();
+    let _ = env.exception_clear();
+    result
 }

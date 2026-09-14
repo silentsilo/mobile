@@ -2,6 +2,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { isCategoriesRow } from "./shared/passwordUtil";
 import type {
   Bootstrap,
+  FileEntry,
   FolderEntry,
   PasswordEntry,
   RecoveryStatus,
@@ -86,6 +87,9 @@ export type BackupSettings = {
   remind: boolean;
 };
 
+/** A file on the phone or offered by another app, not read yet. */
+export type Offered = { uri: string; name: string; size: number; mimeType: string };
+
 export const api = {
   bootstrap: () => invoke<Bootstrap>("app_bootstrap"),
   deviceCheck: () => invoke<DeviceCheck>("device_check"),
@@ -115,6 +119,10 @@ export const api = {
   listFolder: (folderId: string) => invoke<VaultEntry[]>("vault_list_folder", { folderId }),
   /** Where a file's decrypted bytes are served, for an image or a fetch. */
   fileUrl: (fileId: string) => convertFileSrc(fileId, "silo"),
+  /** A PDF's page count, and each page drawn as an image. */
+  pdfPagesUrl: (fileId: string) => `${convertFileSrc("", "silo")}pdf/${fileId}/pages`,
+  pdfPageUrl: (fileId: string, page: number, width: number) => `${convertFileSrc("", "silo")}pdf/${fileId}/${page}?w=${width}`,
+  openWith: (fileId: string) => invoke<void>("file_open_with", { fileId }),
 
   syncStatus: () => invoke<SyncStatus>("sync_status"),
   syncNow: () => invoke<SyncReport>("sync_now"),
@@ -126,6 +134,14 @@ export const api = {
   backupStatus: () => invoke<BackupStatus>("backup_status"),
   configureBackup: (settings: BackupSettings) => invoke<BackupStatus>("backup_configure", { settings }),
   runBackupNow: () => invoke<void>("backup_run_now"),
+  pickFiles: () => invoke<Offered[]>("files_pick"),
+  takeShared: () => invoke<Offered[]>("files_take_shared"),
+  takePhoto: () => invoke<string | null>("files_take_photo"),
+  importOffered: (file: Offered, folderId: string) => invoke<FileEntry>("vault_import_offered", { file, folderId }),
+  importPhoto: (path: string, name: string, folderId: string) => invoke<FileEntry>("vault_import_photo", { path, name, folderId }),
+  createFolder: (parentId: string, name: string) => invoke<FolderEntry>("vault_create_folder", { parentId, name }),
+  shareToInbox: (file: Offered) => invoke<void>("share_to_inbox", { file }),
+
   backupWaiting: () => invoke<number | null>("backup_waiting"),
   photoCount: () => invoke<{ count: number; bytes: number }>("backup_photo_count"),
 };

@@ -1,10 +1,11 @@
-import { ChevronRight, File, FileText, Folder, Image, Search } from "lucide-react";
+import { Camera, ChevronRight, File, FilePlus, FileText, Folder, FolderPlus, Image, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import type { FileEntry, VaultEntry } from "../shared/types";
-import { TopBar } from "../ui/chrome";
+import { addAll, photoName } from "../shared/importing";
+import { Sheet, TopBar, useToast } from "../ui/chrome";
 import { SiloHeader } from "./Passwords";
 
 type Crumb = { id: string; name: string };
@@ -27,6 +28,11 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<Sort>("name");
   const [error, setError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [naming, setNaming] = useState(false);
+  const [folderName, setFolderName] = useState("");
+  const [progress, setProgress] = useState<string | null>(null);
+  const toast = useToast();
 
   const load = useCallback(async (folderId: string) => {
     setItems(null);
@@ -71,6 +77,52 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
   }, [items, query, sort]);
 
   const nested = trail.length > 1;
+  const here = trail[trail.length - 1];
+
+  const chooseFiles = async () => {
+    setAdding(false);
+    if (!here) return;
+    try {
+      const files = await api.pickFiles();
+      if (!files.length) return;
+      const summary = await addAll(files, here.id, (done) => setProgress(`Adding ${Math.min(done + 1, files.length)} of ${files.length}`));
+      toast(summary);
+    } catch (e) {
+      toast(formatAppError(e));
+    } finally {
+      setProgress(null);
+      void load(here.id);
+    }
+  };
+
+  const takePhoto = async () => {
+    setAdding(false);
+    if (!here) return;
+    try {
+      const path = await api.takePhoto();
+      if (!path) return;
+      setProgress("Adding the photo");
+      await api.importPhoto(path, photoName(), here.id);
+      toast("Photo added.");
+    } catch (e) {
+      toast(formatAppError(e));
+    } finally {
+      setProgress(null);
+      void load(here.id);
+    }
+  };
+
+  const newFolder = async () => {
+    if (!here || !folderName.trim()) return;
+    try {
+      await api.createFolder(here.id, folderName.trim());
+      setNaming(false);
+      setFolderName("");
+      void load(here.id);
+    } catch (e) {
+      toast(formatAppError(e));
+    }
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
@@ -83,7 +135,11 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
         <button className="btn secondary inline" style={{ padding: "0 12px", fontSize: "0.9rem" }} onClick={() => setSort(sort === "name" ? "newest" : "name")}>
           {sort === "name" ? "Name" : "Newest"}
         </button>
+        <button className="btn inline" style={{ padding: "0 12px" }} aria-label="Add" disabled={!here || progress !== null} onClick={() => setAdding(true)}>
+          <Plus size={20} />
+        </button>
       </div>
+      {progress && <div className="notice" style={{ margin: "0 16px 10px" }}>{progress}</div>}
       <div style={{ flex: 1, overflowY: "auto" }}>
         {error && <div className="notice error" style={{ margin: 16 }}>{error}</div>}
         {items && shown.length === 0 && (
@@ -115,6 +171,35 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
           ),
         )}
       </div>
+
+      <Sheet open={adding} onClose={() => setAdding(false)} title="Add to this folder">
+        <div className="panel">
+          <button className="row" style={{ minHeight: 56 }} onClick={() => void chooseFiles()}>
+            <FilePlus size={20} color="var(--accent-hover)" />
+            <span className="row-title" style={{ flex: 1 }}>Files from this phone</span>
+          </button>
+          <button className="row divide" style={{ minHeight: 56 }} onClick={() => void takePhoto()}>
+            <Camera size={20} color="var(--accent-hover)" />
+            <span className="row-text">
+              <span className="row-title">Take a photo</span>
+              <span className="row-sub">Goes into the silo, not the gallery</span>
+            </span>
+          </button>
+          <button className="row divide" style={{ minHeight: 56 }} onClick={() => { setAdding(false); setNaming(true); }}>
+            <FolderPlus size={20} color="var(--accent-hover)" />
+            <span className="row-title" style={{ flex: 1 }}>New folder</span>
+          </button>
+        </div>
+      </Sheet>
+
+      <Sheet open={naming} onClose={() => setNaming(false)} title="New folder">
+        <div className="input">
+          <input value={folderName} onChange={(e) => setFolderName(e.target.value)} placeholder="Folder name" autoFocus onKeyDown={(e) => e.key === "Enter" && void newFolder()} />
+        </div>
+        <button className="btn" disabled={!folderName.trim()} onClick={() => void newFolder()}>
+          Create
+        </button>
+      </Sheet>
     </div>
   );
 }

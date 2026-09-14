@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Only what the app hands to another app on purpose: the camera writing a
+     photo in, and a file opened with another app. -->
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
-  <external-path name="my_images" path="." />
-  <cache-path name="my_cache_images" path="." />
+  <cache-path name="camera" path="camera/" />
+  <cache-path name="open" path="open/" />
 </paths>

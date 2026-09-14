@@ -27,6 +27,13 @@ struct SenderFile {
     key_id: Uuid,
     /// The inbox public key, uncompressed P-256, hex.
     inbox_public: String,
+    /// This phone's name in the silo, for the folders items go to.
+    #[serde(default = "this_phone")]
+    label: String,
+}
+
+fn this_phone() -> String {
+    "This phone".into()
 }
 
 fn sender_path(data_dir: &Path) -> PathBuf {
@@ -254,6 +261,7 @@ pub async fn backup_configure(
             sender_id,
             key_id,
             inbox_public: hex::encode(inbox_public),
+            label: label.clone(),
         };
         std::fs::write(
             sender_path(&data_dir),
@@ -364,7 +372,8 @@ pub async fn backup_run_now(app: AppHandle) -> Result<(), String> {
 #[cfg(target_os = "android")]
 pub struct JobItem {
     pub data_dir: PathBuf,
-    pub source: PathBuf,
+    /// Kotlin's descriptor, open until the call returns; read through a copy.
+    pub source: std::os::fd::BorrowedFd<'static>,
     pub item_id: String,
     pub name: String,
     pub mime_type: Option<String>,
@@ -377,25 +386,80 @@ pub struct JobItem {
 /// `ok`, `retry: why` or `skip: why`, for `Backup.kt`.
 #[cfg(target_os = "android")]
 pub fn send_from_job(item: JobItem) -> String {
-    let Some(sender) = read_sender(&item.data_dir) else {
-        return "retry: backup is not set up on this phone".into();
-    };
     let Ok(item_id) = Uuid::parse_str(&item.item_id) else {
         return "skip: the item has no valid id".into();
     };
-    let Some(inbox_public) = hex::decode(&sender.inbox_public)
+    let mut source = match item.source.try_clone_to_owned() {
+        Ok(fd) => std::fs::File::from(fd),
+        Err(e) => return format!("skip: the item could not be read: {e}"),
+    };
+    let folder = item
+        .folder
+        .split('\n')
+        .filter(|s| !s.trim().is_empty())
+        .map(String::from)
+        .collect();
+    match send_one(
+        &item.data_dir,
+        &mut source,
+        item_id,
+        item.name,
+        item.mime_type,
+        item.taken_at,
+        folder,
+        item.kind,
+    ) {
+        Ok(()) => "ok".into(),
+        Err(e) => format!("retry: {e}"),
+    }
+}
+
+/// A file another app shared, sent without opening the silo.
+#[cfg(target_os = "android")]
+pub fn send_shared(
+    data_dir: &Path,
+    source: &mut std::fs::File,
+    item_id: Uuid,
+    name: String,
+    mime_type: Option<String>,
+) -> Result<(), String> {
+    let label = read_sender(data_dir)
+        .map(|s| s.label)
+        .ok_or_else(|| "Turn on Phone backup to save without unlocking.".to_string())?;
+    send_one(
+        data_dir,
+        source,
+        item_id,
+        name,
+        mime_type,
+        Some(now()),
+        vec!["Phone backup".into(), label, "Shared".into()],
+        "shared".into(),
+    )
+}
+
+/// Content is read from `source`, never reopened by path: a descriptor
+/// another app granted has no path this app may open.
+#[cfg(target_os = "android")]
+#[allow(clippy::too_many_arguments)]
+fn send_one(
+    data_dir: &Path,
+    source: &mut std::fs::File,
+    item_id: Uuid,
+    name: String,
+    mime_type: Option<String>,
+    taken_at: Option<i64>,
+    folder: Vec<String>,
+    kind: String,
+) -> Result<(), String> {
+    let sender = read_sender(data_dir).ok_or("backup is not set up on this phone")?;
+    let inbox_public = hex::decode(&sender.inbox_public)
         .ok()
         .and_then(|b| b.try_into().ok())
-    else {
-        return "retry: the saved inbox key is unreadable".into();
-    };
-    let Some(target) = send_target(sender.vault_id) else {
-        return "retry: this silo's storage settings could not be read".into();
-    };
-    let store = match target.config.open() {
-        Ok(store) => store,
-        Err(e) => return format!("retry: {e}"),
-    };
+        .ok_or("the saved inbox key is unreadable")?;
+    let target =
+        send_target(sender.vault_id).ok_or("this silo's storage settings could not be read")?;
+    let store = target.config.open().map_err(|e| e.to_string())?;
     let identity = inbox::SenderIdentity {
         vault_id: sender.vault_id,
         sender_id: sender.sender_id,
@@ -404,17 +468,12 @@ pub fn send_from_job(item: JobItem) -> String {
     };
     let outgoing = inbox::OutgoingItem {
         item_id,
-        source: &item.source,
-        name: item.name,
-        mime_type: item.mime_type,
-        taken_at: item.taken_at,
-        folder: item
-            .folder
-            .split('\n')
-            .filter(|s| !s.trim().is_empty())
-            .map(String::from)
-            .collect(),
-        source_kind: item.kind,
+        source: Path::new(""),
+        name,
+        mime_type,
+        taken_at,
+        folder,
+        source_kind: kind,
     };
     let vault = sender.vault_id.to_string();
     let sign = move |message: &[u8]| {
@@ -422,20 +481,9 @@ pub fn send_from_job(item: JobItem) -> String {
             .ok_or_else(|| "this phone's signing key refused".to_string())?;
         silentsilo_crypto::inbox::signature_from_der(&der).map_err(|e| e.to_string())
     };
-    match tauri::async_runtime::block_on(send(&*store, &identity, &outgoing, &sign)) {
-        Ok(()) => "ok".into(),
-        Err(e) => format!("retry: {e}"),
-    }
-}
-
-#[cfg(target_os = "android")]
-async fn send(
-    store: &dyn silentsilo_store::ObjectStore,
-    identity: &inbox::SenderIdentity,
-    item: &inbox::OutgoingItem<'_>,
-    sign: &inbox::ItemSigner<'_>,
-) -> Result<(), String> {
-    inbox::send_item(store, identity, item, sign)
-        .await
-        .map_err(|e| e.to_string())
+    tauri::async_runtime::block_on(async {
+        inbox::send_item_from(&*store, &identity, &outgoing, source, &sign)
+            .await
+            .map_err(|e| e.to_string())
+    })
 }

@@ -127,6 +127,7 @@ pub fn resumed(app: &AppHandle) {
     let lock = app.state::<BackgroundLock>();
     lock.generation.fetch_add(1, Ordering::SeqCst);
     lock.foreground.store(true, Ordering::SeqCst);
+    crate::viewer::wipe_opened(app);
     let away = lock
         .suspended_at
         .lock()
