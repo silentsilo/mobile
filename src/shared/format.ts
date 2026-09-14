@@ -33,11 +33,11 @@ export function breadcrumbSegments(folderPath: string, rootLabel: string): Bread
  * A timestamp, with the year shown only when it isn't this one.
  *
  * Omitting it entirely made a file last touched in 2023 read as "Nov 15,
- * 00:13" — indistinguishable from one touched last week, which is the single
+ * 00:13", indistinguishable from one touched last week, which is the single
  * thing a modified column exists to tell you apart.
  */
 export function formatDate(ts: number): string {
-  if (!ts) return "—";
+  if (!ts) return "Unknown";
   const ms = ts > 1e12 ? ts : ts * 1000;
   const date = new Date(ms);
   const sameYear = date.getFullYear() === new Date().getFullYear();
@@ -60,7 +60,7 @@ export function formatDate(ts: number): string {
  * to a column of "Jan 21" timestamps, which read as two different products.
  */
 export function formatDay(ts: number): string {
-  if (!ts) return "—";
+  if (!ts) return "Unknown";
   const ms = ts > 1e12 ? ts : ts * 1000;
   const date = new Date(ms);
   const sameYear = date.getFullYear() === new Date().getFullYear();

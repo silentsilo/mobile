@@ -3,9 +3,8 @@
 The Android and iOS clients of [SilentSilo](https://silentsilo.com), a
 local-first encrypted vault for files and passwords. AGPL-3.0.
 
-> **Not released.** Nothing here is built for users yet. The mobile apps
-> ship after the desktop application reaches 1.1.0. Android comes first,
-> iOS follows.
+> **Not released.** Nothing here is built for users yet. Android ships
+> with desktop 1.1.0; iOS follows.
 
 The engine lives in [silentsilo/core](https://github.com/silentsilo/core).
 This repository pins a tag from it, the same way

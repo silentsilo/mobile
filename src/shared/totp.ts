@@ -1,5 +1,5 @@
 // Copied from silentsilo/desktop src/lib/totp.ts at 3cc4a09; keep in step.
-/** TOTP (RFC 6238) generation — runs entirely client-side against an
+/** TOTP (RFC 6238) generation. Runs entirely client-side against an
  * already-decrypted silo entry, same trust boundary as the password
  * itself. No network calls, no new backend surface. */
 
@@ -40,7 +40,7 @@ function base32Decode(input: string): Uint8Array {
 }
 
 /** Normalizes a user-typed secret: uppercase, strip spaces/dashes. Does not
- * validate — invalid characters are simply dropped by base32Decode, which
+ * validate: invalid characters are simply dropped by base32Decode, which
  * would just produce a wrong (but harmless) code rather than throwing, so
  * callers should sanity-check the round trip if they want to warn the user. */
 export function normalizeBase32Secret(input: string): string {
@@ -128,7 +128,7 @@ export function totpSecondsRemaining(period: number = DEFAULT_TOTP_PERIOD, now: 
 }
 
 /** Computes the current TOTP code. Async because it goes through
- * SubtleCrypto's HMAC — cheap, but not synchronous. */
+ * SubtleCrypto's HMAC, cheap but not synchronous. */
 export async function generateTotp(
   params: Pick<TotpParams, "secret" | "digits" | "period" | "algorithm">,
   now: number = Date.now(),
@@ -139,7 +139,7 @@ export async function generateTotp(
   const counter = Math.floor(Math.floor(now / 1000) / params.period);
   const counterBytes = new ArrayBuffer(8);
   const counterView = new DataView(counterBytes);
-  // JS numbers only safely hold 53 bits — split into hi/lo 32-bit halves.
+  // JS numbers only safely hold 53 bits, so split into hi/lo 32-bit halves.
   counterView.setUint32(0, Math.floor(counter / 2 ** 32));
   counterView.setUint32(4, counter >>> 0);
 
