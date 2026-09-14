@@ -23,6 +23,8 @@ pub fn run() {
             // fallback secrets: they live in the app's own private storage.
             let data = app.path().app_data_dir()?;
             silentsilo_vault::set_work_base(data.join("work"));
+            #[cfg(target_os = "android")]
+            android::seal_existing_secrets(&data);
             let handle = app.handle().clone();
             commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());
             commands::spawn_auto_sync(handle);
