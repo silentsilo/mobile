@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+mod device_key;
+
 /// What the first build proves: the core crates linked and ran on the device.
 #[derive(Serialize)]
 struct Probe {
@@ -18,7 +20,8 @@ fn probe(app: tauri::AppHandle) -> Probe {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![probe])
+        .plugin(device_key::init())
+        .invoke_handler(tauri::generate_handler![probe, device_key::device_check])
         .run(tauri::generate_context!())
         .expect("error while running SilentSilo");
 }

@@ -19,3 +19,5 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+# Created by name from Rust; its commands are found by annotation.
+-keep class com.silentsilo.mobile.DeviceKeyPlugin { *; }
