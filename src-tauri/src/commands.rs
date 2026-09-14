@@ -20,7 +20,7 @@ fn app_data(app: &AppHandle) -> Result<PathBuf, String> {
     app.path().app_data_dir().map_err(|e| e.to_string())
 }
 
-fn active_silo(state: &AppState) -> Result<SiloEntry, String> {
+pub(crate) fn active_silo(state: &AppState) -> Result<SiloEntry, String> {
     state
         .active_silo
         .lock()
@@ -55,7 +55,7 @@ fn save_device_key(app: &AppHandle, silo: Uuid, credential_id: &str) -> Result<(
         .map_err(|e| e.to_string())
 }
 
-fn this_phone_key(app: &AppHandle, silo: &SiloEntry) -> Option<String> {
+pub(crate) fn this_phone_key(app: &AppHandle, silo: &SiloEntry) -> Option<String> {
     let id = load_device_keys(app).get(&silo.id)?.clone();
     let keys = silentsilo_vault::load_fido_keys(&silo.path).ok()?;
     keys.active().any(|k| k.credential_id == id).then_some(id)
@@ -535,6 +535,9 @@ pub async fn fido_remove_key(
             .state::<crate::device_key::DeviceKey<tauri::Wry>>()
             .remove(&credential_id)
             .await;
+        // Its items would be refused from now on anyway: the sender is
+        // valid only while this key is in storage.
+        let _ = crate::backup::stop(&app).await;
     }
     Ok(RemoveKeyOutcome {
         withheld: Vec::new(),

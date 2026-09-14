@@ -21,3 +21,8 @@
 #-renamesourcefileattribute SourceFile
 # Created by name from Rust; its commands are found by annotation.
 -keep class com.silentsilo.mobile.DeviceKeyPlugin { *; }
+-keep class com.silentsilo.mobile.BackupPlugin { *; }
+# Called from Rust by name.
+-keep class com.silentsilo.mobile.LocalSecrets { *; }
+-keep class com.silentsilo.mobile.SenderKeys { *; }
+-keep class com.silentsilo.mobile.Native { *; }

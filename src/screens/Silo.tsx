@@ -1,4 +1,4 @@
-import { ChevronRight, Cloud, KeyRound, LockKeyhole, RefreshCw, Smartphone } from "lucide-react";
+import { ChevronRight, Cloud, Images, KeyRound, LockKeyhole, RefreshCw, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -23,12 +23,14 @@ export function Silo({
   sync,
   onSynced,
   onKeys,
+  onBackup,
   onLocked,
 }: {
   siloName: string;
   sync: SyncStatus | null;
   onSynced: () => void;
   onKeys: () => void;
+  onBackup: () => void;
   onLocked: () => void;
 }) {
   const [keyCount, setKeyCount] = useState<number | null>(null);
@@ -38,12 +40,14 @@ export function Silo({
   const [aboutRecovery, setAboutRecovery] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [theme, setTheme] = useState<ThemeChoice>(readTheme);
+  const [backupOn, setBackupOn] = useState<boolean | null>(null);
   const toast = useToast();
 
   useEffect(() => {
     api.listKeys().then((k) => setKeyCount(k.length), () => setKeyCount(null));
     api.recoveryStatus().then(setRecovery, () => setRecovery(null));
     api.lockAfter().then(setLockAfter, () => setLockAfter(null));
+    api.backupStatus().then((s) => setBackupOn(s.photos || s.contacts), () => setBackupOn(null));
   }, []);
 
   const syncNow = async () => {
@@ -109,6 +113,9 @@ export function Silo({
               </button>
             </div>
           </div>
+        )}
+        {sync?.configured && (
+          <div className="panel">{navRow(Images, "Phone backup", backupOn === null ? "" : backupOn ? "On" : "Off", onBackup, true)}</div>
         )}
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="label" style={{ padding: "0 4px" }}>Security</span>

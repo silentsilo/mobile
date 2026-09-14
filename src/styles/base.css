@@ -62,6 +62,12 @@ a {
   overflow-y: auto;
 }
 
+/* A panel clips its rows, so it would shrink to nothing when the page is
+   taller than the screen; the page scrolls instead. */
+.screen-body > .panel {
+  flex-shrink: 0;
+}
+
 .screen-body.tight {
   padding-left: 16px;
   padding-right: 16px;

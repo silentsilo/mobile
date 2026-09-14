@@ -3,6 +3,15 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Unlocking the silo key with a fingerprint or face. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Photo and contacts backup, each asked for only when turned on. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- The backup job waits for Wi-Fi or any network. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- The backup schedule survives a restart. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -30,6 +39,11 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".BackupJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false" />
 
         <provider
           android:name="androidx.core.content.FileProvider"

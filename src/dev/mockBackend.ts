@@ -14,6 +14,18 @@ const scenario = new URLSearchParams(location.search).get("mock") ?? import.meta
 let joined = scenario === "locked" || scenario === "unlocked";
 let unlocked = scenario === "unlocked";
 let lockAfter = 30;
+let backup = {
+  vaultId: "",
+  photos: false,
+  contacts: false,
+  wifiOnly: true,
+  chargingOnly: false,
+  sent: 0,
+  lastRun: 0,
+  lastError: "",
+  photosAllowed: false,
+  contactsAllowed: false,
+};
 let phoneKey = joined;
 
 const silo = {
@@ -175,6 +187,17 @@ const handlers: Record<string, Handler> = {
     return { withheld: [] };
   },
   recovery_status: () => ({ enabled: true, created_at: 1769000000 }),
+  backup_status: () => backup,
+  backup_configure: async (args) => {
+    await wait(400);
+    const settings = args.settings as Record<string, boolean>;
+    backup = { ...backup, ...settings, vaultId: settings.photos || settings.contacts ? silo.id : "", photosAllowed: true, contactsAllowed: true };
+    return backup;
+  },
+  backup_photo_count: () => ({ count: 48213, bytes: 256 * 1024 ** 3 }),
+  backup_run_now: () => {
+    backup = { ...backup, lastRun: Math.floor(Date.now() / 1000) };
+  },
   lock_after_get: () => lockAfter,
   lock_after_set: (args) => {
     lockAfter = Number(args.seconds);

@@ -1,4 +1,7 @@
+#[cfg(target_os = "android")]
+mod android;
 mod background;
+mod backup;
 mod commands;
 mod device_key;
 mod host;
@@ -9,6 +12,7 @@ use tauri::Manager;
 pub fn run() {
     tauri::Builder::default()
         .plugin(device_key::init())
+        .plugin(backup::init())
         .manage(silentsilo_app::AppState::default())
         .manage(background::BackgroundLock::default())
         .register_asynchronous_uri_scheme_protocol("silo", |ctx, request, responder| {
@@ -57,6 +61,11 @@ pub fn run() {
             commands::recovery_status,
             background::lock_after_get,
             background::lock_after_set,
+            backup::backup_status,
+            backup::backup_configure,
+            backup::backup_disable,
+            backup::backup_run_now,
+            backup::backup_photo_count,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SilentSilo");

@@ -30,6 +30,10 @@ hex = "0.4"
 tokio = { version = "1", features = ["time"] }
 silentsilo-fido = { workspace = true, features = ["enclave"] }
 
+[target.'cfg(target_os = "android")'.dependencies]
+# The version tauri already uses, for the Kotlin calls outside a plugin.
+jni = "0.21.1"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

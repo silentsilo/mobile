@@ -1,0 +1,305 @@
+package com.silentsilo.mobile
+
+import android.Manifest
+import android.app.job.JobInfo
+import android.app.job.JobParameters
+import android.app.job.JobScheduler
+import android.app.job.JobService
+import android.content.ComponentName
+import android.content.ContentUris
+import android.content.Context
+import android.content.SharedPreferences
+import android.content.pm.PackageManager
+import android.net.Uri
+import android.os.Build
+import android.os.ParcelFileDescriptor
+import android.provider.ContactsContract
+import android.provider.MediaStore
+import java.io.File
+import java.security.MessageDigest
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.UUID
+import java.util.concurrent.TimeUnit
+
+// What the backup job needs between runs. Kept out of Android backup with
+// the rest of the app's storage.
+class BackupPrefs(context: Context) {
+  private val prefs: SharedPreferences = context.getSharedPreferences("backup", Context.MODE_PRIVATE)
+
+  var vaultId: String by string("vaultId")
+  var label: String by string("label")
+  var photos: Boolean by bool("photos")
+  var contacts: Boolean by bool("contacts")
+  var wifiOnly: Boolean by bool("wifiOnly", true)
+  var chargingOnly: Boolean by bool("chargingOnly")
+  // The newest photo already sent: MediaStore's DATE_ADDED, then _ID.
+  var addedMark: Long by long("addedMark")
+  var idMark: Long by long("idMark")
+  var sent: Long by long("sent")
+  var lastRun: Long by long("lastRun")
+  var lastError: String by string("lastError")
+  var contactsHash: String by string("contactsHash")
+  var contactsSentAt: Long by long("contactsSentAt")
+
+  fun clear() = prefs.edit().clear().apply()
+
+  private fun string(key: String) = Pref({ prefs.getString(key, "") ?: "" }, { prefs.edit().putString(key, it).apply() })
+  private fun bool(key: String, default: Boolean = false) =
+    Pref({ prefs.getBoolean(key, default) }, { prefs.edit().putBoolean(key, it).apply() })
+  private fun long(key: String) = Pref({ prefs.getLong(key, 0) }, { prefs.edit().putLong(key, it).apply() })
+
+  class Pref<T>(private val read: () -> T, private val write: (T) -> Unit) {
+    operator fun getValue(owner: Any, property: kotlin.reflect.KProperty<*>): T = read()
+    operator fun setValue(owner: Any, property: kotlin.reflect.KProperty<*>, value: T) = write(value)
+  }
+}
+
+object BackupScheduler {
+  private const val CONTENT_JOB = 7101
+  private const val PERIODIC_JOB = 7102
+  private const val NOW_JOB = 7103
+
+  // A job when photos change, and one every few hours for retries and for
+  // contacts, which have no change trigger a job can use. `replace` is for a
+  // settings change: otherwise a job already waiting is left alone, because
+  // Android runs a periodic job as soon as it is scheduled, and a job that
+  // rescheduled itself would run in a loop.
+  fun schedule(context: Context, replace: Boolean = true) {
+    val prefs = BackupPrefs(context)
+    val scheduler = context.getSystemService(JobScheduler::class.java)
+    if (prefs.vaultId.isEmpty() || (!prefs.photos && !prefs.contacts)) {
+      cancel(context)
+      return
+    }
+    if (prefs.photos && (replace || scheduler.getPendingJob(CONTENT_JOB) == null)) {
+      scheduler.schedule(
+        builder(context, CONTENT_JOB, prefs)
+          .addTriggerContentUri(
+            JobInfo.TriggerContentUri(
+              MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+              JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS,
+            )
+          )
+          .setTriggerContentUpdateDelay(TimeUnit.SECONDS.toMillis(30))
+          .setTriggerContentMaxDelay(TimeUnit.MINUTES.toMillis(10))
+          .build()
+      )
+    } else if (!prefs.photos) {
+      scheduler.cancel(CONTENT_JOB)
+    }
+    if (replace || scheduler.getPendingJob(PERIODIC_JOB) == null) {
+      scheduler.schedule(
+        builder(context, PERIODIC_JOB, prefs)
+          .setPeriodic(TimeUnit.HOURS.toMillis(6))
+          .setPersisted(true)
+          .build()
+      )
+    }
+  }
+
+  fun runNow(context: Context) {
+    val prefs = BackupPrefs(context)
+    if (prefs.vaultId.isEmpty()) return
+    context.getSystemService(JobScheduler::class.java).schedule(builder(context, NOW_JOB, prefs).build())
+  }
+
+  fun cancel(context: Context) {
+    val scheduler = context.getSystemService(JobScheduler::class.java)
+    listOf(CONTENT_JOB, PERIODIC_JOB, NOW_JOB).forEach { scheduler.cancel(it) }
+  }
+
+  // After every run: a content trigger fires once, and does not survive a
+  // restart, while the periodic job does and brings it back.
+  fun rearm(context: Context) {
+    try {
+      schedule(context, replace = false)
+    } catch (_: Exception) {
+    }
+  }
+
+  private fun builder(context: Context, id: Int, prefs: BackupPrefs) =
+    JobInfo.Builder(id, ComponentName(context, BackupJobService::class.java))
+      .setRequiredNetworkType(if (prefs.wifiOnly) JobInfo.NETWORK_TYPE_UNMETERED else JobInfo.NETWORK_TYPE_ANY)
+      .setRequiresBatteryNotLow(true)
+      .setRequiresCharging(prefs.chargingOnly)
+}
+
+class BackupJobService : JobService() {
+  @Volatile private var stopped = false
+
+  override fun onStartJob(params: JobParameters): Boolean {
+    stopped = false
+    Thread {
+      val retry = try {
+        BackupRunner(applicationContext).backUp { stopped }
+      } catch (e: Exception) {
+        BackupPrefs(applicationContext).lastError = e.message ?: e.toString()
+        true
+      }
+      jobFinished(params, retry && !stopped)
+      BackupScheduler.rearm(applicationContext)
+    }.start()
+    return true
+  }
+
+  override fun onStopJob(params: JobParameters): Boolean {
+    stopped = true
+    return true
+  }
+}
+
+// One run: new photos in the order they were added, then contacts when they
+// changed. Returns true when something failed that may work later.
+class BackupRunner(private val context: Context) {
+  private val prefs = BackupPrefs(context)
+  private val dataDir = context.dataDir.absolutePath
+
+  fun backUp(stopped: () -> Boolean): Boolean {
+    if (prefs.vaultId.isEmpty()) return false
+    Native.start(context)
+    contactsFile().delete()
+    prefs.lastRun = System.currentTimeMillis() / 1000
+    if (prefs.photos && granted(photoPermission())) {
+      if (sendPhotos(stopped)) return true
+    }
+    if (prefs.contacts && granted(Manifest.permission.READ_CONTACTS) && !stopped()) {
+      if (sendContacts()) return true
+    }
+    prefs.lastError = ""
+    return false
+  }
+
+  private fun sendPhotos(stopped: () -> Boolean): Boolean {
+    val columns = arrayOf(
+      MediaStore.Images.Media._ID,
+      MediaStore.Images.Media.DISPLAY_NAME,
+      MediaStore.Images.Media.MIME_TYPE,
+      MediaStore.Images.Media.DATE_TAKEN,
+      MediaStore.Images.Media.DATE_ADDED,
+    )
+    val selection = "${MediaStore.Images.Media.DATE_ADDED} > ? OR (${MediaStore.Images.Media.DATE_ADDED} = ? AND ${MediaStore.Images.Media._ID} > ?)"
+    val args = arrayOf(prefs.addedMark.toString(), prefs.addedMark.toString(), prefs.idMark.toString())
+    val order = "${MediaStore.Images.Media.DATE_ADDED} ASC, ${MediaStore.Images.Media._ID} ASC"
+    context.contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, columns, selection, args, order)?.use { rows ->
+      while (rows.moveToNext()) {
+        if (stopped()) return true
+        val id = rows.getLong(0)
+        val name = rows.getString(1) ?: "photo-$id.jpg"
+        val mime = rows.getString(2) ?: ""
+        val added = rows.getLong(4)
+        val takenMs = rows.getLong(3)
+        val taken = if (takenMs > 0) takenMs / 1000 else added
+        val month = SimpleDateFormat("yyyy-MM", Locale.ROOT).format(Date(taken * 1000))
+        val itemId = UUID.nameUUIDFromBytes("photo:${prefs.vaultId}:$id:$added".toByteArray()).toString()
+        val folder = listOf("Phone backup", prefs.label, "Photos", month).joinToString("\n")
+
+        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+        val outcome = openPhoto(uri)?.use { fd ->
+          Native.sendItem(dataDir, fd.fd, itemId, name, mime, taken, folder, "photos")
+        } ?: "skip: the photo could not be opened"
+
+        if (outcome.startsWith("retry")) {
+          prefs.lastError = outcome.removePrefix("retry: ")
+          return true
+        }
+        if (outcome == "ok") prefs.sent = prefs.sent + 1 else prefs.lastError = "$name: ${outcome.removePrefix("skip: ")}"
+        prefs.addedMark = added
+        prefs.idMark = id
+      }
+    }
+    return false
+  }
+
+  // The original, with its location, when the app may read that.
+  private fun openPhoto(uri: Uri): ParcelFileDescriptor? {
+    val source = if (granted(Manifest.permission.ACCESS_MEDIA_LOCATION)) {
+      try {
+        MediaStore.setRequireOriginal(uri)
+      } catch (_: Exception) {
+        uri
+      }
+    } else {
+      uri
+    }
+    return try {
+      context.contentResolver.openFileDescriptor(source, "r")
+    } catch (_: Exception) {
+      try {
+        context.contentResolver.openFileDescriptor(uri, "r")
+      } catch (_: Exception) {
+        null
+      }
+    }
+  }
+
+  // Every contact as one vCard file, sent when it differs from the last one
+  // sent and at most once a day. The plaintext file lives in the app's cache
+  // only for the upload, and is removed at the start of every run too.
+  private fun sendContacts(): Boolean {
+    val now = System.currentTimeMillis() / 1000
+    if (now - prefs.contactsSentAt < TimeUnit.DAYS.toSeconds(1)) return false
+    val file = contactsFile()
+    try {
+      val digest = MessageDigest.getInstance("SHA-256")
+      var count = 0
+      file.outputStream().use { out ->
+        context.contentResolver.query(
+          ContactsContract.Contacts.CONTENT_URI,
+          arrayOf(ContactsContract.Contacts.LOOKUP_KEY),
+          null,
+          null,
+          ContactsContract.Contacts.LOOKUP_KEY,
+        )?.use { rows ->
+          while (rows.moveToNext()) {
+            val key = rows.getString(0) ?: continue
+            val uri = Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_VCARD_URI, key)
+            try {
+              context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { asset ->
+                val bytes = asset.createInputStream().readBytes()
+                digest.update(bytes)
+                out.write(bytes)
+                count++
+              }
+            } catch (_: Exception) {
+            }
+          }
+        }
+      }
+      if (count == 0) return false
+      val hash = digest.digest().joinToString("") { "%02x".format(it) }
+      if (hash == prefs.contactsHash) {
+        prefs.contactsSentAt = now
+        return false
+      }
+      val day = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(Date(now * 1000))
+      val itemId = UUID.nameUUIDFromBytes("contacts:${prefs.vaultId}:$hash".toByteArray()).toString()
+      val folder = listOf("Phone backup", prefs.label, "Contacts").joinToString("\n")
+      val outcome = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+        Native.sendItem(dataDir, fd.fd, itemId, "Contacts $day.vcf", "text/vcard", now, folder, "contacts")
+      }
+      if (outcome.startsWith("retry")) {
+        prefs.lastError = outcome.removePrefix("retry: ")
+        return true
+      }
+      if (outcome == "ok") prefs.sent = prefs.sent + 1 else prefs.lastError = "Contacts: ${outcome.removePrefix("skip: ")}"
+      prefs.contactsHash = hash
+      prefs.contactsSentAt = now
+      return false
+    } finally {
+      file.delete()
+    }
+  }
+
+  private fun contactsFile() = File(context.cacheDir, "contacts.vcf")
+
+  private fun granted(permission: String) =
+    context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+  companion object {
+    fun photoPermission(): String =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES
+      else Manifest.permission.READ_EXTERNAL_STORAGE
+  }
+}

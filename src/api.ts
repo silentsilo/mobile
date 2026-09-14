@@ -62,6 +62,27 @@ export type SyncReport = {
   skipped: boolean;
 };
 
+export type BackupStatus = {
+  vaultId: string;
+  photos: boolean;
+  contacts: boolean;
+  wifiOnly: boolean;
+  chargingOnly: boolean;
+  sent: number;
+  lastRun: number;
+  lastError: string;
+  photosAllowed: boolean;
+  contactsAllowed: boolean;
+};
+
+export type BackupSettings = {
+  photos: boolean;
+  contacts: boolean;
+  wifiOnly: boolean;
+  chargingOnly: boolean;
+  includeExisting: boolean;
+};
+
 export const api = {
   bootstrap: () => invoke<Bootstrap>("app_bootstrap"),
   deviceCheck: () => invoke<DeviceCheck>("device_check"),
@@ -98,4 +119,9 @@ export const api = {
   listKeys: () => invoke<SecurityKeyInfo[]>("fido_list_keys"),
   removeKey: (credentialId: string) => invoke<unknown>("fido_remove_key", { credentialId }),
   recoveryStatus: () => invoke<RecoveryStatus>("recovery_status"),
+
+  backupStatus: () => invoke<BackupStatus>("backup_status"),
+  configureBackup: (settings: BackupSettings) => invoke<BackupStatus>("backup_configure", { settings }),
+  runBackupNow: () => invoke<void>("backup_run_now"),
+  photoCount: () => invoke<{ count: number; bytes: number }>("backup_photo_count"),
 };

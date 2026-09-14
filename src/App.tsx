@@ -11,6 +11,7 @@ import { JoinKey } from "./screens/JoinKey";
 import { JoinStorage } from "./screens/JoinStorage";
 import { Keys } from "./screens/Keys";
 import { Passwords } from "./screens/Passwords";
+import { PhoneBackup } from "./screens/PhoneBackup";
 import { Preview } from "./screens/Preview";
 import { Silo } from "./screens/Silo";
 import { Unlock } from "./screens/Unlock";
@@ -138,7 +139,8 @@ type Detail =
   | { at: "entry"; entry: PasswordEntry }
   | { at: "edit"; entry: PasswordEntry | null }
   | { at: "preview"; file: FileEntry }
-  | { at: "keys" };
+  | { at: "keys" }
+  | { at: "backup" };
 
 function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => void }) {
   const [tab, setTab] = useState<Tab>("passwords");
@@ -182,6 +184,8 @@ function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => vo
         return <Preview file={detail.file} onBack={() => setDetail(null)} />;
       case "keys":
         return <Keys onBack={() => setDetail(null)} />;
+      case "backup":
+        return <PhoneBackup onBack={() => setDetail(null)} />;
     }
   }
 
@@ -203,7 +207,7 @@ function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => vo
         />
       )}
       {tab === "files" && <Files siloName={siloName} sync={sync} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
-      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onLocked={onLocked} />}
+      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onLocked={onLocked} />}
       <nav className="tabbar" role="tablist">
         {tabs.map(({ id, label, Icon }) => (
           <button key={id} className="tab" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
