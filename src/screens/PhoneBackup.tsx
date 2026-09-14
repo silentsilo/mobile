@@ -21,6 +21,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [askExisting, setAskExisting] = useState(false);
   const [onPhone, setOnPhone] = useState<{ count: number; bytes: number } | null>(null);
+  const [waiting, setWaiting] = useState<number | null>(null);
   const toast = useToast();
 
   const load = useCallback(() => {
@@ -31,6 +32,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
   // this screen is open.
   useEffect(() => {
     load();
+    api.backupWaiting().then(setWaiting, () => setWaiting(null));
     const timer = window.setInterval(() => {
       api.backupStatus().then((s) => !saving.current && setStatus(s), () => {});
     }, 5000);
@@ -44,6 +46,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
       contacts: status.contacts,
       wifiOnly: status.wifiOnly,
       chargingOnly: status.chargingOnly,
+      remind: status.remind,
       includeExisting: false,
       ...change,
     };
@@ -102,8 +105,9 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
           <h1 className="title">Phone backup</h1>
           <p className="hint">
-            New photos and your contacts are encrypted on this phone and sent to the silo's storage, even while the silo is locked.
-            They appear in Files, under Phone backup, the next time a device opens the silo.
+            New photos and your contacts are encrypted on this phone and sent to the silo's storage on their own, even while the
+            silo is locked. They join the silo, under Files, Phone backup, the next time it is opened on this phone or on a computer
+            running SilentSilo 1.1 or later. Until then they wait in storage, still encrypted, and the originals stay on the phone.
           </p>
         </div>
         {error && <div className="notice error">{error}</div>}
@@ -117,6 +121,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
               <div className="panel">
                 {toggle("Only on Wi-Fi", "No mobile data", status.wifiOnly, () => void apply({ wifiOnly: !status.wifiOnly }), true)}
                 {toggle("Only while charging", "Waits for the charger", status.chargingOnly, () => void apply({ chargingOnly: !status.chargingOnly }))}
+                {toggle("Remind me", "When items wait more than 3 days", status.remind, () => void apply({ remind: !status.remind }))}
               </div>
             )}
             {on && (
@@ -124,6 +129,10 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span className="muted">Sent from this phone</span>
                   <span>{status.sent}</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span className="muted">Waiting to join the silo</span>
+                  <span>{waiting === null ? "Unknown" : waiting}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span className="muted">Last run</span>

@@ -73,6 +73,8 @@ export type BackupStatus = {
   lastError: string;
   photosAllowed: boolean;
   contactsAllowed: boolean;
+  remind: boolean;
+  waiting: number;
 };
 
 export type BackupSettings = {
@@ -81,6 +83,7 @@ export type BackupSettings = {
   wifiOnly: boolean;
   chargingOnly: boolean;
   includeExisting: boolean;
+  remind: boolean;
 };
 
 export const api = {
@@ -123,5 +126,6 @@ export const api = {
   backupStatus: () => invoke<BackupStatus>("backup_status"),
   configureBackup: (settings: BackupSettings) => invoke<BackupStatus>("backup_configure", { settings }),
   runBackupNow: () => invoke<void>("backup_run_now"),
+  backupWaiting: () => invoke<number | null>("backup_waiting"),
   photoCount: () => invoke<{ count: number; bytes: number }>("backup_photo_count"),
 };

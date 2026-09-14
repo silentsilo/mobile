@@ -78,6 +78,10 @@ pub struct BackupStatus {
     pub photos_allowed: bool,
     #[serde(default)]
     pub contacts_allowed: bool,
+    #[serde(default = "yes")]
+    pub remind: bool,
+    #[serde(default)]
+    pub waiting: i64,
 }
 
 fn yes() -> bool {
@@ -93,6 +97,8 @@ pub struct BackupSettings {
     pub charging_only: bool,
     #[serde(default)]
     pub include_existing: bool,
+    #[serde(default = "yes")]
+    pub remind: bool,
 }
 
 #[cfg(target_os = "android")]
@@ -180,7 +186,11 @@ pub async fn backup_configure(
         plugin(&app)
             .call(
                 "requestAccess",
-                serde_json::json!({ "photos": settings.photos, "contacts": settings.contacts }),
+                serde_json::json!({
+                    "photos": settings.photos,
+                    "contacts": settings.contacts,
+                    "remind": settings.remind,
+                }),
             )
             .await?
     };
@@ -263,6 +273,7 @@ pub async fn backup_configure(
                 "wifiOnly": settings.wifi_only,
                 "chargingOnly": settings.charging_only,
                 "includeExisting": settings.include_existing,
+                "remind": settings.remind,
             }),
         )
         .await
@@ -291,6 +302,39 @@ pub async fn stop(app: &AppHandle) -> Result<BackupStatus, String> {
         let _ = std::fs::remove_file(sender_path(&data_dir));
     }
     plugin(app).call("disable", serde_json::json!({})).await
+}
+
+/// Items sent to the silo's inbox and not imported yet. Needs no key: the
+/// envelopes are listed, not opened.
+async fn waiting_for(vault_id: Uuid) -> Result<usize, String> {
+    let target = send_target(vault_id).ok_or_else(|| "no storage".to_string())?;
+    let store = target.config.open().map_err(|e| e.to_string())?;
+    let items = store
+        .list(inbox::INBOX_ITEMS_PREFIX)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(items.iter().filter(|o| o.key.ends_with(".env")).count())
+}
+
+/// `None` when backup is not set up here or storage did not answer.
+#[tauri::command]
+pub async fn backup_waiting(app: AppHandle) -> Result<Option<usize>, String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let Some(sender) = read_sender(&data_dir) else {
+        return Ok(None);
+    };
+    Ok(waiting_for(sender.vault_id).await.ok())
+}
+
+/// For the job: the count, or -1 when it could not be read.
+#[cfg(target_os = "android")]
+pub fn waiting_from_job(data_dir: &Path) -> i64 {
+    let Some(sender) = read_sender(data_dir) else {
+        return -1;
+    };
+    tauri::async_runtime::block_on(waiting_for(sender.vault_id))
+        .map(|n| n as i64)
+        .unwrap_or(-1)
 }
 
 /// How many photos the phone holds and their size, before sending them all.

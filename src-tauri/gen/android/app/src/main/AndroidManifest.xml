@@ -8,6 +8,8 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- A reminder when backed-up items wait for the silo to be opened. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- The backup job waits for Wi-Fi or any network. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- The backup schedule survives a restart. -->

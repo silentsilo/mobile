@@ -35,4 +35,7 @@ object Native {
     folder: String,
     kind: String,
   ): String
+
+  // Items in the silo's inbox not imported yet, or -1 when storage did not say.
+  @JvmStatic external fun waitingCount(dataDir: String): Long
 }

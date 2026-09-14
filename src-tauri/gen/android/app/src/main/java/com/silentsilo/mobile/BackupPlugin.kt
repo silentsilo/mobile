@@ -21,6 +21,7 @@ import app.tauri.plugin.Plugin
     Permission(strings = [Manifest.permission.READ_EXTERNAL_STORAGE], alias = "photosLegacy"),
     Permission(strings = [Manifest.permission.ACCESS_MEDIA_LOCATION], alias = "mediaLocation"),
     Permission(strings = [Manifest.permission.READ_CONTACTS], alias = "contacts"),
+    Permission(strings = [Manifest.permission.POST_NOTIFICATIONS], alias = "notifications"),
   ]
 )
 class BackupPlugin(private val activity: Activity) : Plugin(activity) {
@@ -39,6 +40,7 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
       aliases += "mediaLocation"
     }
     if (args.getBoolean("contacts", false)) aliases += "contacts"
+    if (args.getBoolean("remind", false) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) aliases += "notifications"
     if (aliases.isEmpty() || aliases.all { granted(it) }) {
       invoke.resolve(statusObject())
       return
@@ -120,6 +122,7 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     prefs.contacts = args.getBoolean("contacts", false)
     prefs.wifiOnly = args.getBoolean("wifiOnly", true)
     prefs.chargingOnly = args.getBoolean("chargingOnly", false)
+    prefs.remind = args.getBoolean("remind", true)
     BackupScheduler.schedule(activity)
     BackupScheduler.runNow(activity)
     invoke.resolve(statusObject())
@@ -151,6 +154,8 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     result.put("sent", prefs.sent)
     result.put("lastRun", prefs.lastRun)
     result.put("lastError", prefs.lastError)
+    result.put("remind", prefs.remind)
+    result.put("waiting", prefs.waiting)
     result.put("photosAllowed", activity.checkSelfPermission(BackupRunner.photoPermission()) == PackageManager.PERMISSION_GRANTED)
     result.put("contactsAllowed", granted("contacts"))
     return result
@@ -161,6 +166,7 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
       "photos" -> Manifest.permission.READ_MEDIA_IMAGES
       "photosLegacy" -> Manifest.permission.READ_EXTERNAL_STORAGE
       "mediaLocation" -> Manifest.permission.ACCESS_MEDIA_LOCATION
+      "notifications" -> Manifest.permission.POST_NOTIFICATIONS
       else -> Manifest.permission.READ_CONTACTS
     }
     return activity.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED

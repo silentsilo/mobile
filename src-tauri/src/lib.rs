@@ -68,6 +68,7 @@ pub fn run() {
             backup::backup_disable,
             backup::backup_run_now,
             backup::backup_photo_count,
+            backup::backup_waiting,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SilentSilo");

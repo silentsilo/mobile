@@ -1,6 +1,10 @@
 package com.silentsilo.mobile
 
 import android.Manifest
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.job.JobInfo
 import android.app.job.JobParameters
 import android.app.job.JobScheduler
@@ -8,6 +12,7 @@ import android.app.job.JobService
 import android.content.ComponentName
 import android.content.ContentUris
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -42,6 +47,11 @@ class BackupPrefs(context: Context) {
   var lastError: String by string("lastError")
   var contactsHash: String by string("contactsHash")
   var contactsSentAt: Long by long("contactsSentAt")
+  var remind: Boolean by bool("remind", true)
+  var waiting: Long by long("waiting")
+  // When the inbox last went from empty to holding something.
+  var waitingSince: Long by long("waitingSince")
+  var remindedAt: Long by long("remindedAt")
 
   fun clear() = prefs.edit().clear().apply()
 
@@ -161,14 +171,38 @@ class BackupRunner(private val context: Context) {
     Native.start(context)
     contactsFile().delete()
     prefs.lastRun = System.currentTimeMillis() / 1000
-    if (prefs.photos && granted(photoPermission())) {
-      if (sendPhotos(stopped)) return true
+    try {
+      if (prefs.photos && granted(photoPermission())) {
+        if (sendPhotos(stopped)) return true
+      }
+      if (prefs.contacts && granted(Manifest.permission.READ_CONTACTS) && !stopped()) {
+        if (sendContacts()) return true
+      }
+      prefs.lastError = ""
+      return false
+    } finally {
+      checkWaiting()
     }
-    if (prefs.contacts && granted(Manifest.permission.READ_CONTACTS) && !stopped()) {
-      if (sendContacts()) return true
+  }
+
+  // Items only join the silo when a device opens it. If they have waited
+  // for days, say so, at most once a week.
+  private fun checkWaiting() {
+    val now = System.currentTimeMillis() / 1000
+    val count = Native.waitingCount(dataDir)
+    if (count < 0) return
+    if (count == 0L) {
+      prefs.waiting = 0
+      prefs.waitingSince = 0
+      return
     }
-    prefs.lastError = ""
-    return false
+    if (prefs.waitingSince == 0L) prefs.waitingSince = now
+    prefs.waiting = count
+    val waitedLong = now - prefs.waitingSince >= TimeUnit.DAYS.toSeconds(3)
+    val notRecently = now - prefs.remindedAt >= TimeUnit.DAYS.toSeconds(7)
+    if (prefs.remind && waitedLong && notRecently && BackupReminder.show(context, count)) {
+      prefs.remindedAt = now
+    }
   }
 
   private fun sendPhotos(stopped: () -> Boolean): Boolean {
@@ -301,5 +335,34 @@ class BackupRunner(private val context: Context) {
     fun photoPermission(): String =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES
       else Manifest.permission.READ_EXTERNAL_STORAGE
+  }
+}
+
+object BackupReminder {
+  private const val CHANNEL = "backup-waiting"
+  private const val ID = 7201
+
+  fun show(context: Context, count: Long): Boolean {
+    if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
+    val manager = context.getSystemService(NotificationManager::class.java)
+    manager.createNotificationChannel(
+      NotificationChannel(CHANNEL, "Backup waiting for the silo", NotificationManager.IMPORTANCE_LOW)
+    )
+    val open = PendingIntent.getActivity(
+      context,
+      0,
+      Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+      PendingIntent.FLAG_IMMUTABLE,
+    )
+    val text = if (count == 1L) "1 item is waiting to be added to your silo." else "$count items are waiting to be added to your silo."
+    val notification = Notification.Builder(context, CHANNEL)
+      .setSmallIcon(android.R.drawable.stat_sys_upload_done)
+      .setContentTitle("Open SilentSilo to finish the backup")
+      .setContentText(text)
+      .setContentIntent(open)
+      .setAutoCancel(true)
+      .build()
+    manager.notify(ID, notification)
+    return true
   }
 }

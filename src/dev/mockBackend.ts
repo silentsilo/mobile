@@ -25,6 +25,8 @@ let backup = {
   lastError: "",
   photosAllowed: false,
   contactsAllowed: false,
+  remind: true,
+  waiting: 0,
 };
 let phoneKey = joined;
 
@@ -194,6 +196,7 @@ const handlers: Record<string, Handler> = {
     backup = { ...backup, ...settings, vaultId: settings.photos || settings.contacts ? silo.id : "", photosAllowed: true, contactsAllowed: true };
     return backup;
   },
+  backup_waiting: () => (backup.photos || backup.contacts ? 3 : null),
   backup_photo_count: () => ({ count: 48213, bytes: 256 * 1024 ** 3 }),
   backup_run_now: () => {
     backup = { ...backup, lastRun: Math.floor(Date.now() / 1000) };

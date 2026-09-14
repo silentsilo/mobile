@@ -196,3 +196,16 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_sendItem(
         .map(|s| s.into_raw())
         .unwrap_or(JObject::null().into_raw())
 }
+
+/// `Native.waitingCount`, from the backup job.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_silentsilo_mobile_Native_waitingCount(
+    mut env: JNIEnv,
+    _class: JClass,
+    data_dir: JString,
+) -> jlong {
+    let Ok(data_dir) = env.get_string(&data_dir).map(String::from) else {
+        return -1;
+    };
+    crate::backup::waiting_from_job(std::path::Path::new(&data_dir))
+}
