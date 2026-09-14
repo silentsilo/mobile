@@ -22,8 +22,10 @@ function linesFor(check: Check): Line[] {
     },
     {
       ok: check.strong_biometric,
-      title: "Fingerprint or face",
-      detail: check.strong_biometric ? "Set up." : "Add a fingerprint or face in the phone's security settings. It is what unlocks the silo.",
+      title: "Fingerprint",
+      detail: check.strong_biometric
+        ? "Set up."
+        : "Add a fingerprint in the phone's security settings. It is what unlocks the silo. Face unlock counts only where Android rates it as secure, and on most phones, Samsung included, it does not.",
     },
     {
       ok: check.keystore === "failed" ? false : true,
