@@ -39,6 +39,13 @@ object Native {
     kind: String,
   ): String
 
+  // The front silo for autofill: {vaultId, name, credentialIds, open}.
+  @JvmStatic external fun autofillSilo(dataDir: String): String
+
+  // Its logins, opening it with the unwrapped key unless already open:
+  // {logins: [...]} or {error}.
+  @JvmStatic external fun autofillLogins(dataDir: String, credentialId: String, wrapKey: String): String
+
   // Locks every open silo in this process.
   @JvmStatic external fun lockAll()
 

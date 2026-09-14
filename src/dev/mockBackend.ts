@@ -222,6 +222,8 @@ const handlers: Record<string, Handler> = {
   ],
   silo_switch: () => undefined,
   silo_remove: () => undefined,
+  autofill_status: () => ({ supported: true, enabled: false }),
+  autofill_enable: () => undefined,
   backup_waiting: () => (backup.photos || backup.contacts ? 3 : null),
   backup_photo_count: () => ({ count: 48213, bytes: 256 * 1024 ** 3 }),
   backup_run_now: () => {

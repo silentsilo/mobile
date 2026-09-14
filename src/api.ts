@@ -159,6 +159,9 @@ export const api = {
   switchSilo: (siloId: string) => invoke<void>("silo_switch", { siloId }),
   removeSilo: (siloId: string) => invoke<void>("silo_remove", { siloId }),
 
+  autofillStatus: () => invoke<{ supported: boolean; enabled: boolean }>("autofill_status"),
+  enableAutofill: () => invoke<void>("autofill_enable"),
+
   backupWaiting: () => invoke<number | null>("backup_waiting"),
   photoCount: () => invoke<{ count: number; bytes: number }>("backup_photo_count"),
 };

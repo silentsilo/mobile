@@ -37,6 +37,12 @@ pub struct Unlocked {
     pub wrap_key: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutofillStatus {
+    pub supported: bool,
+    pub enabled: bool,
+}
+
 #[cfg(target_os = "android")]
 pub struct DeviceKey<R: Runtime>(tauri::plugin::PluginHandle<R>);
 
@@ -62,6 +68,12 @@ impl<R: Runtime> DeviceKey<R> {
         Err(Self::ABSENT.into())
     }
     pub async fn remove(&self, _credential_id: &str) -> Result<(), String> {
+        Err(Self::ABSENT.into())
+    }
+    pub async fn autofill_status(&self) -> Result<AutofillStatus, String> {
+        Err(Self::ABSENT.into())
+    }
+    pub async fn autofill_enable(&self) -> Result<(), String> {
         Err(Self::ABSENT.into())
     }
 }
@@ -105,6 +117,16 @@ impl<R: Runtime> DeviceKey<R> {
         .map(|_| ())
     }
 
+    pub async fn autofill_status(&self) -> Result<AutofillStatus, String> {
+        self.call("autofillStatus", serde_json::json!({})).await
+    }
+
+    pub async fn autofill_enable(&self) -> Result<(), String> {
+        self.call::<serde_json::Value>("autofillEnable", serde_json::json!({}))
+            .await
+            .map(|_| ())
+    }
+
     async fn call<T: serde::de::DeserializeOwned>(
         &self,
         command: &str,
@@ -139,4 +161,17 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 #[tauri::command]
 pub async fn device_check(app: tauri::AppHandle) -> Result<DeviceCheck, String> {
     app.state::<DeviceKey<tauri::Wry>>().check().await
+}
+
+#[tauri::command]
+pub async fn autofill_status(app: tauri::AppHandle) -> Result<AutofillStatus, String> {
+    app.state::<DeviceKey<tauri::Wry>>().autofill_status().await
+}
+
+/// Android's settings screen covers the app; that is not leaving it.
+#[tauri::command]
+pub async fn autofill_enable(app: tauri::AppHandle) -> Result<(), String> {
+    let lock = app.state::<crate::background::BackgroundLock>();
+    let _prompt = lock.prompt();
+    app.state::<DeviceKey<tauri::Wry>>().autofill_enable().await
 }

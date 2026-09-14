@@ -180,6 +180,11 @@ pub fn lock_after_set(app: AppHandle, seconds: u64) -> Result<(), String> {
 /// tile and the screen-off receiver.
 static APP: std::sync::OnceLock<AppHandle> = std::sync::OnceLock::new();
 
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn app() -> Option<&'static AppHandle> {
+    APP.get()
+}
+
 pub fn remember(app: &AppHandle) {
     let _ = APP.set(app.clone());
     if let (Ok(data), Ok(cache)) = (app.path().app_data_dir(), app.path().app_cache_dir()) {

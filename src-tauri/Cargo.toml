@@ -33,6 +33,7 @@ silentsilo-fido = { workspace = true, features = ["enclave"] }
 [target.'cfg(target_os = "android")'.dependencies]
 # The version tauri already uses, for the Kotlin calls outside a plugin.
 jni = "0.21.1"
+zeroize = "1"
 
 [features]
 default = ["custom-protocol"]

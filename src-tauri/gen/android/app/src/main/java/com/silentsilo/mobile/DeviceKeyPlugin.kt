@@ -6,6 +6,10 @@ import android.content.ClipData
 import android.content.ClipDescription
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import android.view.autofill.AutofillManager
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
@@ -15,7 +19,6 @@ import android.os.Looper
 import android.os.PersistableBundle
 import android.os.StatFs
 import android.security.keystore.KeyGenParameterSpec
-import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import android.webkit.WebView
@@ -29,7 +32,6 @@ import java.security.SecureRandom
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import javax.crypto.spec.GCMParameterSpec
 
 // The phone's silo key: an AES-256 Keystore key allowing one use per strong
 // biometric, wrapping a random 32-byte key. Format: core FORMATS.md,
@@ -69,6 +71,29 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
         }
       }, CLIP_TTL_MS)
       invoke.resolve()
+    }
+  }
+
+  // Whether Android offers autofill here, and whether SilentSilo is the service.
+  @Command
+  fun autofillStatus(invoke: Invoke) {
+    val manager = activity.getSystemService(AutofillManager::class.java)
+    val result = JSObject()
+    result.put("supported", manager?.isAutofillSupported == true)
+    result.put("enabled", manager?.hasEnabledAutofillServices() == true)
+    invoke.resolve(result)
+  }
+
+  // Android's own screen for choosing the autofill service.
+  @Command
+  fun autofillEnable(invoke: Invoke) {
+    try {
+      activity.startActivity(
+        Intent(Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).setData(Uri.parse("package:${activity.packageName}"))
+      )
+      invoke.resolve()
+    } catch (e: Exception) {
+      invoke.reject("This phone did not open its autofill settings.")
     }
   }
 
@@ -176,50 +201,20 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun unlock(invoke: Invoke) {
     val args = invoke.getArgs()
-    val vaultId = args.getString("vaultId")
-    val title = args.optString("title", "Unlock the silo")
     val ids = args.getJSONArray("credentialIds")
-
-    for (i in 0 until ids.length()) {
-      val id = unhex(ids.getString(i)) ?: continue
-      if (id.size != ID_LEN) continue
-      val tag = id.copyOfRange(0, TAG_LEN)
-      val nonce = id.copyOfRange(TAG_LEN, TAG_LEN + NONCE_LEN)
-      val sealed = id.copyOfRange(TAG_LEN + NONCE_LEN, ID_LEN)
-      val alias = ALIAS_PREFIX + hex(tag)
-      val key = try { loadKey(alias) } catch (_: Exception) { null } ?: continue
-
-      val cipher = try {
-        Cipher.getInstance(TRANSFORM).apply {
-          init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, nonce))
-        }
-      } catch (_: KeyPermanentlyInvalidatedException) {
-        invoke.reject(
-          "The fingerprints or faces on this phone changed, so its silo key no longer works. Unlock with the recovery code and add the phone again.",
-          "invalidated",
-        )
-        return
-      } catch (e: Exception) {
-        invoke.reject("Could not start the key: ${e.message}")
-        return
-      }
-
-      prompt(cipher, title, invoke, onFail = {}) { authed ->
-        try {
-          authed.updateAAD(associatedData(vaultId))
-          val wrapKey = authed.doFinal(sealed)
-          val result = JSObject()
-          result.put("credentialId", hex(id))
-          result.put("wrapKey", hex(wrapKey))
-          wrapKey.fill(0)
-          invoke.resolve(result)
-        } catch (e: Exception) {
-          invoke.reject("This phone's key did not open the silo: ${e.message}")
-        }
-      }
-      return
-    }
-    invoke.reject("This phone holds no key for this silo.", "absent")
+    PhoneKey.unlock(
+      activity,
+      args.getString("vaultId"),
+      (0 until ids.length()).map { ids.getString(it) },
+      args.optString("title", "Unlock the silo"),
+      onUnlocked = { credentialId, wrapKey ->
+        val result = JSObject()
+        result.put("credentialId", credentialId)
+        result.put("wrapKey", wrapKey)
+        invoke.resolve(result)
+      },
+      onFailed = { invoke.reject(it.message, it.code) },
+    )
   }
 
   @Command

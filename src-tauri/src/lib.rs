@@ -1,5 +1,7 @@
 #[cfg(target_os = "android")]
 mod android;
+#[cfg(target_os = "android")]
+mod autofill;
 mod background;
 mod backup;
 mod commands;
@@ -47,6 +49,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             device_key::device_check,
+            device_key::autofill_status,
+            device_key::autofill_enable,
             commands::app_bootstrap,
             commands::sftp_probe_host_key,
             commands::vault_preview_join,

@@ -1,4 +1,4 @@
-import { ChevronRight, Cloud, HeartPulse, Images, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, HeartPulse, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -48,6 +48,8 @@ export function Silo({
   const [backupOn, setBackupOn] = useState<boolean | null>(null);
   const [screenOff, setScreenOff] = useState<boolean | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [autofill, setAutofill] = useState<{ supported: boolean; enabled: boolean } | null>(null);
+  const [aboutAutofill, setAboutAutofill] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -55,6 +57,12 @@ export function Silo({
     api.recoveryStatus().then(setRecovery, () => setRecovery(null));
     api.lockAfter().then(setLockAfter, () => setLockAfter(null));
     api.lockOnScreenOff().then(setScreenOff, () => setScreenOff(null));
+    const readAutofill = () => api.autofillStatus().then(setAutofill, () => setAutofill(null));
+    void readAutofill();
+    // Coming back from Android's settings screen.
+    const onVisible = () => document.visibilityState === "visible" && void readAutofill();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
     api.backupStatus().then((s) => setBackupOn(s.photos || s.contacts), () => setBackupOn(null));
   }, []);
 
@@ -130,6 +138,7 @@ export function Silo({
           <span className="label" style={{ padding: "0 4px" }}>Security</span>
           <div className="panel">
             {navRow(HeartPulse, "Password health", "", onHealth, true)}
+            {autofill?.supported && navRow(TextCursorInput, "Autofill", autofill.enabled ? "On" : "Off", () => setAboutAutofill(true))}
             {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys)}
             {navRow(LockKeyhole, "Recovery code", recovery?.enabled ? "Active" : recovery ? "Not set" : "", () => setAboutRecovery(true))}
             {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
@@ -201,6 +210,23 @@ export function Silo({
             </button>
           ))}
         </div>
+      </Sheet>
+
+      <Sheet open={aboutAutofill} onClose={() => setAboutAutofill(false)} title="Autofill">
+        <p className="hint">
+          {autofill?.enabled
+            ? "SilentSilo fills logins in other apps and in browsers. It asks for your fingerprint first, and offers the logins whose site or app matches."
+            : "Let SilentSilo fill logins in other apps and in browsers. Choose SilentSilo as the autofill service in Android's settings. In Chrome, also turn on Settings, Autofill services, Autofill using another service."}
+        </p>
+        <button
+          className="btn"
+          onClick={() => {
+            setAboutAutofill(false);
+            api.enableAutofill().catch((e) => toast(formatAppError(e)));
+          }}
+        >
+          {autofill?.enabled ? "Change in Android settings" : "Turn on in Android settings"}
+        </button>
       </Sheet>
 
       <Sheet open={removing} onClose={() => setRemoving(false)} title={`Remove ${siloName} from this phone?`}>
