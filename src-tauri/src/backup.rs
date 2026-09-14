@@ -40,6 +40,24 @@ fn sender_path(data_dir: &Path) -> PathBuf {
     data_dir.join("backup-sender.json")
 }
 
+/// This phone's name in a silo: the label of its key there. Every folder
+/// the phone sends to is named by it, so photos, contacts and shared files
+/// land side by side.
+pub fn phone_label(app: &AppHandle, silo: &silentsilo_vault::SiloEntry) -> String {
+    crate::commands::this_phone_key(app, silo)
+        .and_then(|credential_id| {
+            silentsilo_vault::load_fido_keys(&silo.path)
+                .ok()
+                .and_then(|keys| {
+                    keys.active()
+                        .find(|k| k.credential_id == credential_id)
+                        .map(|k| k.label.clone())
+                })
+        })
+        .filter(|l| !l.trim().is_empty())
+        .unwrap_or_else(this_phone)
+}
+
 /// The silo this phone sends backups to, if any.
 pub fn sender_vault(data_dir: &Path) -> Option<Uuid> {
     read_sender(data_dir).map(|s| s.vault_id)
@@ -218,15 +236,7 @@ pub async fn backup_configure(
     }
 
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-    let label = silentsilo_vault::load_fido_keys(&silo.path)
-        .ok()
-        .and_then(|keys| {
-            keys.active()
-                .find(|k| k.credential_id == credential_id)
-                .map(|k| k.label.clone())
-        })
-        .filter(|l| !l.trim().is_empty())
-        .unwrap_or_else(|| "This phone".into());
+    let label = phone_label(&app, &silo);
 
     if read_sender(&data_dir).is_none_or(|s| s.vault_id != silo.id) {
         #[derive(Deserialize)]
@@ -273,6 +283,16 @@ pub async fn backup_configure(
             serde_json::to_vec(&file).map_err(|e| e.to_string())?,
         )
         .map_err(|e| e.to_string())?;
+    } else if let Some(mut file) = read_sender(&data_dir)
+        && file.label != label
+    {
+        // One name for every folder this phone sends to: photos and
+        // contacts take it from the job's settings, shared files from here.
+        file.label = label.clone();
+        let _ = std::fs::write(
+            sender_path(&data_dir),
+            serde_json::to_vec(&file).map_err(|e| e.to_string())?,
+        );
     }
 
     plugin(&app)
@@ -586,10 +606,11 @@ pub fn send_shared(
     item_id: Uuid,
     name: String,
     mime_type: Option<String>,
+    label: String,
 ) -> Result<(), String> {
-    let label = read_sender(data_dir)
-        .map(|s| s.label)
-        .ok_or_else(|| "Turn on Phone backup to save without unlocking.".to_string())?;
+    if read_sender(data_dir).is_none() {
+        return Err("Turn on Phone backup to save without unlocking.".into());
+    }
     send_one(
         data_dir,
         source,

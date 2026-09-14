@@ -235,9 +235,24 @@ pub async fn share_to_inbox(app: AppHandle, file: Offered) -> Result<(), String>
     {
         let mut source = open_offered(&app, &file.uri).await?;
         let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        let label = crate::backup::sender_vault(&data_dir)
+            .and_then(|vault| {
+                silentsilo_vault::load_registry(&data_dir)
+                    .get(vault)
+                    .cloned()
+            })
+            .map(|silo| crate::backup::phone_label(&app, &silo))
+            .unwrap_or_else(|| "This phone".into());
         tauri::async_runtime::spawn_blocking(move || {
             let mime = Some(file.mime_type).filter(|m| !m.is_empty());
-            crate::backup::send_shared(&data_dir, &mut source, Uuid::new_v4(), file.name, mime)
+            crate::backup::send_shared(
+                &data_dir,
+                &mut source,
+                Uuid::new_v4(),
+                file.name,
+                mime,
+                label,
+            )
         })
         .await
         .map_err(|e| e.to_string())?
