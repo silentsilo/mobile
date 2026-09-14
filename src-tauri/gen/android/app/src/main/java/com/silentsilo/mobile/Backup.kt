@@ -172,6 +172,7 @@ class BackupRunner(private val context: Context) {
     contactsFile().delete()
     prefs.lastRun = System.currentTimeMillis() / 1000
     try {
+      if (sendAgain(stopped)) return true
       if (prefs.photos && granted(photoPermission())) {
         if (sendPhotos(stopped)) return true
       }
@@ -183,6 +184,64 @@ class BackupRunner(private val context: Context) {
     } finally {
       checkWaiting()
     }
+  }
+
+  // What storage lost before the silo imported it, found by the app after a
+  // sync. A photo still on the phone goes again under the same item id;
+  // contacts are marked unsent, so this run sends them again.
+  private fun sendAgain(stopped: () -> Boolean): Boolean {
+    val list = try { org.json.JSONArray(Native.resends(dataDir)) } catch (_: Exception) { return false }
+    for (i in 0 until list.length()) {
+      if (stopped()) return true
+      val kind = list.getJSONObject(i).optString("kind")
+      val reference = list.getJSONObject(i).optString("reference")
+      when (kind) {
+        "contacts" -> {
+          prefs.contactsHash = ""
+          prefs.contactsSentAt = 0
+          Native.resolveResend(dataDir, kind, reference)
+        }
+        "photo" -> {
+          val id = reference.substringBefore(':').toLongOrNull()
+          val added = reference.substringAfter(':').toLongOrNull()
+          if (id == null || added == null) {
+            Native.resolveResend(dataDir, kind, reference)
+            continue
+          }
+          val outcome = resendPhoto(id, added)
+          if (outcome.startsWith("retry")) {
+            prefs.lastError = outcome.removePrefix("retry: ")
+            return true
+          }
+          Native.resolveResend(dataDir, kind, reference)
+        }
+        else -> Native.resolveResend(dataDir, kind, reference)
+      }
+    }
+    return false
+  }
+
+  // "ok", "gone" when the photo left the phone, or "retry: why".
+  private fun resendPhoto(id: Long, added: Long): String {
+    val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
+    val columns = arrayOf(MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.MIME_TYPE, MediaStore.Images.Media.DATE_TAKEN, MediaStore.Images.Media.DATE_ADDED)
+    val row = context.contentResolver.query(uri, columns, null, null, null)?.use { rows ->
+      if (rows.moveToFirst() && rows.getLong(3) == added) {
+        listOf(rows.getString(0) ?: "photo-$id.jpg", rows.getString(1) ?: "", rows.getLong(2).toString())
+      } else {
+        null
+      }
+    } ?: return "gone"
+    val takenMs = row[2].toLongOrNull() ?: 0
+    val taken = if (takenMs > 0) takenMs / 1000 else added
+    val month = SimpleDateFormat("yyyy-MM", Locale.ROOT).format(Date(taken * 1000))
+    val itemId = UUID.nameUUIDFromBytes("photo:${prefs.vaultId}:$id:$added".toByteArray()).toString()
+    val folder = listOf("Phone backup", prefs.label, "Photos", month).joinToString("\n")
+    val outcome = openPhoto(uri)?.use { fd ->
+      Native.sendItem(dataDir, fd.fd, itemId, row[0], row[1], taken, folder, "photos")
+    } ?: return "gone"
+    if (outcome == "ok") Native.recordSent(dataDir, itemId, "photo", "$id:$added")
+    return outcome
   }
 
   // Items only join the silo when a device opens it. If they have waited
@@ -238,7 +297,12 @@ class BackupRunner(private val context: Context) {
           prefs.lastError = outcome.removePrefix("retry: ")
           return true
         }
-        if (outcome == "ok") prefs.sent = prefs.sent + 1 else prefs.lastError = "$name: ${outcome.removePrefix("skip: ")}"
+        if (outcome == "ok") {
+          prefs.sent = prefs.sent + 1
+          Native.recordSent(dataDir, itemId, "photo", "$id:$added")
+        } else {
+          prefs.lastError = "$name: ${outcome.removePrefix("skip: ")}"
+        }
         prefs.addedMark = added
         prefs.idMark = id
       }
@@ -317,7 +381,12 @@ class BackupRunner(private val context: Context) {
         prefs.lastError = outcome.removePrefix("retry: ")
         return true
       }
-      if (outcome == "ok") prefs.sent = prefs.sent + 1 else prefs.lastError = "Contacts: ${outcome.removePrefix("skip: ")}"
+      if (outcome == "ok") {
+        prefs.sent = prefs.sent + 1
+        Native.recordSent(dataDir, itemId, "contacts", hash)
+      } else {
+        prefs.lastError = "Contacts: ${outcome.removePrefix("skip: ")}"
+      }
       prefs.contactsHash = hash
       prefs.contactsSentAt = now
       return false

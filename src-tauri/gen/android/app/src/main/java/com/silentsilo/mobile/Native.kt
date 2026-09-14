@@ -57,6 +57,13 @@ object Native {
   // The screen turned off; Rust locks if the user asked for that.
   @JvmStatic external fun screenOff()
 
+  // The ledger of sent items, for sending again what storage lost.
+  @JvmStatic external fun recordSent(dataDir: String, itemId: String, kind: String, reference: String)
+
+  @JvmStatic external fun resends(dataDir: String): String
+
+  @JvmStatic external fun resolveResend(dataDir: String, kind: String, reference: String)
+
   // Items in the silo's inbox not imported yet, or -1 when storage did not say.
   @JvmStatic external fun waitingCount(dataDir: String): Long
 }

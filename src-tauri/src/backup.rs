@@ -317,6 +317,165 @@ pub async fn stop(app: &AppHandle) -> Result<BackupStatus, String> {
     plugin(app).call("disable", serde_json::json!({})).await
 }
 
+// ── Items that went missing ─────────────────────────────────────────
+//
+// Sending is not arriving: storage can lose an item before any device
+// imports it. The phone keeps a ledger of what it sent; once the silo is
+// open here, an item the silo knows is done, and one that is neither in the
+// silo nor still in the inbox is sent again from the phone. The item id is
+// the same, so an item that did arrive after all is skipped, never doubled.
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct Sent {
+    item_id: Uuid,
+    /// `photo` or `contacts`.
+    kind: String,
+    /// What `Backup.kt` needs to send it again: `<media id>:<date added>`
+    /// for a photo, the vCard hash for contacts.
+    reference: String,
+    sent_at: i64,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize)]
+struct Ledger {
+    #[serde(default)]
+    sent: Vec<Sent>,
+    /// Missing items the job has not sent again yet.
+    #[serde(default)]
+    resend: Vec<Sent>,
+}
+
+/// The job and the app run in one process and both write the ledger.
+static LEDGER: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// Seconds an item may be absent from both the silo and the inbox before
+/// it counts as lost: long enough for an import finishing elsewhere.
+const LOST_AFTER: i64 = 600;
+
+fn ledger_path(data_dir: &Path) -> PathBuf {
+    data_dir.join("backup-sent.json")
+}
+
+fn load_ledger(data_dir: &Path) -> Ledger {
+    std::fs::read(ledger_path(data_dir))
+        .ok()
+        .and_then(|b| serde_json::from_slice(&b).ok())
+        .unwrap_or_default()
+}
+
+fn save_ledger(data_dir: &Path, ledger: &Ledger) {
+    let path = ledger_path(data_dir);
+    let temp = path.with_extension("json.part");
+    if let Ok(bytes) = serde_json::to_vec(ledger)
+        && std::fs::write(&temp, bytes).is_ok()
+    {
+        let _ = std::fs::rename(&temp, &path);
+    }
+}
+
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn record_sent(data_dir: &Path, item_id: Uuid, kind: &str, reference: &str) {
+    let _held = LEDGER.lock();
+    let mut ledger = load_ledger(data_dir);
+    ledger.sent.retain(|s| s.item_id != item_id);
+    ledger.resend.retain(|s| s.item_id != item_id);
+    ledger.sent.push(Sent {
+        item_id,
+        kind: kind.into(),
+        reference: reference.into(),
+        sent_at: now(),
+    });
+    save_ledger(data_dir, &ledger);
+}
+
+/// What the job should send again, as `[{kind, reference}]`.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn resends(data_dir: &Path) -> String {
+    let _held = LEDGER.lock();
+    let ledger = load_ledger(data_dir);
+    serde_json::to_string(
+        &ledger
+            .resend
+            .iter()
+            .map(|s| serde_json::json!({ "kind": s.kind, "reference": s.reference }))
+            .collect::<Vec<_>>(),
+    )
+    .unwrap_or_else(|_| "[]".into())
+}
+
+/// The job sent it again, or it no longer exists on the phone.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn resolve_resend(data_dir: &Path, kind: &str, reference: &str) {
+    let _held = LEDGER.lock();
+    let mut ledger = load_ledger(data_dir);
+    ledger
+        .resend
+        .retain(|s| !(s.kind == kind && s.reference == reference));
+    save_ledger(data_dir, &ledger);
+}
+
+/// After a sync pass on this phone: settles what the ledger says was sent.
+pub async fn confirm_sent(app: &AppHandle, silo: &silentsilo_vault::SiloEntry) {
+    let Some(data_dir) = crate::background::data_dir() else {
+        return;
+    };
+    if sender_vault(data_dir) != Some(silo.id) {
+        return;
+    }
+    let pending = {
+        let _held = LEDGER.lock();
+        load_ledger(data_dir).sent
+    };
+    if pending.is_empty() {
+        return;
+    }
+    let state = app.state::<AppState>();
+    let known: Vec<Uuid> = pending
+        .iter()
+        .filter(|s| {
+            state
+                .with_session_id(silo.id, |_session, vfs| vfs.file_id_known(s.item_id))
+                .unwrap_or(false)
+        })
+        .map(|s| s.item_id)
+        .collect();
+
+    let mut lost = Vec::new();
+    let old: Vec<&Sent> = pending
+        .iter()
+        .filter(|s| !known.contains(&s.item_id) && now() - s.sent_at > LOST_AFTER)
+        .collect();
+    if !old.is_empty()
+        && let Some(target) = send_target(silo.id)
+        && let Ok(store) = target.config.open()
+    {
+        for sent in old {
+            let envelope = format!("{}{}.env", inbox::INBOX_ITEMS_PREFIX, sent.item_id);
+            // Unreachable storage says nothing either way: try again later.
+            if let Ok(None) = store.head(&envelope).await {
+                lost.push(sent.item_id);
+            }
+        }
+    }
+    if known.is_empty() && lost.is_empty() {
+        return;
+    }
+
+    let _held = LEDGER.lock();
+    let mut ledger = load_ledger(data_dir);
+    let mut moved = Vec::new();
+    ledger.sent.retain(|s| {
+        if lost.contains(&s.item_id) {
+            moved.push(s.clone());
+            false
+        } else {
+            !known.contains(&s.item_id)
+        }
+    });
+    ledger.resend.extend(moved);
+    save_ledger(data_dir, &ledger);
+}
+
 /// Items sent to the silo's inbox and not imported yet. Needs no key: the
 /// envelopes are listed, not opened.
 async fn waiting_for(vault_id: Uuid) -> Result<usize, String> {
@@ -491,4 +650,36 @@ fn send_one(
             .await
             .map_err(|e| e.to_string())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_resend_is_listed_until_resolved_and_a_new_send_clears_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let item = Uuid::new_v4();
+        record_sent(dir.path(), item, "photo", "42:1700000000");
+        assert_eq!(resends(dir.path()), "[]");
+
+        // What confirm_sent does with a lost item.
+        let mut ledger = load_ledger(dir.path());
+        let lost = ledger.sent.remove(0);
+        ledger.resend.push(lost);
+        save_ledger(dir.path(), &ledger);
+        assert!(resends(dir.path()).contains("42:1700000000"));
+
+        // Sent again: back in the ledger as sent, gone from the resend list.
+        record_sent(dir.path(), item, "photo", "42:1700000000");
+        assert_eq!(resends(dir.path()), "[]");
+        assert_eq!(load_ledger(dir.path()).sent.len(), 1);
+
+        let mut ledger = load_ledger(dir.path());
+        let again = ledger.sent.remove(0);
+        ledger.resend.push(again);
+        save_ledger(dir.path(), &ledger);
+        resolve_resend(dir.path(), "photo", "42:1700000000");
+        assert_eq!(resends(dir.path()), "[]");
+    }
 }

@@ -629,7 +629,11 @@ pub fn spawn_auto_sync(app: AppHandle) {
                 }
                 match silentsilo_app::run_sync_pass(&state, &host(&app), &silo).await {
                     Ok(report) if report.skipped => {}
-                    _ => {
+                    Ok(_) => {
+                        last_pull.insert(id, now);
+                        crate::backup::confirm_sent(&app, &silo).await;
+                    }
+                    Err(_) => {
                         last_pull.insert(id, now);
                     }
                 }

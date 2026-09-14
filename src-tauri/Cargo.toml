@@ -35,6 +35,9 @@ silentsilo-fido = { workspace = true, features = ["enclave"] }
 jni = "0.21.1"
 zeroize = "1"
 
+[dev-dependencies]
+tempfile = "3"
+
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]

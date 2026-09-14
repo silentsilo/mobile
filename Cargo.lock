@@ -5437,6 +5437,7 @@ dependencies = [
  "silentsilo-vfs",
  "tauri",
  "tauri-build",
+ "tempfile",
  "tokio",
  "uuid",
  "zeroize",

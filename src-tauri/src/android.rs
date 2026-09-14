@@ -287,3 +287,58 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_anyOpen(
 pub extern "system" fn Java_com_silentsilo_mobile_Native_screenOff(_env: JNIEnv, _class: JClass) {
     crate::background::screen_off();
 }
+
+/// `Native.recordSent`, after the job sent an item.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_silentsilo_mobile_Native_recordSent(
+    mut env: JNIEnv,
+    _class: JClass,
+    data_dir: JString,
+    item_id: JString,
+    kind: JString,
+    reference: JString,
+) {
+    let mut text =
+        |value: &JString| -> String { env.get_string(value).map(String::from).unwrap_or_default() };
+    let (data_dir, item_id, kind, reference) = (
+        text(&data_dir),
+        text(&item_id),
+        text(&kind),
+        text(&reference),
+    );
+    if let Ok(item_id) = uuid::Uuid::parse_str(&item_id) {
+        crate::backup::record_sent(std::path::Path::new(&data_dir), item_id, &kind, &reference);
+    }
+}
+
+/// `Native.resends`: `[{kind, reference}]` the job should send again.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_silentsilo_mobile_Native_resends(
+    mut env: JNIEnv,
+    _class: JClass,
+    data_dir: JString,
+) -> jstring {
+    let data_dir = env
+        .get_string(&data_dir)
+        .map(String::from)
+        .unwrap_or_default();
+    let json = crate::backup::resends(std::path::Path::new(&data_dir));
+    env.new_string(json)
+        .map(|s| s.into_raw())
+        .unwrap_or(JObject::null().into_raw())
+}
+
+/// `Native.resolveResend`: sent again, or gone from the phone.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_silentsilo_mobile_Native_resolveResend(
+    mut env: JNIEnv,
+    _class: JClass,
+    data_dir: JString,
+    kind: JString,
+    reference: JString,
+) {
+    let mut text =
+        |value: &JString| -> String { env.get_string(value).map(String::from).unwrap_or_default() };
+    let (data_dir, kind, reference) = (text(&data_dir), text(&kind), text(&reference));
+    crate::backup::resolve_resend(std::path::Path::new(&data_dir), &kind, &reference);
+}
