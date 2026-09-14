@@ -10,7 +10,7 @@
   --border-subtle: rgba(139, 92, 246, 0.12);
   --ink: #f8fafc;
   --text-muted: #98a3c2;
-  --text-dim: #6b7594;
+  --text-dim: #7a84a3;
   --accent: #8b5cf6;
   --accent-hover: #a78bfa;
   --success: #10b981;
@@ -36,8 +36,37 @@
   color-scheme: dark;
 }
 
+/* Light: chosen in the app, or followed from the phone when nothing was
+   chosen. Dark is the default above. */
+:root[data-theme="light"] {
+  --bg: #f8fafc;
+  --bg-deep: #f1f5f9;
+  --surface: #ffffff;
+  --surface-muted: #e2e8f0;
+  --bg-hover: #f1f5f9;
+  --border: rgba(124, 58, 237, 0.14);
+  --border-subtle: rgba(124, 58, 237, 0.08);
+  --ink: #0f172a;
+  --text-muted: #475569;
+  --text-dim: #64748b;
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+  --success: #047857;
+  --warning: #b45309;
+  --danger-on-dark: #dc2626;
+  --strength-weak: #b45309;
+  --strength-fair: #a16207;
+  --strength-good: #4d7c0f;
+  --field-bg: #ffffff;
+  --panel-bg: #ffffff;
+  --tabbar-bg: rgba(255, 255, 255, 0.94);
+  --sheet-bg: #ffffff;
+  --scrim: rgba(15, 23, 42, 0.35);
+  color-scheme: light;
+}
+
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     --bg: #f8fafc;
     --bg-deep: #f1f5f9;
     --surface: #ffffff;

@@ -21,8 +21,13 @@ body {
   overscroll-behavior: none;
 }
 
+/* No violet glow on light, whether chosen or followed from the phone. */
+:root[data-theme="light"] body {
+  background: linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
+}
+
 @media (prefers-color-scheme: light) {
-  body {
+  :root:not([data-theme="dark"]) body {
     background: linear-gradient(180deg, var(--bg) 0%, var(--bg-deep) 100%);
   }
 }

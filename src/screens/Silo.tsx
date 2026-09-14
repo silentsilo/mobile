@@ -4,6 +4,7 @@ import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { RecoveryStatus } from "../shared/types";
 import { Sheet, useToast } from "../ui/chrome";
+import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
 
 const LOCK_KEY = "lockAfterSeconds";
@@ -46,6 +47,7 @@ export function Silo({
   const [choosingLock, setChoosingLock] = useState(false);
   const [aboutRecovery, setAboutRecovery] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [theme, setTheme] = useState<ThemeChoice>(readTheme);
   const toast = useToast();
 
   useEffect(() => {
@@ -123,6 +125,29 @@ export function Silo({
             {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys, true)}
             {navRow(LockKeyhole, "Recovery code", recovery?.enabled ? "Active" : recovery ? "Not set" : "", () => setAboutRecovery(true))}
             {navRow(Smartphone, "Lock in the background", shortLock(lockAfter), () => setChoosingLock(true))}
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <span className="label" style={{ padding: "0 4px" }}>Appearance</span>
+          <div className="segmented" role="group" aria-label="Theme">
+            {(
+              [
+                ["system", "System"],
+                ["dark", "Dark"],
+                ["light", "Light"],
+              ] as const
+            ).map(([choice, label]) => (
+              <button
+                key={choice}
+                aria-pressed={theme === choice}
+                onClick={() => {
+                  applyTheme(choice);
+                  setTheme(choice);
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
         <div className="spacer" />

@@ -4,8 +4,11 @@ import "@fontsource-variable/plus-jakarta-sans";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import App from "./App";
+import { applyTheme, readTheme } from "./ui/theme";
 
 async function start() {
+  // Before the first paint, so a chosen theme never flashes the other one.
+  applyTheme(readTheme());
   // Development only, and only when asked for: a release build never runs it.
   if (import.meta.env.DEV && (location.search.includes("mock") || import.meta.env.VITE_MOCK === "1")) {
     const { installMockBackend } = await import("./dev/mockBackend");
