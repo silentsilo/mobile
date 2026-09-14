@@ -105,6 +105,8 @@ export const api = {
   lock: () => invoke<void>("vault_lock", { id: null }),
   lockAfter: () => invoke<number>("lock_after_get"),
   setLockAfter: (seconds: number) => invoke<void>("lock_after_set", { seconds }),
+  lockOnScreenOff: () => invoke<boolean>("lock_on_screen_off_get"),
+  setLockOnScreenOff: (on: boolean) => invoke<void>("lock_on_screen_off_set", { on }),
 
   readPasswords: async (): Promise<PasswordEntry[]> => {
     const rows = JSON.parse(await invoke<string>("vault_read_passwords")) as unknown[];

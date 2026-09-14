@@ -29,6 +29,7 @@ pub fn run() {
             #[cfg(target_os = "android")]
             android::seal_existing_secrets(&data);
             let handle = app.handle().clone();
+            background::remember(&handle);
             commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());
             commands::spawn_auto_sync(handle);
             Ok(())
@@ -66,6 +67,8 @@ pub fn run() {
             commands::recovery_status,
             background::lock_after_get,
             background::lock_after_set,
+            background::lock_on_screen_off_get,
+            background::lock_on_screen_off_set,
             backup::backup_status,
             backup::backup_configure,
             backup::backup_disable,

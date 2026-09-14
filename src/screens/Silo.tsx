@@ -1,4 +1,4 @@
-import { ChevronRight, Cloud, Images, KeyRound, LockKeyhole, RefreshCw, Smartphone } from "lucide-react";
+import { ChevronRight, Cloud, Images, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -41,12 +41,14 @@ export function Silo({
   const [syncing, setSyncing] = useState(false);
   const [theme, setTheme] = useState<ThemeChoice>(readTheme);
   const [backupOn, setBackupOn] = useState<boolean | null>(null);
+  const [screenOff, setScreenOff] = useState<boolean | null>(null);
   const toast = useToast();
 
   useEffect(() => {
     api.listKeys().then((k) => setKeyCount(k.length), () => setKeyCount(null));
     api.recoveryStatus().then(setRecovery, () => setRecovery(null));
     api.lockAfter().then(setLockAfter, () => setLockAfter(null));
+    api.lockOnScreenOff().then(setScreenOff, () => setScreenOff(null));
     api.backupStatus().then((s) => setBackupOn(s.photos || s.contacts), () => setBackupOn(null));
   }, []);
 
@@ -123,6 +125,26 @@ export function Silo({
             {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys, true)}
             {navRow(LockKeyhole, "Recovery code", recovery?.enabled ? "Active" : recovery ? "Not set" : "", () => setAboutRecovery(true))}
             {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
+            {screenOff !== null && (
+              <div className="row divide" style={{ minHeight: 60 }}>
+                <MonitorOff size={20} color="var(--accent-hover)" />
+                <span style={{ flex: 1, fontSize: "1rem" }}>Lock when the screen turns off</span>
+                <button
+                  className="switch"
+                  role="switch"
+                  aria-checked={screenOff}
+                  aria-label="Lock when the screen turns off"
+                  onClick={() => {
+                    const next = !screenOff;
+                    setScreenOff(next);
+                    api.setLockOnScreenOff(next).catch((e) => {
+                      setScreenOff(!next);
+                      toast(formatAppError(e));
+                    });
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -156,7 +178,10 @@ export function Silo({
       </div>
 
       <Sheet open={choosingLock} onClose={() => setChoosingLock(false)} title="Lock in the background">
-        <p className="hint">How long the silo stays open after you switch to another app.</p>
+        <p className="hint">
+          How long the silo stays open after you switch to another app. To lock from anywhere, add the Lock SilentSilo tile to
+          Quick Settings.
+        </p>
         <div className="panel">
           {LOCK_CHOICES.map((c, i) => (
             <button key={c.seconds} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void chooseLock(c.seconds)} aria-pressed={lockAfter === c.seconds}>

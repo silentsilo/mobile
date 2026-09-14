@@ -266,3 +266,24 @@ pub fn pdf_page(path: &str, index: u32, width: u32) -> Option<Vec<u8>> {
     let _ = env.exception_clear();
     result
 }
+
+/// `Native.lockAll`, from the Quick Settings tile.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_silentsilo_mobile_Native_lockAll(_env: JNIEnv, _class: JClass) {
+    crate::background::lock_from_outside();
+}
+
+/// `Native.anyOpen`, for the tile's state.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_silentsilo_mobile_Native_anyOpen(
+    _env: JNIEnv,
+    _class: JClass,
+) -> jni::sys::jboolean {
+    crate::background::any_open().into()
+}
+
+/// `Native.screenOff`, from the activity's receiver.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_silentsilo_mobile_Native_screenOff(_env: JNIEnv, _class: JClass) {
+    crate::background::screen_off();
+}

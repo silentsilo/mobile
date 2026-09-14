@@ -81,7 +81,7 @@ pub fn lock_after(app: &AppHandle) -> u64 {
         .unwrap_or(DEFAULT_LOCK_AFTER)
 }
 
-fn lock_all(app: &AppHandle) {
+pub fn lock_all(app: &AppHandle) {
     let state = app.state::<AppState>();
     let host = MobileHost(app.clone());
     let open = state.open_silo_ids();
@@ -153,4 +153,65 @@ pub fn lock_after_set(app: AppHandle, seconds: u64) -> Result<(), String> {
     }
     let path = prefs_path(&app).ok_or_else(|| "No place to save the setting.".to_string())?;
     std::fs::write(path, seconds.to_string()).map_err(|e| e.to_string())
+}
+
+/// The running app, for Kotlin code outside its window: the Quick Settings
+/// tile and the screen-off receiver.
+static APP: std::sync::OnceLock<AppHandle> = std::sync::OnceLock::new();
+
+pub fn remember(app: &AppHandle) {
+    let _ = APP.set(app.clone());
+}
+
+/// Locks everything now, from outside the window. Nothing is open when the
+/// app is not running, so there is nothing to do then.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn lock_from_outside() {
+    if let Some(app) = APP.get() {
+        lock_all(app);
+        crate::viewer::wipe_opened(app);
+    }
+}
+
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn any_open() -> bool {
+    APP.get()
+        .is_some_and(|app| !app.state::<AppState>().open_silo_ids().is_empty())
+}
+
+fn screen_off_path(app: &AppHandle) -> Option<PathBuf> {
+    app.path()
+        .app_data_dir()
+        .ok()
+        .map(|d| d.join("lock-on-screen-off"))
+}
+
+/// On unless turned off: a phone left on a table with the silo open is the
+/// case this exists for.
+pub fn lock_on_screen_off(app: &AppHandle) -> bool {
+    screen_off_path(app)
+        .and_then(|p| std::fs::read_to_string(p).ok())
+        .is_none_or(|s| s.trim() != "0")
+}
+
+/// The screen went off: lock at once when the user wants that, whatever the
+/// background delay.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn screen_off() {
+    if let Some(app) = APP.get()
+        && lock_on_screen_off(app)
+    {
+        lock_all(app);
+    }
+}
+
+#[tauri::command]
+pub fn lock_on_screen_off_get(app: AppHandle) -> bool {
+    lock_on_screen_off(&app)
+}
+
+#[tauri::command]
+pub fn lock_on_screen_off_set(app: AppHandle, on: bool) -> Result<(), String> {
+    let path = screen_off_path(&app).ok_or_else(|| "No place to save the setting.".to_string())?;
+    std::fs::write(path, if on { "1" } else { "0" }).map_err(|e| e.to_string())
 }

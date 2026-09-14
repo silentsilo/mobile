@@ -1,10 +1,22 @@
 package com.silentsilo.mobile
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.enableEdgeToEdge
 
 class MainActivity : TauriActivity() {
+  // The screen turning off pauses the app like leaving it does, but the
+  // user may want the silo locked at once rather than after the delay.
+  private val screenOff = object : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+      Native.screenOff()
+    }
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     enableEdgeToEdge()
     // No screenshots, screen recordings or recents thumbnail of the silo.
@@ -12,5 +24,11 @@ class MainActivity : TauriActivity() {
     // Before the app reads its first secret.
     Native.start(applicationContext)
     super.onCreate(savedInstanceState)
+    registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
+  }
+
+  override fun onDestroy() {
+    unregisterReceiver(screenOff)
+    super.onDestroy()
   }
 }

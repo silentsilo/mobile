@@ -39,6 +39,14 @@ object Native {
     kind: String,
   ): String
 
+  // Locks every open silo in this process.
+  @JvmStatic external fun lockAll()
+
+  @JvmStatic external fun anyOpen(): Boolean
+
+  // The screen turned off; Rust locks if the user asked for that.
+  @JvmStatic external fun screenOff()
+
   // Items in the silo's inbox not imported yet, or -1 when storage did not say.
   @JvmStatic external fun waitingCount(dataDir: String): Long
 }

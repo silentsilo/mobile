@@ -14,6 +14,7 @@ const scenario = new URLSearchParams(location.search).get("mock") ?? import.meta
 let joined = scenario === "locked" || scenario === "unlocked";
 let unlocked = scenario === "unlocked";
 let lockAfter = 30;
+let screenOff = true;
 let backup = {
   vaultId: "",
   photos: false,
@@ -213,6 +214,10 @@ const handlers: Record<string, Handler> = {
     backup = { ...backup, lastRun: Math.floor(Date.now() / 1000) };
   },
   lock_after_get: () => lockAfter,
+  lock_on_screen_off_get: () => screenOff,
+  lock_on_screen_off_set: (args) => {
+    screenOff = Boolean(args.on);
+  },
   lock_after_set: (args) => {
     lockAfter = Number(args.seconds);
   },
