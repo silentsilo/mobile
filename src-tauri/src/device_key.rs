@@ -3,10 +3,8 @@
 //! Mac and the Apple Developer ID.
 
 use serde::{Deserialize, Serialize};
-#[cfg(target_os = "android")]
-use tauri::Manager;
-use tauri::Runtime;
 use tauri::plugin::{Builder, TauriPlugin};
+use tauri::{Manager, Runtime};
 
 /// What the phone measured about itself, by doing each operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -24,19 +22,14 @@ pub struct DeviceCheck {
 
 /// A key made for one silo: the credential id to publish and the wrap key
 /// the DEK is wrapped under.
-#[cfg(target_os = "android")]
-#[allow(dead_code)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Enrolled {
     pub credential_id: String,
     pub wrap_key: String,
-    pub strong_box: bool,
 }
 
 /// The wrap key for whichever of the offered credentials this phone holds.
-#[cfg(target_os = "android")]
-#[allow(dead_code)]
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Unlocked {
@@ -47,9 +40,33 @@ pub struct Unlocked {
 #[cfg(target_os = "android")]
 pub struct DeviceKey<R: Runtime>(tauri::plugin::PluginHandle<R>);
 
-// Enrol, unlock and remove are called by the vault commands, next.
+/// Any other build runs the same commands with nowhere to keep a key, which
+/// is what `tauri dev` on a computer is for: every screen past the key.
+#[cfg(not(target_os = "android"))]
+pub struct DeviceKey<R: Runtime>(std::marker::PhantomData<fn() -> R>);
+
+#[cfg(not(target_os = "android"))]
+impl<R: Runtime> DeviceKey<R> {
+    const ABSENT: &str = "This build has no phone key storage.";
+
+    pub async fn check(&self) -> Result<DeviceCheck, String> {
+        Err(Self::ABSENT.into())
+    }
+    pub async fn enrol(&self, _vault_id: &str) -> Result<Enrolled, String> {
+        Err(Self::ABSENT.into())
+    }
+    pub async fn unlock(&self, _vault_id: &str, _ids: &[String]) -> Result<Unlocked, String> {
+        Err(Self::ABSENT.into())
+    }
+    pub async fn copy_secret(&self, _text: &str) -> Result<(), String> {
+        Err(Self::ABSENT.into())
+    }
+    pub async fn remove(&self, _credential_id: &str) -> Result<(), String> {
+        Err(Self::ABSENT.into())
+    }
+}
+
 #[cfg(target_os = "android")]
-#[allow(dead_code)]
 impl<R: Runtime> DeviceKey<R> {
     pub async fn check(&self) -> Result<DeviceCheck, String> {
         self.call("check", serde_json::json!({})).await
@@ -70,6 +87,13 @@ impl<R: Runtime> DeviceKey<R> {
             serde_json::json!({ "vaultId": vault_id, "credentialIds": credential_ids }),
         )
         .await
+    }
+
+    /// Puts a secret on the clipboard marked sensitive, cleared after 45 s.
+    pub async fn copy_secret(&self, text: &str) -> Result<(), String> {
+        self.call::<serde_json::Value>("copySecret", serde_json::json!({ "text": text }))
+            .await
+            .map(|_| ())
     }
 
     pub async fn remove(&self, credential_id: &str) -> Result<(), String> {
@@ -103,7 +127,10 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                 app.manage(DeviceKey(handle));
             }
             #[cfg(not(target_os = "android"))]
-            let _ = (app, api);
+            {
+                let _ = api;
+                app.manage(DeviceKey::<R>(std::marker::PhantomData));
+            }
             Ok(())
         })
         .build()
@@ -111,13 +138,5 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
 
 #[tauri::command]
 pub async fn device_check(app: tauri::AppHandle) -> Result<DeviceCheck, String> {
-    #[cfg(target_os = "android")]
-    {
-        app.state::<DeviceKey<tauri::Wry>>().check().await
-    }
-    #[cfg(not(target_os = "android"))]
-    {
-        let _ = app;
-        Err("This build has no phone key storage.".into())
-    }
+    app.state::<DeviceKey<tauri::Wry>>().check().await
 }

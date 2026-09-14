@@ -2,11 +2,17 @@ package com.silentsilo.mobile
 
 import android.app.Activity
 import android.app.KeyguardManager
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.Context
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.CancellationSignal
+import android.os.Handler
+import android.os.Looper
+import android.os.PersistableBundle
 import android.os.StatFs
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
@@ -40,6 +46,30 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     const val TRANSFORM = "AES/GCM/NoPadding"
     const val MIN_WEBVIEW_MAJOR = 105
     const val PROBE_ALIAS = "silentsilo-probe"
+    const val CLIP_LABEL = "SilentSilo secret"
+    const val CLIP_TTL_MS = 45_000L
+  }
+
+  // A secret on the clipboard: marked sensitive so the keyboard and the
+  // clipboard preview do not show it, and cleared after 45 s if still ours.
+  @Command
+  fun copySecret(invoke: Invoke) {
+    val text = invoke.getArgs().getString("text")
+    activity.runOnUiThread {
+      val clipboard = activity.getSystemService(ClipboardManager::class.java)
+      val clip = ClipData.newPlainText(CLIP_LABEL, text)
+      clip.description.extras = PersistableBundle().apply {
+        putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true)
+        putBoolean("android.content.extra.IS_SENSITIVE", true)
+      }
+      clipboard.setPrimaryClip(clip)
+      Handler(Looper.getMainLooper()).postDelayed({
+        if (clipboard.primaryClipDescription?.label == CLIP_LABEL) {
+          clipboard.clearPrimaryClip()
+        }
+      }, CLIP_TTL_MS)
+      invoke.resolve()
+    }
   }
 
   @Command

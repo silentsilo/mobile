@@ -11,11 +11,12 @@ license = "AGPL-3.0-or-later"
 # Pinned to a core tag, never a branch, and the lockfile pins the commit.
 # Same tag as desktop, so both clients are tested against the same engine.
 [workspace.dependencies]
-silentsilo-core = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
-silentsilo-crypto = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
-silentsilo-vault = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
-silentsilo-vfs = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
-silentsilo-store = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
-silentsilo-sync = { git = "https://github.com/silentsilo/core", tag = "v1.1.0" }
+silentsilo-core = { git = "https://github.com/silentsilo/core", tag = "v1.3.0" }
+silentsilo-crypto = { git = "https://github.com/silentsilo/core", tag = "v1.3.0" }
+silentsilo-vault = { git = "https://github.com/silentsilo/core", tag = "v1.3.0" }
+silentsilo-vfs = { git = "https://github.com/silentsilo/core", tag = "v1.3.0" }
+silentsilo-store = { git = "https://github.com/silentsilo/core", tag = "v1.3.0" }
+silentsilo-sync = { git = "https://github.com/silentsilo/core", tag = "v1.3.0" }
+silentsilo-app = { git = "https://github.com/silentsilo/core", tag = "v1.3.0" }
 # No HID stack on a phone: only the key-agreement math.
-silentsilo-fido = { git = "https://github.com/silentsilo/core", tag = "v1.1.0", default-features = false }
+silentsilo-fido = { git = "https://github.com/silentsilo/core", tag = "v1.3.0", default-features = false }

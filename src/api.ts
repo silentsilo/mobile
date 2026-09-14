@@ -87,6 +87,8 @@ export const api = {
 
   rootFolder: () => invoke<FolderEntry>("vault_root_folder"),
   listFolder: (folderId: string) => invoke<VaultEntry[]>("vault_list_folder", { folderId }),
+  /** A file's decrypted bytes, for showing inside the app. */
+  readFile: (fileId: string) => invoke<ArrayBuffer>("vault_read_file", { fileId }),
 
   syncStatus: () => invoke<SyncStatus>("sync_status"),
   syncNow: () => invoke<SyncReport>("sync_now"),

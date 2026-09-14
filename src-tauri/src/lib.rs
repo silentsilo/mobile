@@ -1,27 +1,47 @@
-use serde::Serialize;
-
+mod commands;
 mod device_key;
+mod host;
 
-/// What the first build proves: the core crates linked and ran on the device.
-#[derive(Serialize)]
-struct Probe {
-    app_version: String,
-    key_bytes: usize,
-}
-
-#[tauri::command]
-fn probe(app: tauri::AppHandle) -> Probe {
-    Probe {
-        app_version: app.package_info().version.to_string(),
-        key_bytes: silentsilo_crypto::generate_dek().as_bytes().len(),
-    }
-}
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(device_key::init())
-        .invoke_handler(tauri::generate_handler![probe, device_key::device_check])
+        .manage(silentsilo_app::AppState::default())
+        .setup(|app| {
+            // A phone has no per-user local directory for working copies and
+            // fallback secrets: they live in the app's own private storage.
+            let data = app.path().app_data_dir()?;
+            silentsilo_vault::set_work_base(data.join("work"));
+            let handle = app.handle().clone();
+            commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());
+            commands::spawn_auto_sync(handle);
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            device_key::device_check,
+            commands::app_bootstrap,
+            commands::sftp_probe_host_key,
+            commands::vault_preview_join,
+            commands::vault_join_with_recovery,
+            commands::device_key_enroll,
+            commands::vault_unlock,
+            commands::vault_unlock_with_recovery,
+            commands::vault_lock,
+            commands::vault_read_passwords,
+            commands::vault_upsert_password,
+            commands::vault_delete_password,
+            commands::copy_secret_to_clipboard,
+            commands::vault_root_folder,
+            commands::vault_list_folder,
+            commands::vault_read_file,
+            commands::sync_status,
+            commands::sync_now,
+            commands::fido_list_keys,
+            commands::fido_remove_key,
+            commands::recovery_status,
+        ])
         .run(tauri::generate_context!())
         .expect("error while running SilentSilo");
 }

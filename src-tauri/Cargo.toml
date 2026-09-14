@@ -24,6 +24,10 @@ silentsilo-vault = { workspace = true }
 silentsilo-vfs = { workspace = true }
 silentsilo-store = { workspace = true }
 silentsilo-sync = { workspace = true }
+silentsilo-app = { workspace = true }
+uuid = { version = "1", features = ["v4"] }
+hex = "0.4"
+tokio = { version = "1", features = ["time"] }
 silentsilo-fido = { workspace = true, features = ["enclave"] }
 
 [features]
