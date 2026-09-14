@@ -67,7 +67,25 @@ const file = (id: string, name: string, size: number, mime: string, at: number) 
 
 const normalized = (code: unknown) => String(code ?? "").replace(/[^0-9a-z]/gi, "");
 
+// Failure scenarios for the device check: ?mock&nobio, &nolock, &oldandroid,
+// &nokeystore, &oldwebview, &lowspace, &tee.
+const flag = (name: string) => new URLSearchParams(location.search).has(name);
+
 const handlers: Record<string, Handler> = {
+  device_check: async () => {
+    await wait(300);
+    return {
+      android_release: flag("oldandroid") ? "11" : "16",
+      android_supported: !flag("oldandroid"),
+      secure_lock: !flag("nolock"),
+      strong_biometric: !flag("nobio"),
+      keystore: flag("nokeystore") ? "failed" : flag("tee") ? "tee" : "strongbox",
+      webview_version: flag("oldwebview") ? "91.0.4472.114" : "140.0.7339.51",
+      webview_ok: !flag("oldwebview"),
+      free_bytes: flag("lowspace") ? 200_000_000 : 64_000_000_000,
+    };
+  },
+
   app_bootstrap: () => ({
     provisioned: joined,
     locked: joined && !unlocked,

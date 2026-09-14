@@ -37,6 +37,18 @@ export type StoreConfigInput =
 
 export type JoinPreview = { vault_id: string | null; key_labels: string[] };
 
+/** Measured by doing each operation on the phone, not read from the model. */
+export type DeviceCheck = {
+  android_release: string;
+  android_supported: boolean;
+  secure_lock: boolean;
+  strong_biometric: boolean;
+  keystore: "strongbox" | "tee" | "failed";
+  webview_version: string;
+  webview_ok: boolean;
+  free_bytes: number;
+};
+
 export type SyncStatus = { configured: boolean; pending_ops: number; archive_targets: number };
 
 export type SyncReport = {
@@ -52,6 +64,7 @@ export type SyncReport = {
 
 export const api = {
   bootstrap: () => invoke<Bootstrap>("app_bootstrap"),
+  deviceCheck: () => invoke<DeviceCheck>("device_check"),
 
   probeHostKey: (host: string, port: number) => invoke<string>("sftp_probe_host_key", { host, port }),
   previewJoin: (config: StoreConfigInput) => invoke<JoinPreview>("vault_preview_join", { config }),

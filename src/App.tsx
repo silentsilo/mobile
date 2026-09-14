@@ -1,6 +1,7 @@
 import { Folder, KeyRound, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api, type JoinPreview, type StoreConfigInput, type SyncStatus } from "./api";
+import { api, type DeviceCheck as Check, type JoinPreview, type StoreConfigInput, type SyncStatus } from "./api";
+import { blockingFailures, DeviceCheck } from "./screens/DeviceCheck";
 import { Entry } from "./screens/Entry";
 import { EntryEdit } from "./screens/EntryEdit";
 import { Files } from "./screens/Files";
@@ -20,6 +21,7 @@ import { ToastProvider, useToast } from "./ui/chrome";
 type Phase =
   | { at: "loading" }
   | { at: "failed"; message: string }
+  | { at: "device"; check: Check; checking: boolean }
   | { at: "welcome" }
   | { at: "join-storage" }
   | { at: "join-code"; config: StoreConfigInput; preview: JoinPreview }
@@ -46,9 +48,24 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    void refresh();
+  // Before anything else: a phone that cannot hold a silo key should say so
+  // here, not halfway through setting one up.
+  const start = useCallback(async () => {
+    try {
+      const check = await api.deviceCheck();
+      if (blockingFailures(check)) {
+        setPhase({ at: "device", check, checking: false });
+        return;
+      }
+      await refresh();
+    } catch (e) {
+      setPhase({ at: "failed", message: formatAppError(e) });
+    }
   }, [refresh]);
+
+  useEffect(() => {
+    void start();
+  }, [start]);
 
   return <ToastProvider>{render()}</ToastProvider>;
 
@@ -63,6 +80,17 @@ export default function App() {
               <div className="notice error">{phase.message}</div>
             </div>
           </div>
+        );
+      case "device":
+        return (
+          <DeviceCheck
+            check={phase.check}
+            checking={phase.checking}
+            onRetry={() => {
+              setPhase({ ...phase, checking: true });
+              void start();
+            }}
+          />
         );
       case "welcome":
         return <Welcome onStart={() => setPhase({ at: "join-storage" })} />;
