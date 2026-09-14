@@ -166,8 +166,28 @@ class BackupRunner(private val context: Context) {
   private val prefs = BackupPrefs(context)
   private val dataDir = context.dataDir.absolutePath
 
+  companion object {
+    // Android runs the photo, periodic and "now" jobs side by side. Two runs
+    // would send the same photo at once and race each other in storage.
+    private val running = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    fun photoPermission(): String =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES
+      else Manifest.permission.READ_EXTERNAL_STORAGE
+  }
+
   fun backUp(stopped: () -> Boolean): Boolean {
     if (prefs.vaultId.isEmpty()) return false
+    // The run already going sends whatever this one would have.
+    if (!running.compareAndSet(false, true)) return false
+    try {
+      return backUpAlone(stopped)
+    } finally {
+      running.set(false)
+    }
+  }
+
+  private fun backUpAlone(stopped: () -> Boolean): Boolean {
     Native.start(context)
     contactsFile().delete()
     prefs.lastRun = System.currentTimeMillis() / 1000
@@ -299,6 +319,8 @@ class BackupRunner(private val context: Context) {
         }
         if (outcome == "ok") {
           prefs.sent = prefs.sent + 1
+          // An earlier failure is history once something goes through.
+          prefs.lastError = ""
           Native.recordSent(dataDir, itemId, "photo", "$id:$added")
         } else {
           prefs.lastError = "$name: ${outcome.removePrefix("skip: ")}"
@@ -400,11 +422,6 @@ class BackupRunner(private val context: Context) {
   private fun granted(permission: String) =
     context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
 
-  companion object {
-    fun photoPermission(): String =
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES
-      else Manifest.permission.READ_EXTERNAL_STORAGE
-  }
 }
 
 object BackupReminder {
