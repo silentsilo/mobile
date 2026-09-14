@@ -9,6 +9,9 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(device_key::init())
         .manage(silentsilo_app::AppState::default())
+        .register_asynchronous_uri_scheme_protocol("silo", |ctx, request, responder| {
+            commands::serve_file(ctx.app_handle().clone(), request, responder)
+        })
         .setup(|app| {
             // A phone has no per-user local directory for working copies and
             // fallback secrets: they live in the app's own private storage.
@@ -35,7 +38,6 @@ pub fn run() {
             commands::copy_secret_to_clipboard,
             commands::vault_root_folder,
             commands::vault_list_folder,
-            commands::vault_read_file,
             commands::sync_status,
             commands::sync_now,
             commands::fido_list_keys,

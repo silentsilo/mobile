@@ -381,19 +381,59 @@ pub fn vault_list_folder(
 /// not shown.
 const MAX_PREVIEW_BYTES: i64 = 64 * 1024 * 1024;
 
-/// One file's plaintext, as raw bytes rather than a JSON array of numbers.
-#[tauri::command]
-pub async fn vault_read_file(
+/// `silo://…/<file id>`: one file's plaintext, for an `<img>` or a fetch.
+///
+/// A URL rather than a command, because Android has no binary IPC: a
+/// command's bytes come back as a JavaScript array literal evaluated in the
+/// page, which for a photo is tens of megabytes of text that never arrives.
+pub fn serve_file(
     app: AppHandle,
-    state: State<'_, AppState>,
-    file_id: String,
-) -> Result<tauri::ipc::Response, String> {
-    let silo = active_silo(&state)?;
-    let file_id = Uuid::parse_str(&file_id).map_err(|e| e.to_string())?;
-    let content =
-        silentsilo_app::files::read_file(&state, &host(&app), &silo, file_id, MAX_PREVIEW_BYTES)
-            .await?;
-    Ok(tauri::ipc::Response::new(content.bytes))
+    request: tauri::http::Request<Vec<u8>>,
+    responder: tauri::UriSchemeResponder,
+) {
+    tauri::async_runtime::spawn(async move {
+        let respond = |status: u16, mime: &str, body: Vec<u8>| {
+            tauri::http::Response::builder()
+                .status(status)
+                .header(tauri::http::header::CONTENT_TYPE, mime)
+                .header(tauri::http::header::CACHE_CONTROL, "no-store")
+                .body(body)
+                .unwrap_or_default()
+        };
+        let id = request
+            .uri()
+            .path()
+            .trim_matches('/')
+            .rsplit('/')
+            .next()
+            .and_then(|last| Uuid::parse_str(last).ok());
+        let state = app.state::<AppState>();
+        let response = match (id, active_silo(&state)) {
+            (Some(file_id), Ok(silo)) => {
+                match silentsilo_app::files::read_file(
+                    &state,
+                    &host(&app),
+                    &silo,
+                    file_id,
+                    MAX_PREVIEW_BYTES,
+                )
+                .await
+                {
+                    Ok(content) => respond(
+                        200,
+                        content
+                            .mime_type
+                            .as_deref()
+                            .unwrap_or("application/octet-stream"),
+                        content.bytes,
+                    ),
+                    Err(e) => respond(500, "text/plain", e.into_bytes()),
+                }
+            }
+            _ => respond(404, "text/plain", b"not found".to_vec()),
+        };
+        responder.respond(response);
+    });
 }
 
 #[derive(serde::Serialize)]

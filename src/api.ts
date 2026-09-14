@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { isCategoriesRow } from "./shared/passwordUtil";
 import type {
   Bootstrap,
@@ -87,8 +87,8 @@ export const api = {
 
   rootFolder: () => invoke<FolderEntry>("vault_root_folder"),
   listFolder: (folderId: string) => invoke<VaultEntry[]>("vault_list_folder", { folderId }),
-  /** A file's decrypted bytes, for showing inside the app. */
-  readFile: (fileId: string) => invoke<ArrayBuffer>("vault_read_file", { fileId }),
+  /** Where a file's decrypted bytes are served, for an image or a fetch. */
+  fileUrl: (fileId: string) => convertFileSrc(fileId, "silo"),
 
   syncStatus: () => invoke<SyncStatus>("sync_status"),
   syncNow: () => invoke<SyncReport>("sync_now"),

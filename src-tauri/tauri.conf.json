@@ -12,7 +12,7 @@
   "app": {
     "windows": [{ "title": "SilentSilo", "width": 390, "height": 844 }],
     "security": {
-      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'"
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: silo: http://silo.localhost; connect-src 'self' ipc: http://ipc.localhost silo: http://silo.localhost; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'"
     }
   },
   "bundle": {

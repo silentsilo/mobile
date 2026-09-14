@@ -162,12 +162,6 @@ const handlers: Record<string, Handler> = {
         ]
       : [],
 
-  // A 2x2 PNG, so the preview has something real to decode.
-  vault_read_file: () =>
-    Uint8Array.from(
-      atob("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVQI12P8z8DAwMDAxMDAwMDAAAANHQEDOg4mPQAAAABJRU5ErkJggg=="),
-      (c) => c.charCodeAt(0),
-    ).buffer,
   sync_status: () => ({ configured: true, pending_ops: 0, archive_targets: 0 }),
   sync_now: async () => {
     await wait(800);
@@ -186,6 +180,9 @@ export function installMockBackend() {
   const w = window as unknown as Record<string, unknown>;
   let nextListener = 1;
   w.__TAURI_INTERNALS__ = {
+    // A 2x2 PNG for every file, so the preview has something real to decode.
+    convertFileSrc: () =>
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVQI12P8z8DAwMDAxMDAwMDAAAANHQEDOg4mPQAAAABJRU5ErkJggg==",
     metadata: { currentWebview: { label: "main", windowLabel: "main" }, currentWindow: { label: "main" } },
     invoke: (cmd: string, args: Record<string, unknown> = {}) => {
       const handler = handlers[cmd];
