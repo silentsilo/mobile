@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="SilentSilo">
+  <rect width="512" height="512" rx="112" fill="#09090b"/>
+  <rect width="512" height="512" rx="112" fill="url(#bgGlow)" opacity="0.55"/>
+  <path
+    d="M256 88c52 0 94 18 94 40v8H162v-8c0-22 42-40 94-40Z"
+    fill="#14b8a6"
+    opacity="0.35"
+  />
+  <path
+    d="M162 136h212c0 0 18 14 18 40v168c0 56-48 96-112 96s-112-40-112-96V176c0-26 18-40 18-40Z"
+    fill="url(#siloBody)"
+    stroke="#2dd4bf"
+    stroke-width="10"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M162 136c0 0 42-28 94-28s94 28 94 28"
+    stroke="#5eead4"
+    stroke-width="8"
+    stroke-linecap="round"
+  />
+  <rect x="214" y="238" width="84" height="72" rx="14" fill="#18181b" stroke="#99f6e4" stroke-width="8"/>
+  <path
+    d="M238 238v-26c0-18 14-30 18-30s18 12 18 30v26"
+    stroke="#99f6e4"
+    stroke-width="8"
+    fill="none"
+    stroke-linecap="round"
+  />
+  <circle cx="256" cy="272" r="10" fill="#2dd4bf"/>
+  <rect x="251" y="278" width="10" height="18" rx="3" fill="#2dd4bf"/>
+  <path
+    d="M188 328h136"
+    stroke="#115e59"
+    stroke-width="6"
+    stroke-linecap="round"
+    opacity="0.8"
+  />
+  <defs>
+    <linearGradient id="siloBody" x1="256" y1="108" x2="256" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#134e4a"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+    <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 180) rotate(90) scale(260)">
+      <stop stop-color="#14b8a6" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#14b8a6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>
