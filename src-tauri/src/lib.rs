@@ -6,6 +6,7 @@ mod commands;
 mod device_key;
 mod host;
 mod incoming;
+mod manage;
 mod viewer;
 
 use tauri::Manager;
@@ -24,12 +25,12 @@ pub fn run() {
         .setup(|app| {
             // A phone has no per-user local directory for working copies and
             // fallback secrets: they live in the app's own private storage.
+            background::remember(app.handle());
             let data = app.path().app_data_dir()?;
             silentsilo_vault::set_work_base(data.join("work"));
             #[cfg(target_os = "android")]
             android::seal_existing_secrets(&data);
             let handle = app.handle().clone();
-            background::remember(&handle);
             commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());
             commands::spawn_auto_sync(handle);
             Ok(())
@@ -83,6 +84,17 @@ pub fn run() {
             incoming::vault_create_folder,
             incoming::share_to_inbox,
             viewer::file_open_with,
+            manage::vault_rename_file,
+            manage::vault_rename_folder,
+            manage::vault_trash_file,
+            manage::vault_trash_folder,
+            manage::vault_list_trash,
+            manage::vault_restore_file,
+            manage::vault_restore_folder,
+            manage::vault_purge_trash,
+            manage::silo_list,
+            manage::silo_switch,
+            manage::silo_remove,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SilentSilo");

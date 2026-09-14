@@ -208,6 +208,20 @@ const handlers: Record<string, Handler> = {
   share_to_inbox: async () => {
     await wait(300);
   },
+  vault_rename_file: (args) => ({ id: args.fileId, name: args.newName }),
+  vault_rename_folder: (args) => ({ id: args.folderId, name: args.newName }),
+  vault_trash_file: () => undefined,
+  vault_trash_folder: () => undefined,
+  vault_list_trash: () => [],
+  vault_restore_file: () => ({}),
+  vault_restore_folder: () => ({}),
+  vault_purge_trash: () => 0,
+  silo_list: () => [
+    { id: silo.id, name: silo.name, active: true, unlocked },
+    { id: "5a5a5a5a-0000-4000-8000-000000000002", name: "Work", active: false, unlocked: false },
+  ],
+  silo_switch: () => undefined,
+  silo_remove: () => undefined,
   backup_waiting: () => (backup.photos || backup.contacts ? 3 : null),
   backup_photo_count: () => ({ count: 48213, bytes: 256 * 1024 ** 3 }),
   backup_run_now: () => {

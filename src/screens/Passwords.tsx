@@ -5,16 +5,24 @@ import { formatAppError } from "../shared/errors";
 import { hashColor, inkOn, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
 import type { PasswordEntry } from "../shared/types";
 import { useToast } from "../ui/chrome";
+import { SiloSwitcher } from "./SiloSwitcher";
 
 export function SiloHeader({ siloName, sync, action }: { siloName: string; sync: SyncStatus | null; action?: React.ReactNode }) {
   const waiting = sync?.pending_ops ?? 0;
+  const [switching, setSwitching] = useState(false);
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 16px 14px" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: "1.5rem", letterSpacing: "-0.03em" }}>
+        <button
+          className="text-btn"
+          style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: "1.5rem", letterSpacing: "-0.03em", color: "var(--ink)", padding: 0 }}
+          onClick={() => setSwitching(true)}
+          aria-label={`${siloName}, switch silo`}
+        >
           {siloName}
           <ChevronDown size={20} color="var(--text-muted)" />
-        </div>
+        </button>
+        <SiloSwitcher open={switching} onClose={() => setSwitching(false)} />
         {sync?.configured && (
           <div className="muted" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "0.82rem" }}>
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: waiting ? "var(--warning)" : "var(--success)" }} />

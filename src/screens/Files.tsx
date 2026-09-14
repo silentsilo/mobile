@@ -1,4 +1,4 @@
-import { Camera, ChevronRight, File, FilePlus, FileText, Folder, FolderPlus, Image, Plus, Search } from "lucide-react";
+import { Camera, EllipsisVertical, File, FilePlus, FileText, Folder, FolderPlus, Image, Plus, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -32,6 +32,9 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
   const [naming, setNaming] = useState(false);
   const [folderName, setFolderName] = useState("");
   const [progress, setProgress] = useState<string | null>(null);
+  const [acting, setActing] = useState<VaultEntry | null>(null);
+  const [renaming, setRenaming] = useState<VaultEntry | null>(null);
+  const [newName, setNewName] = useState("");
   const toast = useToast();
 
   const load = useCallback(async (folderId: string) => {
@@ -112,6 +115,31 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
     }
   };
 
+  const rename = async () => {
+    if (!renaming || !here || !newName.trim()) return;
+    try {
+      if (renaming.kind === "folder") await api.renameFolder(renaming.id, newName.trim());
+      else await api.renameFile(renaming.id, newName.trim());
+      setRenaming(null);
+      void load(here.id);
+    } catch (e) {
+      toast(formatAppError(e));
+    }
+  };
+
+  const trash = async (entry: VaultEntry) => {
+    setActing(null);
+    if (!here) return;
+    try {
+      if (entry.kind === "folder") await api.trashFolder(entry.id);
+      else await api.trashFile(entry.id);
+      toast("Moved to the trash.");
+      void load(here.id);
+    } catch (e) {
+      toast(formatAppError(e));
+    }
+  };
+
   const newFolder = async () => {
     if (!here || !folderName.trim()) return;
     try {
@@ -156,7 +184,9 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
               <span className="row-text">
                 <span className="row-title" style={{ fontWeight: 600 }}>{item.name}</span>
               </span>
-              <ChevronRight size={20} color="var(--text-dim)" />
+              <span role="button" className="icon-btn" aria-label={`More for ${item.name}`} onClick={(e) => { e.stopPropagation(); setActing(item); }}>
+                <EllipsisVertical size={20} color="var(--text-dim)" />
+              </span>
             </button>
           ) : (
             <button key={item.id} className="row divide" onClick={() => onOpenFile(item)}>
@@ -166,6 +196,9 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
                 <span className="row-sub">
                   {formatBytes(item.size_bytes)} · {fileDate(item.updated_at)}
                 </span>
+              </span>
+              <span role="button" className="icon-btn" aria-label={`More for ${item.name}`} onClick={(e) => { e.stopPropagation(); setActing(item); }}>
+                <EllipsisVertical size={20} color="var(--text-dim)" />
               </span>
             </button>
           ),
@@ -190,6 +223,31 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
             <span className="row-title" style={{ flex: 1 }}>New folder</span>
           </button>
         </div>
+      </Sheet>
+
+      <Sheet open={acting !== null} onClose={() => setActing(null)} title={acting?.name}>
+        <button
+          className="btn secondary"
+          onClick={() => {
+            setNewName(acting?.name ?? "");
+            setRenaming(acting);
+            setActing(null);
+          }}
+        >
+          Rename
+        </button>
+        <button className="btn danger" onClick={() => acting && void trash(acting)}>
+          Move to trash
+        </button>
+      </Sheet>
+
+      <Sheet open={renaming !== null} onClose={() => setRenaming(null)} title="Rename">
+        <div className="input">
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus onKeyDown={(e) => e.key === "Enter" && void rename()} />
+        </div>
+        <button className="btn" disabled={!newName.trim()} onClick={() => void rename()}>
+          Save
+        </button>
       </Sheet>
 
       <Sheet open={naming} onClose={() => setNaming(false)} title="New folder">

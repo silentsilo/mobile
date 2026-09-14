@@ -55,6 +55,16 @@ fn save_device_key(app: &AppHandle, silo: Uuid, credential_id: &str) -> Result<(
         .map_err(|e| e.to_string())
 }
 
+/// Drops this phone's key record for a silo and returns the credential id
+/// it named, for removing the key itself.
+pub(crate) fn forget_device_key(app: &AppHandle, silo: Uuid) -> Option<String> {
+    let mut map = load_device_keys(app);
+    let removed = map.remove(&silo)?;
+    let path = device_keys_path(app).ok()?;
+    let _ = std::fs::write(path, serde_json::to_vec(&map).ok()?);
+    Some(removed)
+}
+
 pub(crate) fn this_phone_key(app: &AppHandle, silo: &SiloEntry) -> Option<String> {
     let id = load_device_keys(app).get(&silo.id)?.clone();
     let keys = silentsilo_vault::load_fido_keys(&silo.path).ok()?;

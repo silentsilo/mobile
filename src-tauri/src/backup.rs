@@ -40,6 +40,11 @@ fn sender_path(data_dir: &Path) -> PathBuf {
     data_dir.join("backup-sender.json")
 }
 
+/// The silo this phone sends backups to, if any.
+pub fn sender_vault(data_dir: &Path) -> Option<Uuid> {
+    read_sender(data_dir).map(|s| s.vault_id)
+}
+
 fn read_sender(data_dir: &Path) -> Option<SenderFile> {
     serde_json::from_slice(&std::fs::read(sender_path(data_dir)).ok()?).ok()
 }

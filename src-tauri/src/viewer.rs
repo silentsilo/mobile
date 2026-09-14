@@ -61,12 +61,10 @@ pub async fn serve_pdf(
     }
 }
 
-fn opened_dir(app: &AppHandle) -> Result<PathBuf, String> {
-    Ok(app
-        .path()
-        .app_cache_dir()
-        .map_err(|e| e.to_string())?
-        .join("open"))
+fn opened_dir(_app: &AppHandle) -> Result<PathBuf, String> {
+    crate::background::cache_dir()
+        .map(|d| d.join("open"))
+        .ok_or_else(|| "The app has not finished starting.".to_string())
 }
 
 /// Files handed to other apps are removed when the user comes back to this

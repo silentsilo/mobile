@@ -69,8 +69,22 @@ impl BackgroundLock {
     }
 }
 
-fn prefs_path(app: &AppHandle) -> Option<PathBuf> {
-    app.path().app_data_dir().ok().map(|d| d.join("lock-after"))
+/// The app's data and cache directories, read once at startup. On Android
+/// asking Tauri for them calls into Kotlin and waits on the main thread, so
+/// asking from the main thread (a window event, the screen-off receiver)
+/// never returns.
+static DIRS: std::sync::OnceLock<(PathBuf, PathBuf)> = std::sync::OnceLock::new();
+
+pub fn data_dir() -> Option<&'static PathBuf> {
+    DIRS.get().map(|(data, _)| data)
+}
+
+pub fn cache_dir() -> Option<&'static PathBuf> {
+    DIRS.get().map(|(_, cache)| cache)
+}
+
+fn prefs_path(_app: &AppHandle) -> Option<PathBuf> {
+    data_dir().map(|d| d.join("lock-after"))
 }
 
 pub fn lock_after(app: &AppHandle) -> u64 {
@@ -107,7 +121,7 @@ pub fn suspended(app: &AppHandle) {
     }
     let delay = lock_after(app);
     if delay == 0 {
-        lock_all(app);
+        lock_soon(app);
         return;
     }
     let app = app.clone();
@@ -115,7 +129,7 @@ pub fn suspended(app: &AppHandle) {
         tokio::time::sleep(Duration::from_secs(delay)).await;
         let lock = app.state::<BackgroundLock>();
         if lock.generation.load(Ordering::SeqCst) == generation {
-            lock_all(&app);
+            lock_soon(&app);
         }
     });
 }
@@ -137,8 +151,15 @@ pub fn resumed(app: &AppHandle) {
     if let Some(away) = away
         && away >= Duration::from_secs(lock_after(app))
     {
-        lock_all(app);
+        lock_soon(app);
     }
+}
+
+/// Window events arrive on the main thread, which closing a silo must not
+/// hold: it writes the database and then needs that thread to tell the page.
+fn lock_soon(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn_blocking(move || lock_all(&app));
 }
 
 #[tauri::command]
@@ -161,15 +182,24 @@ static APP: std::sync::OnceLock<AppHandle> = std::sync::OnceLock::new();
 
 pub fn remember(app: &AppHandle) {
     let _ = APP.set(app.clone());
+    if let (Ok(data), Ok(cache)) = (app.path().app_data_dir(), app.path().app_cache_dir()) {
+        let _ = DIRS.set((data, cache));
+    }
 }
 
 /// Locks everything now, from outside the window. Nothing is open when the
 /// app is not running, so there is nothing to do then.
+///
+/// Off the calling thread: Kotlin calls this on the main thread, and closing
+/// a silo both writes its database and tells the page, which needs that same
+/// thread. Doing it inline froze the app until Android killed it.
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 pub fn lock_from_outside() {
-    if let Some(app) = APP.get() {
-        lock_all(app);
-        crate::viewer::wipe_opened(app);
+    if let Some(app) = APP.get().cloned() {
+        tauri::async_runtime::spawn_blocking(move || {
+            lock_all(&app);
+            crate::viewer::wipe_opened(&app);
+        });
     }
 }
 
@@ -179,11 +209,8 @@ pub fn any_open() -> bool {
         .is_some_and(|app| !app.state::<AppState>().open_silo_ids().is_empty())
 }
 
-fn screen_off_path(app: &AppHandle) -> Option<PathBuf> {
-    app.path()
-        .app_data_dir()
-        .ok()
-        .map(|d| d.join("lock-on-screen-off"))
+fn screen_off_path(_app: &AppHandle) -> Option<PathBuf> {
+    data_dir().map(|d| d.join("lock-on-screen-off"))
 }
 
 /// On unless turned off: a phone left on a table with the silo open is the
@@ -201,7 +228,7 @@ pub fn screen_off() {
     if let Some(app) = APP.get()
         && lock_on_screen_off(app)
     {
-        lock_all(app);
+        lock_soon(app);
     }
 }
 

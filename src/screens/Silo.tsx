@@ -1,4 +1,4 @@
-import { ChevronRight, Cloud, Images, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone } from "lucide-react";
+import { ChevronRight, Cloud, Images, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -6,6 +6,7 @@ import type { RecoveryStatus } from "../shared/types";
 import { Sheet, useToast } from "../ui/chrome";
 import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
+import { announceSilo } from "./SiloSwitcher";
 
 const LOCK_CHOICES = [
   { seconds: 0, label: "Immediately" },
@@ -24,6 +25,7 @@ export function Silo({
   onSynced,
   onKeys,
   onBackup,
+  onTrash,
   onLocked,
 }: {
   siloName: string;
@@ -31,6 +33,7 @@ export function Silo({
   onSynced: () => void;
   onKeys: () => void;
   onBackup: () => void;
+  onTrash: () => void;
   onLocked: () => void;
 }) {
   const [keyCount, setKeyCount] = useState<number | null>(null);
@@ -42,6 +45,7 @@ export function Silo({
   const [theme, setTheme] = useState<ThemeChoice>(readTheme);
   const [backupOn, setBackupOn] = useState<boolean | null>(null);
   const [screenOff, setScreenOff] = useState<boolean | null>(null);
+  const [removing, setRemoving] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -119,6 +123,7 @@ export function Silo({
         {sync?.configured && (
           <div className="panel">{navRow(Images, "Phone backup", backupOn === null ? "" : backupOn ? "On" : "Off", onBackup, true)}</div>
         )}
+        <div className="panel">{navRow(Trash2, "Trash", "", onTrash, true)}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="label" style={{ padding: "0 4px" }}>Security</span>
           <div className="panel">
@@ -175,6 +180,9 @@ export function Silo({
           <LockKeyhole size={18} />
           Lock now
         </button>
+        <button className="text-btn" style={{ alignSelf: "center", color: "var(--danger)" }} onClick={() => setRemoving(true)}>
+          Remove this silo from the phone
+        </button>
       </div>
 
       <Sheet open={choosingLock} onClose={() => setChoosingLock(false)} title="Lock in the background">
@@ -190,6 +198,33 @@ export function Silo({
             </button>
           ))}
         </div>
+      </Sheet>
+
+      <Sheet open={removing} onClose={() => setRemoving(false)} title={`Remove ${siloName} from this phone?`}>
+        <p className="hint">
+          The copy on this phone, this phone's key for it and its backup settings are deleted. The silo itself stays in its storage
+          and on your other devices. To have it here again, you need the recovery code. To stop other devices listing this
+          phone's key, remove it under Keys first.
+        </p>
+        <button
+          className="btn danger"
+          onClick={async () => {
+            setRemoving(false);
+            try {
+              const silos = await api.listSilos();
+              const current = silos.find((s) => s.active);
+              if (current) await api.removeSilo(current.id);
+              announceSilo("switched");
+            } catch (e) {
+              toast(formatAppError(e));
+            }
+          }}
+        >
+          Remove from this phone
+        </button>
+        <button className="btn secondary" onClick={() => setRemoving(false)}>
+          Cancel
+        </button>
       </Sheet>
 
       <Sheet open={aboutRecovery} onClose={() => setAboutRecovery(false)} title="Recovery code">

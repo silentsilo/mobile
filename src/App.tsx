@@ -14,6 +14,7 @@ import { Passwords } from "./screens/Passwords";
 import { PhoneBackup } from "./screens/PhoneBackup";
 import { Preview } from "./screens/Preview";
 import { SaveShared } from "./screens/SaveShared";
+import { Trash } from "./screens/Trash";
 import { Silo } from "./screens/Silo";
 import { Unlock } from "./screens/Unlock";
 import { Welcome } from "./screens/Welcome";
@@ -83,6 +84,16 @@ export default function App() {
     void start();
   }, [start]);
 
+  // The header's silo switcher: another silo in front, or joining a new one.
+  useEffect(() => {
+    const onChoice = (event: Event) => {
+      if ((event as CustomEvent).detail === "add") setPhase({ at: "join-storage" });
+      else void refresh();
+    };
+    window.addEventListener("silo-choice", onChoice);
+    return () => window.removeEventListener("silo-choice", onChoice);
+  }, [refresh]);
+
   // The phone locks an open silo itself once the app has been away too long.
   // The event can be lost while the page is paused, so coming back to the
   // screen asks again.
@@ -127,7 +138,7 @@ export default function App() {
       case "welcome":
         return <Welcome onStart={() => setPhase({ at: "join-storage" })} />;
       case "join-storage":
-        return <JoinStorage onBack={() => setPhase({ at: "welcome" })} onFound={(config, preview) => setPhase({ at: "join-code", config, preview })} />;
+        return <JoinStorage onBack={() => void refresh()} onFound={(config, preview) => setPhase({ at: "join-code", config, preview })} />;
       case "join-code":
         return (
           <JoinCode
@@ -167,7 +178,8 @@ type Detail =
   | { at: "edit"; entry: PasswordEntry | null }
   | { at: "preview"; file: FileEntry }
   | { at: "keys" }
-  | { at: "backup" };
+  | { at: "backup" }
+  | { at: "trash" };
 
 function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => void }) {
   const [tab, setTab] = useState<Tab>("passwords");
@@ -213,6 +225,8 @@ function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => vo
         return <Keys onBack={() => setDetail(null)} />;
       case "backup":
         return <PhoneBackup onBack={() => setDetail(null)} />;
+      case "trash":
+        return <Trash onBack={() => setDetail(null)} />;
     }
   }
 
@@ -234,7 +248,7 @@ function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => vo
         />
       )}
       {tab === "files" && <Files siloName={siloName} sync={sync} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
-      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onLocked={onLocked} />}
+      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onLocked={onLocked} />}
       <nav className="tabbar" role="tablist">
         {tabs.map(({ id, label, Icon }) => (
           <button key={id} className="tab" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>

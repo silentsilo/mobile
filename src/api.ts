@@ -7,6 +7,7 @@ import type {
   PasswordEntry,
   RecoveryStatus,
   SecurityKeyInfo,
+  TrashItem,
   VaultEntry,
   VaultMeta,
 } from "./shared/types";
@@ -143,6 +144,20 @@ export const api = {
   importPhoto: (path: string, name: string, folderId: string) => invoke<FileEntry>("vault_import_photo", { path, name, folderId }),
   createFolder: (parentId: string, name: string) => invoke<FolderEntry>("vault_create_folder", { parentId, name }),
   shareToInbox: (file: Offered) => invoke<void>("share_to_inbox", { file }),
+
+  renameFile: (fileId: string, newName: string) => invoke<FileEntry>("vault_rename_file", { fileId, newName }),
+  renameFolder: (folderId: string, newName: string) => invoke<FolderEntry>("vault_rename_folder", { folderId, newName }),
+  trashFile: (fileId: string) => invoke<void>("vault_trash_file", { fileId }),
+  trashFolder: (folderId: string) => invoke<void>("vault_trash_folder", { folderId }),
+  listTrash: () => invoke<TrashItem[]>("vault_list_trash"),
+  restoreFile: (fileId: string) => invoke<FileEntry>("vault_restore_file", { fileId }),
+  restoreFolder: (folderId: string) => invoke<FolderEntry>("vault_restore_folder", { folderId }),
+  /** Every trashed entry when `ids` is empty. */
+  purgeTrash: (ids: string[]) => invoke<number>("vault_purge_trash", { ids }),
+
+  listSilos: () => invoke<{ id: string; name: string; active: boolean; unlocked: boolean }[]>("silo_list"),
+  switchSilo: (siloId: string) => invoke<void>("silo_switch", { siloId }),
+  removeSilo: (siloId: string) => invoke<void>("silo_remove", { siloId }),
 
   backupWaiting: () => invoke<number | null>("backup_waiting"),
   photoCount: () => invoke<{ count: number; bytes: number }>("backup_photo_count"),
