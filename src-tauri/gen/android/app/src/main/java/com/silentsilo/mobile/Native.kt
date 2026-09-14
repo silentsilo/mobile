@@ -46,6 +46,9 @@ object Native {
   // {logins: [...]} or {error}.
   @JvmStatic external fun autofillLogins(dataDir: String, credentialId: String, wrapKey: String): String
 
+  // Adds a login, or updates the password of the same account: {saved} or {error}.
+  @JvmStatic external fun autofillSave(dataDir: String, credentialId: String, wrapKey: String, login: String): String
+
   // Locks every open silo in this process.
   @JvmStatic external fun lockAll()
 

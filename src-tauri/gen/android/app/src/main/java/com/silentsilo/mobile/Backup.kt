@@ -356,7 +356,7 @@ object BackupReminder {
     )
     val text = if (count == 1L) "1 item is waiting to be added to your silo." else "$count items are waiting to be added to your silo."
     val notification = Notification.Builder(context, CHANNEL)
-      .setSmallIcon(android.R.drawable.stat_sys_upload_done)
+      .setSmallIcon(R.drawable.ic_stat_silo)
       .setContentTitle("Open SilentSilo to finish the backup")
       .setContentText(text)
       .setContentIntent(open)

@@ -64,6 +64,14 @@
         </service>
 
         <activity
+            android:name=".AutofillSaveActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
             android:name=".AutofillUnlockActivity"
             android:exported="false"
             android:excludeFromRecents="true"
@@ -73,7 +81,7 @@
         <service
             android:name=".LockTileService"
             android:exported="true"
-            android:icon="@android:drawable/ic_lock_lock"
+            android:icon="@drawable/ic_stat_silo"
             android:label="Lock SilentSilo"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>

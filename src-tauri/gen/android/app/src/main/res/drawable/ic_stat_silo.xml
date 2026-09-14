@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The logo's three nested squares and core, in one colour, for the status
+     bar and Quick Settings, where Android tints it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <path
+        android:pathData="M160,86 H426 V426 H86 V160"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="38"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M256,142 H370 V370 H142 V220"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="38"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M198,270 V314 H314 V198 H250"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="38"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M246,236 H266 A10,10 0 0 1 276,246 V266 A10,10 0 0 1 266,276 H246 A10,10 0 0 1 236,266 V246 A10,10 0 0 1 246,236 Z"
+        android:fillColor="#FFFFFFFF" />
+</vector>

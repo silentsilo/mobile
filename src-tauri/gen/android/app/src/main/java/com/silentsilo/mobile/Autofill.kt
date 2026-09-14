@@ -12,7 +12,9 @@ import android.service.autofill.FillCallback
 import android.service.autofill.FillRequest
 import android.service.autofill.FillResponse
 import android.service.autofill.SaveCallback
+import android.service.autofill.SaveInfo
 import android.service.autofill.SaveRequest
+import android.widget.Toast
 import android.text.InputType
 import android.view.View
 import android.view.WindowManager
@@ -45,6 +47,29 @@ class FormFields(val username: AutofillId?, val password: AutofillId?, val webDo
       }
       for (i in 0 until structure.windowNodeCount) visit(structure.getWindowNodeAt(i).rootViewNode)
       return FormFields(username, password, domain, structure.activityComponent.packageName)
+    }
+
+    // What was typed into the username and password fields, for saving.
+    fun typed(structure: AssistStructure, fields: FormFields): Pair<String, String> {
+      var user = ""
+      var pass = ""
+      fun visit(node: AssistStructure.ViewNode) {
+        val text = node.autofillValue?.takeIf { it.isText }?.textValue?.toString()
+        if (text != null) {
+          if (node.autofillId == fields.username) user = text
+          if (node.autofillId == fields.password) pass = text
+        }
+        for (i in 0 until node.childCount) visit(node.getChildAt(i))
+      }
+      for (i in 0 until structure.windowNodeCount) visit(structure.getWindowNodeAt(i).rootViewNode)
+      return user to pass
+    }
+
+    // Offered with every response, so a login typed by hand can be kept.
+    fun saveInfo(fields: FormFields): SaveInfo {
+      val builder = SaveInfo.Builder(SaveInfo.SAVE_DATA_TYPE_USERNAME or SaveInfo.SAVE_DATA_TYPE_PASSWORD, arrayOf(fields.password!!))
+      fields.username?.let { builder.setOptionalIds(arrayOf(it)) }
+      return builder.build()
     }
 
     private fun html(node: AssistStructure.ViewNode, name: String): String? =
@@ -96,12 +121,38 @@ class SiloAutofillService : AutofillService() {
     ).intentSender
     val response = FillResponse.Builder()
       .setAuthentication(fields.ids, sender, AutofillUnlockActivity.row(this, "Fill from SilentSilo"))
+      .setSaveInfo(FormFields.saveInfo(fields))
       .build()
     callback.onSuccess(response)
   }
 
+  // Android asked "Save to SilentSilo?" and the user said yes. Saving needs
+  // the silo open, so it happens in an activity that can ask for a
+  // fingerprint.
   override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
-    callback.onSuccess()
+    val structure = request.fillContexts.lastOrNull()?.structure ?: return callback.onSuccess()
+    val fields = FormFields.from(structure)
+    val (user, pass) = FormFields.typed(structure, fields)
+    if (pass.isEmpty() || fields.packageName == packageName) return callback.onSuccess()
+
+    val label = try {
+      packageManager.getApplicationLabel(packageManager.getApplicationInfo(fields.packageName, 0)).toString()
+    } catch (_: Exception) {
+      fields.packageName
+    }
+    val intent = Intent(this, AutofillSaveActivity::class.java)
+      .putExtra(AutofillSaveActivity.USERNAME, user)
+      .putExtra(AutofillSaveActivity.PASSWORD, pass)
+      .putExtra(AutofillSaveActivity.DOMAIN, fields.webDomain)
+      .putExtra(AutofillSaveActivity.APP_LABEL, label)
+      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    val sender = PendingIntent.getActivity(
+      this,
+      System.nanoTime().toInt(),
+      intent,
+      PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    ).intentSender
+    callback.onSuccess(sender)
   }
 }
 
@@ -169,7 +220,9 @@ class AutofillUnlockActivity : Activity() {
       dataset.setValue(password, AutofillValue.forText(login.optString("password")))
       response.addDataset(dataset.build())
     }
-    finishWith(if (offered.isEmpty()) null else response.build())
+    if (offered.isEmpty()) return finishWith(null)
+    response.setSaveInfo(FormFields.saveInfo(FormFields(username, password, domain, pkg)))
+    finishWith(response.build())
   }
 
   @Suppress("DEPRECATION")
@@ -226,5 +279,63 @@ object Matching {
   private fun label(host: String): String {
     val parts = registrable(host).split('.')
     return parts.first().filter { it.isLetterOrDigit() }
+  }
+}
+
+// Stores a login Android offered to save: unlock, then add it or update the
+// password of the same account.
+class AutofillSaveActivity : Activity() {
+  companion object {
+    const val USERNAME = "username"
+    const val PASSWORD = "password"
+    const val DOMAIN = "domain"
+    const val APP_LABEL = "appLabel"
+  }
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+    Native.start(applicationContext)
+    val dataDir = applicationContext.dataDir.absolutePath
+
+    val domain = intent.getStringExtra(DOMAIN)?.lowercase()?.removePrefix("www.")
+    val login = JSONObject()
+      .put("service", domain ?: intent.getStringExtra(APP_LABEL) ?: "")
+      .put("username", intent.getStringExtra(USERNAME) ?: "")
+      .put("password", intent.getStringExtra(PASSWORD) ?: "")
+      .put("url", domain?.let { "https://$it" } ?: "")
+      .toString()
+
+    val silo = JSONObject(Native.autofillSilo(dataDir))
+    val vaultId = silo.optString("vaultId")
+    if (vaultId.isEmpty()) return done("There is no silo on this phone to save to.")
+    if (silo.optBoolean("open")) return save(Native.autofillSave(dataDir, "", "", login))
+
+    val ids = silo.optJSONArray("credentialIds")
+    PhoneKey.unlock(
+      this,
+      vaultId,
+      (0 until (ids?.length() ?: 0)).map { ids!!.getString(it) },
+      "Unlock ${silo.optString("name", "the silo")} to save this login",
+      onUnlocked = { credentialId, wrapKey -> save(Native.autofillSave(dataDir, credentialId, wrapKey, login)) },
+      onFailed = { if (it.code == "cancelled") done(null) else done(it.message) },
+    )
+  }
+
+  private fun save(answer: String) {
+    val json = JSONObject(answer)
+    done(
+      when (json.optString("saved")) {
+        "new" -> "Saved to SilentSilo."
+        "updated" -> "Password updated in SilentSilo."
+        "unchanged" -> "SilentSilo already has this login."
+        else -> json.optString("error", "The login could not be saved.")
+      }
+    )
+  }
+
+  private fun done(message: String?) {
+    if (message != null) Toast.makeText(applicationContext, message, Toast.LENGTH_SHORT).show()
+    finish()
   }
 }
