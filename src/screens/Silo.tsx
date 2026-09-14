@@ -1,4 +1,4 @@
-import { ChevronRight, Cloud, Images, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, HeartPulse, Images, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -26,6 +26,7 @@ export function Silo({
   onKeys,
   onBackup,
   onTrash,
+  onHealth,
   onLocked,
 }: {
   siloName: string;
@@ -34,6 +35,7 @@ export function Silo({
   onKeys: () => void;
   onBackup: () => void;
   onTrash: () => void;
+  onHealth: () => void;
   onLocked: () => void;
 }) {
   const [keyCount, setKeyCount] = useState<number | null>(null);
@@ -127,7 +129,8 @@ export function Silo({
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="label" style={{ padding: "0 4px" }}>Security</span>
           <div className="panel">
-            {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys, true)}
+            {navRow(HeartPulse, "Password health", "", onHealth, true)}
+            {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys)}
             {navRow(LockKeyhole, "Recovery code", recovery?.enabled ? "Active" : recovery ? "Not set" : "", () => setAboutRecovery(true))}
             {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
             {screenOff !== null && (

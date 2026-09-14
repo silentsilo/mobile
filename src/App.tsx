@@ -14,6 +14,7 @@ import { Passwords } from "./screens/Passwords";
 import { PhoneBackup } from "./screens/PhoneBackup";
 import { Preview } from "./screens/Preview";
 import { SaveShared } from "./screens/SaveShared";
+import { Health } from "./screens/Health";
 import { Trash } from "./screens/Trash";
 import { Silo } from "./screens/Silo";
 import { Unlock } from "./screens/Unlock";
@@ -179,7 +180,8 @@ type Detail =
   | { at: "preview"; file: FileEntry }
   | { at: "keys" }
   | { at: "backup" }
-  | { at: "trash" };
+  | { at: "trash" }
+  | { at: "health" };
 
 function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => void }) {
   const [tab, setTab] = useState<Tab>("passwords");
@@ -227,6 +229,8 @@ function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => vo
         return <PhoneBackup onBack={() => setDetail(null)} />;
       case "trash":
         return <Trash onBack={() => setDetail(null)} />;
+      case "health":
+        return <Health onBack={() => setDetail(null)} onOpen={(entry) => setDetail({ at: "entry", entry })} />;
     }
   }
 
@@ -248,7 +252,7 @@ function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => vo
         />
       )}
       {tab === "files" && <Files siloName={siloName} sync={sync} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
-      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onLocked={onLocked} />}
+      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onLocked={onLocked} />}
       <nav className="tabbar" role="tablist">
         {tabs.map(({ id, label, Icon }) => (
           <button key={id} className="tab" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
