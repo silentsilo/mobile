@@ -6,6 +6,7 @@ import { formatBytes } from "../shared/format";
 import type { FileEntry, VaultEntry } from "../shared/types";
 import { addAll, photoName } from "../shared/importing";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
+import { useSyncProgress } from "../ui/syncActivity";
 import { SiloHeader } from "./Passwords";
 
 type Crumb = { id: string; name: string };
@@ -22,7 +23,18 @@ export function fileIcon(file: FileEntry, size = 20) {
   return <File size={size} />;
 }
 
-export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: SyncStatus | null; onOpenFile: (file: FileEntry) => void }) {
+export function Files({
+  siloName,
+  sync,
+  reloadKey,
+  onOpenFile,
+}: {
+  siloName: string;
+  sync: SyncStatus | null;
+  reloadKey: number;
+  onOpenFile: (file: FileEntry) => void;
+}) {
+  const syncing = useSyncProgress();
   const [trail, setTrail] = useState<Crumb[]>([]);
   const [items, setItems] = useState<VaultEntry[] | null>(null);
   const [query, setQuery] = useState("");
@@ -81,6 +93,12 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
 
   const nested = trail.length > 1;
   const here = trail[trail.length - 1];
+
+  // Remote changes landed: the folder on screen may have gained or lost files.
+  const hereId = here?.id;
+  useEffect(() => {
+    if (reloadKey > 0 && hereId) void load(hereId);
+  }, [reloadKey, hereId, load]);
 
   const chooseFiles = async () => {
     setAdding(false);
@@ -194,7 +212,11 @@ export function Files({ siloName, sync, onOpenFile }: { siloName: string; sync: 
               <span className="row-text">
                 <span className="row-title" style={{ fontWeight: 600 }}>{item.name}</span>
                 <span className="row-sub">
-                  {formatBytes(item.size_bytes)} · {fileDate(item.updated_at)}
+                  {syncing?.file_id === item.id
+                    ? syncing.phase === "uploading"
+                      ? "Uploading…"
+                      : "Downloading…"
+                    : `${formatBytes(item.size_bytes)} · ${fileDate(item.updated_at)}`}
                 </span>
               </span>
               <span role="button" className="icon-btn" aria-label={`More for ${item.name}`} onClick={(e) => { e.stopPropagation(); setActing(item); }}>

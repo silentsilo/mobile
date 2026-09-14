@@ -1,15 +1,17 @@
-import { ChevronDown, Copy, Plus, Search } from "lucide-react";
+import { ChevronDown, Copy, Plus, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { hashColor, inkOn, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
 import type { PasswordEntry } from "../shared/types";
 import { useToast } from "../ui/chrome";
+import { describeProgress, useSyncProgress } from "../ui/syncActivity";
 import { SiloSwitcher } from "./SiloSwitcher";
 
 export function SiloHeader({ siloName, sync, action }: { siloName: string; sync: SyncStatus | null; action?: React.ReactNode }) {
   const waiting = sync?.pending_ops ?? 0;
   const [switching, setSwitching] = useState(false);
+  const progress = useSyncProgress();
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 16px 14px" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
@@ -24,9 +26,19 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
         </button>
         <SiloSwitcher open={switching} onClose={() => setSwitching(false)} />
         {sync?.configured && (
-          <div className="muted" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "0.82rem" }}>
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: waiting ? "var(--warning)" : "var(--success)" }} />
-            {waiting ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to back up` : "Everything is backed up"}
+          <div className="muted" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "0.82rem", minWidth: 0 }}>
+            {progress ? (
+              <RefreshCw size={12} className="spin" color="var(--accent-hover)" style={{ flex: "none" }} />
+            ) : (
+              <span style={{ width: 7, height: 7, borderRadius: "50%", flex: "none", background: waiting ? "var(--warning)" : "var(--success)" }} />
+            )}
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {progress
+                ? describeProgress(progress)
+                : waiting
+                  ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to back up`
+                  : "Everything is backed up"}
+            </span>
           </div>
         )}
       </div>

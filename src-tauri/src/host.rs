@@ -12,6 +12,7 @@ impl Host for MobileHost {
         let _ = match event {
             AppEvent::SyncReport(report) => self.0.emit("sync-report", report),
             AppEvent::VaultChanged => self.0.emit("vault-changed", ()),
+            AppEvent::SyncProgress(progress) => self.0.emit("sync-progress", progress),
         };
     }
 

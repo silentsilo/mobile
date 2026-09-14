@@ -22,6 +22,7 @@ import { Welcome } from "./screens/Welcome";
 import { formatAppError } from "./shared/errors";
 import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
 import { ToastProvider, useToast } from "./ui/chrome";
+import { SyncActivityProvider } from "./ui/syncActivity";
 
 type Phase =
   | { at: "loading" }
@@ -184,11 +185,8 @@ type Detail =
   | { at: "health" };
 
 function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => void }) {
-  const [tab, setTab] = useState<Tab>("passwords");
-  const [detail, setDetail] = useState<Detail | null>(null);
   const [sync, setSync] = useState<SyncStatus | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const toast = useToast();
 
   const refreshSync = useCallback(() => {
     api.syncStatus().then(setSync, () => setSync(null));
@@ -196,10 +194,36 @@ function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => vo
 
   useEffect(refreshSync, [refreshSync]);
 
-  const changed = () => {
+  const changed = useCallback(() => {
     setReloadKey((k) => k + 1);
     refreshSync();
-  };
+  }, [refreshSync]);
+
+  return (
+    <SyncActivityProvider onReport={refreshSync} onChanged={changed}>
+      <OpenSiloScreens siloName={siloName} onLocked={onLocked} sync={sync} reloadKey={reloadKey} refreshSync={refreshSync} changed={changed} />
+    </SyncActivityProvider>
+  );
+}
+
+function OpenSiloScreens({
+  siloName,
+  onLocked,
+  sync,
+  reloadKey,
+  refreshSync,
+  changed,
+}: {
+  siloName: string;
+  onLocked: () => void;
+  sync: SyncStatus | null;
+  reloadKey: number;
+  refreshSync: () => void;
+  changed: () => void;
+}) {
+  const [tab, setTab] = useState<Tab>("passwords");
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const toast = useToast();
 
   if (detail) {
     switch (detail.at) {
@@ -251,7 +275,7 @@ function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => vo
           onAdd={() => setDetail({ at: "edit", entry: null })}
         />
       )}
-      {tab === "files" && <Files siloName={siloName} sync={sync} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
+      {tab === "files" && <Files siloName={siloName} sync={sync} reloadKey={reloadKey} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
       {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onLocked={onLocked} />}
       <nav className="tabbar" role="tablist">
         {tabs.map(({ id, label, Icon }) => (

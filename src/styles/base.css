@@ -557,3 +557,20 @@ a {
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
   font-size: 0.92rem;
 }
+
+/* A sync in progress. */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
+}

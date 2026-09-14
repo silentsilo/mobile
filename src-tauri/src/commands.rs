@@ -600,8 +600,14 @@ pub fn recovery_status(state: State<AppState>) -> Result<RecoveryStatus, String>
 pub fn spawn_auto_sync(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut last_pull: std::collections::HashMap<Uuid, i64> = Default::default();
+        let mut first = true;
         loop {
-            tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+            // The first tick straight away: what changed elsewhere while the
+            // app was closed should show up now, not a quarter minute later.
+            if !first {
+                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+            }
+            first = false;
             let state = app.state::<AppState>();
             let Ok(app_data) = app_data(&app) else {
                 continue;
