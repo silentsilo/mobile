@@ -212,8 +212,8 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
             : `SilentSilo reads the ${disclosing === "videos" ? "videos" : "photos"} in the gallery folders you choose, with the place they were taken when the file records it, including ones added later while the app is closed.`}
         </p>
         <p className="hint">
-          Each copy is encrypted on this phone and sent only to this silo's storage. Nothing goes to SilentSilo or to anyone else,
-          and turning this off stops it.
+          Each copy is encrypted on this phone, then sent to this silo's storage, which sees only the encrypted copy. SilentSilo
+          itself receives nothing. Turning this off stops it.
         </p>
         <p className="hint small">Android asks for access next.</p>
         <button
