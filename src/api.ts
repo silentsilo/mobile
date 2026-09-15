@@ -99,6 +99,22 @@ export type BackupSettings = {
 /** A file on the phone or offered by another app, not read yet. */
 export type SecurityKeyStatus = { nfc: boolean; nfcOn: boolean; usb: boolean };
 
+/** Where a silo backs up, as the phone may show it: no secrets. */
+export type StorageView = {
+  configured: boolean;
+  kind: string;
+  endpoint: string;
+  region: string;
+  bucket: string;
+  accessKeyId: string;
+  url: string;
+  host: string;
+  port: number;
+  username: string;
+  path: string;
+  copies: number;
+};
+
 export type Offered = { uri: string; name: string; size: number; mimeType: string };
 
 export const api = {
@@ -113,6 +129,11 @@ export const api = {
   joinWithSecurityKey: (config: StoreConfigInput, name: string) =>
     invoke<VaultMeta>("vault_join_with_security_key", { config, name }),
   enrollDeviceKey: (label: string) => invoke<void>("device_key_enroll", { label }),
+  createSilo: (name: string) => invoke<VaultMeta>("silo_create", { name }),
+  /** The only time the code is shown. */
+  createRecovery: () => invoke<string>("recovery_create"),
+  storageView: () => invoke<StorageView>("storage_view"),
+  saveStorage: (config: StoreConfigInput) => invoke<void>("storage_save", { config }),
 
   unlock: () => invoke<VaultMeta>("vault_unlock"),
   unlockWithRecovery: (code: string) => invoke<VaultMeta>("vault_unlock_with_recovery", { code }),

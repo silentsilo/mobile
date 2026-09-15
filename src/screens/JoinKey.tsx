@@ -4,7 +4,7 @@ import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { Field, StepBar } from "../ui/chrome";
 
-export function JoinKey({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
+export function JoinKey({ onBack, onDone, step = 3 }: { onBack: () => void; onDone: () => void; step?: 1 | 2 | 3 }) {
   const [label, setLabel] = useState("");
   const [edited, setEdited] = useState(false);
 
@@ -33,7 +33,7 @@ export function JoinKey({ onBack, onDone }: { onBack: () => void; onDone: () => 
 
   return (
     <div className="screen">
-      <StepBar step={3} onBack={onBack} />
+      <StepBar step={step} onBack={onBack} />
       <div className="screen-body">
         <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
           <div

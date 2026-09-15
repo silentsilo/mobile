@@ -160,6 +160,22 @@ const handlers: Record<string, Handler> = {
     silo.name = String(args.name || "Personal");
     return meta();
   },
+  silo_create: async (args) => {
+    await wait(600);
+    joined = true;
+    unlocked = true;
+    phoneKey = false;
+    silo.name = String(args.name || "Personal");
+    return meta();
+  },
+  recovery_create: async () => {
+    await wait(400);
+    return "K7M2-9QXA-R4TD-8VBN-3HJW-6PZC-1YFE-5GSL";
+  },
+  storage_view: () => ({ configured: true, kind: "sftp", endpoint: "", region: "", bucket: "", accessKeyId: "", url: "", host: "nas.example.com", port: 22, username: "alex", path: "/backups/silo", copies: 1 }),
+  storage_save: async () => {
+    await wait(700);
+  },
   device_key_enroll: async (args) => {
     await wait(900);
     phoneKey = true;

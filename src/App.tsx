@@ -6,7 +6,11 @@ import { blockingFailures, DeviceCheck } from "./screens/DeviceCheck";
 import { Entry } from "./screens/Entry";
 import { EntryEdit } from "./screens/EntryEdit";
 import { Files } from "./screens/Files";
+import { CreateRecovery } from "./screens/CreateRecovery";
+import { CreateSilo } from "./screens/CreateSilo";
+import { CreateStorage } from "./screens/CreateStorage";
 import { JoinCode } from "./screens/JoinCode";
+import { Storage } from "./screens/Storage";
 import { JoinKey } from "./screens/JoinKey";
 import { JoinStorage } from "./screens/JoinStorage";
 import { Keys } from "./screens/Keys";
@@ -33,6 +37,10 @@ type Phase =
   | { at: "join-storage" }
   | { at: "join-code"; config: StoreConfigInput; preview: JoinPreview }
   | { at: "join-key" }
+  | { at: "create-name" }
+  | { at: "create-key" }
+  | { at: "create-recovery" }
+  | { at: "create-storage" }
   | { at: "locked"; siloName: string; autoPrompt: boolean }
   | { at: "open"; siloName: string };
 
@@ -90,7 +98,9 @@ export default function App() {
   // The header's silo switcher: another silo in front, or joining a new one.
   useEffect(() => {
     const onChoice = (event: Event) => {
-      if ((event as CustomEvent).detail === "add") setPhase({ at: "join-storage" });
+      const detail = (event as CustomEvent).detail;
+      if (detail === "add") setPhase({ at: "join-storage" });
+      else if (detail === "create") setPhase({ at: "create-name" });
       else void refresh();
     };
     window.addEventListener("silo-choice", onChoice);
@@ -139,7 +149,15 @@ export default function App() {
           />
         );
       case "welcome":
-        return <Welcome onStart={() => setPhase({ at: "join-storage" })} />;
+        return <Welcome onStart={() => setPhase({ at: "join-storage" })} onCreate={() => setPhase({ at: "create-name" })} />;
+      case "create-name":
+        return <CreateSilo onBack={() => void refresh()} onCreated={() => setPhase({ at: "create-key" })} />;
+      case "create-key":
+        return <JoinKey step={1} onBack={() => void refresh()} onDone={() => setPhase({ at: "create-recovery" })} />;
+      case "create-recovery":
+        return <CreateRecovery onBack={() => void refresh()} onDone={() => setPhase({ at: "create-storage" })} />;
+      case "create-storage":
+        return <CreateStorage onBack={() => setPhase({ at: "create-recovery" })} onDone={() => void refresh()} />;
       case "join-storage":
         return <JoinStorage onBack={() => void refresh()} onFound={(config, preview) => setPhase({ at: "join-code", config, preview })} />;
       case "join-code":
@@ -183,7 +201,8 @@ type Detail =
   | { at: "keys" }
   | { at: "backup" }
   | { at: "trash" }
-  | { at: "health" };
+  | { at: "health" }
+  | { at: "storage" };
 
 function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => void }) {
   const [sync, setSync] = useState<SyncStatus | null>(null);
@@ -256,6 +275,15 @@ function OpenSiloScreens({
         return <PhoneBackup onBack={() => setDetail(null)} />;
       case "trash":
         return <Trash onBack={() => setDetail(null)} />;
+      case "storage":
+        return (
+          <Storage
+            onBack={() => {
+              setDetail(null);
+              refreshSync();
+            }}
+          />
+        );
       case "health":
         return <Health onBack={() => setDetail(null)} onOpen={(entry) => setDetail({ at: "entry", entry })} />;
     }
@@ -281,7 +309,7 @@ function OpenSiloScreens({
         />
       )}
       {tab === "files" && <Files siloName={siloName} sync={sync} reloadKey={reloadKey} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
-      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onLocked={onLocked} />}
+      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onStorage={() => setDetail({ at: "storage" })} onLocked={onLocked} />}
     </>
   );
 

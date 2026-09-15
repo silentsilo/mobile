@@ -7,7 +7,7 @@ import { Sheet, useToast } from "../ui/chrome";
 type Choice = { id: string; name: string; active: boolean; unlocked: boolean };
 
 /** Tells the app shell the silo in front changed, or a new one is wanted. */
-export function announceSilo(what: "switched" | "add") {
+export function announceSilo(what: "switched" | "add" | "create") {
   window.dispatchEvent(new CustomEvent("silo-choice", { detail: what }));
 }
 
@@ -49,7 +49,17 @@ export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => 
         }}
       >
         <Plus size={18} />
-        Add another silo
+        Join another silo
+      </button>
+      <button
+        className="btn secondary"
+        onClick={() => {
+          onClose();
+          announceSilo("create");
+        }}
+      >
+        <Plus size={18} />
+        Make a new silo
       </button>
     </Sheet>
   );

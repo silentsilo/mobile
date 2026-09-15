@@ -5,6 +5,7 @@ mod autofill;
 mod background;
 mod backup;
 mod commands;
+mod create;
 mod device_key;
 mod host;
 mod incoming;
@@ -110,6 +111,10 @@ pub fn run() {
             manage::silo_list,
             manage::silo_switch,
             manage::silo_remove,
+            create::silo_create,
+            create::recovery_create,
+            create::storage_view,
+            create::storage_save,
             security_key::security_key_status,
             security_key::security_key_cancel,
             security_key::security_key_count,

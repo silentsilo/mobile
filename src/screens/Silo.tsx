@@ -1,4 +1,5 @@
-import { ChevronRight, Cloud, Fingerprint, HeartPulse, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, Fingerprint, HardDrive, HeartPulse, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
+import { RecoveryCodeShow } from "../ui/RecoveryCodeShow";
 import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -27,6 +28,7 @@ export function Silo({
   onBackup,
   onTrash,
   onHealth,
+  onStorage,
   onLocked,
 }: {
   siloName: string;
@@ -36,6 +38,7 @@ export function Silo({
   onBackup: () => void;
   onTrash: () => void;
   onHealth: () => void;
+  onStorage: () => void;
   onLocked: () => void;
 }) {
   const [keyCount, setKeyCount] = useState<number | null>(null);
@@ -43,6 +46,7 @@ export function Silo({
   const [lockAfter, setLockAfter] = useState<number | null>(null);
   const [choosingLock, setChoosingLock] = useState(false);
   const [aboutRecovery, setAboutRecovery] = useState(false);
+  const [makingCode, setMakingCode] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [theme, setTheme] = useState<ThemeChoice>(readTheme);
   const [backupOn, setBackupOn] = useState<boolean | null>(null);
@@ -138,7 +142,10 @@ export function Silo({
         {sync?.configured && (
           <div className="panel">{navRow(Images, "Phone backup", backupOn === null ? "" : backupOn ? "On" : "Off", onBackup, true)}</div>
         )}
-        <div className="panel">{navRow(Trash2, "Trash", "", onTrash, true)}</div>
+        <div className="panel">
+          {navRow(HardDrive, "Storage", sync?.configured ? "" : "Not set", onStorage, true)}
+          {navRow(Trash2, "Trash", "", onTrash)}
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <span className="label" style={{ padding: "0 4px" }}>Security</span>
           <div className="panel">
@@ -279,15 +286,31 @@ export function Silo({
         </button>
       </Sheet>
 
-      <Sheet open={aboutRecovery} onClose={() => setAboutRecovery(false)} title="Recovery code">
+      <Sheet open={aboutRecovery} onClose={() => { setAboutRecovery(false); setMakingCode(false); }} title="Recovery code">
         <p className="hint">
           {recovery?.enabled
             ? "This silo has a recovery code. It was shown once, when it was made, and is not stored anywhere it could be read back. Keep the paper copy safe: it opens the silo when every key is gone."
-            : "This silo has no recovery code. Create one in SilentSilo on your computer: without it, losing every key means losing the silo."}
+            : "This silo has no recovery code. Without one, losing every key means losing the silo."}
         </p>
-        <button className="btn secondary" onClick={() => setAboutRecovery(false)}>
-          Close
-        </button>
+        {makingCode ? (
+          <RecoveryCodeShow
+            replacing={!!recovery?.enabled}
+            onDone={() => {
+              setMakingCode(false);
+              setAboutRecovery(false);
+              api.recoveryStatus().then(setRecovery, () => setRecovery(null));
+            }}
+          />
+        ) : (
+          <>
+            <button className={recovery?.enabled ? "btn secondary" : "btn"} onClick={() => setMakingCode(true)}>
+              {recovery?.enabled ? "Replace the code" : "Make a recovery code"}
+            </button>
+            <button className="btn secondary" onClick={() => setAboutRecovery(false)}>
+              Close
+            </button>
+          </>
+        )}
       </Sheet>
     </div>
   );

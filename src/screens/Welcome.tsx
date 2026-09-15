@@ -1,7 +1,7 @@
 import { Cloud, LockKeyhole, ScanFace } from "lucide-react";
 import icon from "../assets/icon.svg";
 
-export function Welcome({ onStart }: { onStart: () => void }) {
+export function Welcome({ onStart, onCreate }: { onStart: () => void; onCreate: () => void }) {
   const needs = [
     { Icon: Cloud, text: "The details of your silo's backup storage" },
     { Icon: LockKeyhole, text: "Your recovery code" },
@@ -19,8 +19,8 @@ export function Welcome({ onStart }: { onStart: () => void }) {
             Open your silo on this phone
           </h1>
           <p className="hint">
-            A phone joins a silo you already have, from the storage it backs up to. Everything stays
-            encrypted, and the phone unlocks it with your fingerprint or face.
+            Join a silo you already have, from the storage it backs up to, or make a new one here.
+            Everything stays encrypted, and the phone unlocks it with your fingerprint or face.
           </p>
         </div>
         <div className="panel">
@@ -39,9 +39,9 @@ export function Welcome({ onStart }: { onStart: () => void }) {
           <button className="btn" onClick={onStart}>
             Set up from backup storage
           </button>
-          <p className="hint small" style={{ textAlign: "center" }}>
-            No silo yet? Create one in SilentSilo on your computer first.
-          </p>
+          <button className="btn secondary" onClick={onCreate}>
+            Make a new silo
+          </button>
         </div>
       </div>
     </div>
