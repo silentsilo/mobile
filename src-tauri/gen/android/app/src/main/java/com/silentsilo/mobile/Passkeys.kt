@@ -45,8 +45,9 @@ import java.security.MessageDigest
 // Who is asking for a passkey, as the WebAuthn origin a site checks.
 object PasskeyCaller {
   // Browsers the platform vouches for, which pass a site's origin and their
-  // own client data hash. Without a trusted browser list nothing is
-  // privileged, and every caller is treated as the app it is.
+  // own client data hash: Google's list of privileged apps
+  // (gstatic.com/gpm-passkeys-privileged-apps/apps.json), release signing
+  // certificates only. A browser missing from it is treated as the app it is.
   private fun allowlist(context: Context): String =
     try {
       context.assets.open("privileged_browsers.json").bufferedReader().use { it.readText() }
