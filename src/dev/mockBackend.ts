@@ -249,6 +249,18 @@ const handlers: Record<string, Handler> = {
     await wait(300);
   },
   vault_rename_file: (args) => ({ id: args.fileId, name: args.newName }),
+  vault_move_file: (args) => ({ id: args.fileId }),
+  vault_move_folder: (args) => ({ id: args.folderId }),
+  vault_list_all_folders: () => [
+    { id: ROOT, parent_id: null, name: "root", path: "/", created_at: 0, updated_at: 0, favorite: false },
+    folder("f1", "Documents", "/Documents"),
+    folder("f2", "Photos", "/Photos"),
+    folder("f3", "Taxes 2025", "/Taxes 2025"),
+  ],
+  vault_search: (args) =>
+    [file("g1", "car-insurance.jpg", 2_400_000, "image/jpeg", 1756857600), file("g2", "lease-agreement.pdf", 880_000, "application/pdf", 1755129600)]
+      .filter((f) => f.name.includes(String(args.query).toLowerCase()))
+      .map((f) => ({ ...f, folder_path: "/Documents" })),
   vault_rename_folder: (args) => ({ id: args.folderId, name: args.newName }),
   vault_trash_file: () => undefined,
   vault_trash_folder: () => undefined,

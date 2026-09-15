@@ -3,7 +3,7 @@
 //! desktop's commands they mirror.
 
 use silentsilo_app::AppState;
-use silentsilo_core::{FileEntry, FolderEntry, TrashItem};
+use silentsilo_core::{FileEntry, FolderEntry, SearchHit, TrashItem};
 use silentsilo_vault::{load_registry, save_registry};
 use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
@@ -32,6 +32,38 @@ pub fn vault_rename_folder(
 ) -> Result<FolderEntry, String> {
     let folder_id = id(&folder_id)?;
     state.with_vfs(|_session, vfs| vfs.rename_folder(folder_id, new_name.trim()))
+}
+
+#[tauri::command]
+pub fn vault_move_file(
+    state: State<'_, AppState>,
+    file_id: String,
+    folder_id: String,
+) -> Result<FileEntry, String> {
+    let (file_id, folder_id) = (id(&file_id)?, id(&folder_id)?);
+    state.with_vfs(|_session, vfs| vfs.move_file(file_id, folder_id))
+}
+
+#[tauri::command]
+pub fn vault_move_folder(
+    state: State<'_, AppState>,
+    folder_id: String,
+    parent_id: String,
+) -> Result<FolderEntry, String> {
+    let (folder_id, parent_id) = (id(&folder_id)?, id(&parent_id)?);
+    state.with_vfs(|_session, vfs| vfs.move_folder(folder_id, parent_id))
+}
+
+/// Every live folder, for choosing where to move something.
+#[tauri::command]
+pub fn vault_list_all_folders(state: State<'_, AppState>) -> Result<Vec<FolderEntry>, String> {
+    state.with_vfs(|_session, vfs| vfs.list_all_folders())
+}
+
+/// Names across the whole silo, capped as on the desktop.
+#[tauri::command]
+pub fn vault_search(state: State<'_, AppState>, query: String) -> Result<Vec<SearchHit>, String> {
+    state.with_vfs(|_session, vfs| vfs.search_entries(&query, 50))
 }
 
 #[tauri::command]

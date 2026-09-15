@@ -165,6 +165,11 @@ export const api = {
   shareToInbox: (file: Offered) => invoke<void>("share_to_inbox", { file }),
 
   renameFile: (fileId: string, newName: string) => invoke<FileEntry>("vault_rename_file", { fileId, newName }),
+  moveFile: (fileId: string, folderId: string) => invoke<FileEntry>("vault_move_file", { fileId, folderId }),
+  moveFolder: (folderId: string, parentId: string) => invoke<FolderEntry>("vault_move_folder", { folderId, parentId }),
+  listAllFolders: () => invoke<FolderEntry[]>("vault_list_all_folders"),
+  /** Names across the whole silo, each with the path of its folder. */
+  search: (query: string) => invoke<(VaultEntry & { folder_path: string })[]>("vault_search", { query }),
   renameFolder: (folderId: string, newName: string) => invoke<FolderEntry>("vault_rename_folder", { folderId, newName }),
   trashFile: (fileId: string) => invoke<void>("vault_trash_file", { fileId }),
   trashFolder: (folderId: string) => invoke<void>("vault_trash_folder", { folderId }),
