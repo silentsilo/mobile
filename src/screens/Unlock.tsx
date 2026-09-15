@@ -55,7 +55,7 @@ export function Unlock({
       onUnlocked();
     } catch (e) {
       setWaitingForKey(false);
-      if (e === PIN_REQUIRED || e === "Wrong PIN.") {
+      if (e === PIN_REQUIRED || (typeof e === "string" && e.startsWith("Wrong PIN"))) {
         setPinError(e === PIN_REQUIRED ? null : e);
         setAskingPin(true);
       } else if (e !== "Cancelled") {

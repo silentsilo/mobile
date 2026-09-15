@@ -60,7 +60,7 @@ export function Keys({ onBack }: { onBack: () => void }) {
     } catch (e) {
       if (e === "Cancelled") {
         setAdding(null);
-      } else if (e === PIN_REQUIRED || e === "Wrong PIN.") {
+      } else if (e === PIN_REQUIRED || (typeof e === "string" && e.startsWith("Wrong PIN"))) {
         setAddError(e === PIN_REQUIRED ? null : e);
         setAdding("pin");
       } else {

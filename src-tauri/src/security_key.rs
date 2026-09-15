@@ -127,10 +127,18 @@ fn describe(error: &CtapError, usb: bool) -> String {
         }
         CtapError::NoCredentials => "This security key is not one of this silo's keys.".into(),
         CtapError::PinRequired => PIN_REQUIRED.into(),
-        CtapError::PinInvalid => "Wrong PIN.".into(),
-        CtapError::PinBlocked => {
-            "This security key's PIN is blocked. Unblock it with the key maker's tool.".into()
+        CtapError::PinInvalid { retries: Some(n) } => {
+            format!("Wrong PIN. {n} tries left before the key blocks its PIN.")
         }
+        CtapError::PinInvalid { retries: None } => "Wrong PIN.".into(),
+        CtapError::PinAuthBlocked => {
+            "Three wrong PINs in a row. Take the key away from the phone or unplug it, then try again."
+                .into()
+        }
+        CtapError::PinBlocked => "This security key's PIN is blocked after too many wrong tries. \
+             Only a reset of the key unblocks it, and a reset erases it from every silo, so open \
+             the silo another way: this phone's fingerprint, another key or the recovery code."
+            .into(),
         CtapError::Timeout => "No touch arrived in time. Try again and touch the key.".into(),
         CtapError::Unsupported(why) => format!("This security key cannot open a silo: {why}."),
         CtapError::Protocol(_) | CtapError::Status(_) => {
@@ -138,6 +146,10 @@ fn describe(error: &CtapError, usb: bool) -> String {
         }
     }
 }
+
+const NOT_OPENED: &str = "This security key could not open the silo.";
+
+const ADDED_WITHOUT_PIN: &str = "This key was added without its PIN, which works only with the key      plugged in. To use it over NFC, remove it in Keys and add it again.";
 
 /// The screen asks for the PIN when it sees this.
 const PIN_REQUIRED: &str = "This security key asks for its PIN.";
@@ -264,18 +276,25 @@ pub async fn vault_unlock_with_security_key(
         };
         let first = ctap2::unlock_candidates(dev, &ids, &vault_id, pin)?;
         if let Some(hit) = opens(&first) {
-            return Ok(Some(hit));
+            return Ok(Ok(hit));
         }
         if pin.is_some() {
-            let unverified = ctap2::unlock_candidates(dev, &ids, &vault_id, None)?;
-            return Ok(opens(&unverified));
+            // A key added somewhere that did not use its PIN. Over NFC the
+            // key refuses a second assertion in one tap after a verified
+            // one, so this only works plugged in.
+            return match ctap2::unlock_candidates(dev, &ids, &vault_id, None) {
+                Ok(unverified) => Ok(opens(&unverified).ok_or(NOT_OPENED)),
+                Err(CtapError::NoCredentials) => Ok(Err(NOT_OPENED)),
+                Err(e) => {
+                    eprintln!("[security-key] unverified retry failed: {e:?}");
+                    Ok(Err(ADDED_WITHOUT_PIN))
+                }
+            };
         }
-        Ok(None)
+        Ok(Err(NOT_OPENED))
     })
     .await?;
-    let Some((credential_id, shape, verified, wrap_key)) = found else {
-        return Err("This security key could not open the silo.".into());
-    };
+    let (credential_id, shape, verified, wrap_key) = found.map_err(str::to_string)?;
     eprintln!("[security-key] opened with {shape:?} salt, verified {verified}");
     remember_pin_key(&credential_id, verified);
     let root = silo.path.clone();

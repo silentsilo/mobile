@@ -351,8 +351,23 @@ pub struct NfcKey;
 
 impl silentsilo_fido::ctap2::nfc::Apdu for NfcKey {
     fn transmit(&mut self, apdu: &[u8]) -> Result<Vec<u8>, silentsilo_fido::ctap2::CtapError> {
-        call_bytes(|b| &b.keys, "transceive", "([B)[B", None, apdu)
-            .ok_or_else(|| silentsilo_fido::ctap2::CtapError::Transport("tag lost".into()))
+        let answer = call_bytes(|b| &b.keys, "transceive", "([B)[B", None, apdu)
+            .ok_or_else(|| silentsilo_fido::ctap2::CtapError::Transport("tag lost".into()))?;
+        // Shape only, for diagnosing a key: never the bytes, which carry the
+        // PIN's encrypted hash.
+        let n = answer.len();
+        eprintln!(
+            "[nfc] cla {:02x} ins {:02x} cmd {:02x}, {} out, {} back, sw {:02x}{:02x}, status {:02x}",
+            apdu.first().copied().unwrap_or(0),
+            apdu.get(1).copied().unwrap_or(0),
+            apdu.get(5).copied().unwrap_or(0),
+            apdu.len(),
+            n,
+            if n >= 2 { answer[n - 2] } else { 0 },
+            if n >= 2 { answer[n - 1] } else { 0 },
+            answer.first().copied().unwrap_or(0),
+        );
+        Ok(answer)
     }
 }
 
