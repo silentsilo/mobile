@@ -75,9 +75,15 @@ export type BackupStatus = {
   lastError: string;
   photosAllowed: boolean;
   contactsAllowed: boolean;
+  videos: boolean;
+  videosAllowed: boolean;
+  folders: string[];
   remind: boolean;
   waiting: number;
 };
+
+/** One folder of the phone's gallery. */
+export type MediaFolder = { id: string; name: string; photos: number; videos: number; bytes: number };
 
 export type BackupSettings = {
   photos: boolean;
@@ -85,6 +91,8 @@ export type BackupSettings = {
   wifiOnly: boolean;
   chargingOnly: boolean;
   includeExisting: boolean;
+  videos: boolean;
+  folders: string[];
   remind: boolean;
 };
 
@@ -164,5 +172,5 @@ export const api = {
   enableAutofill: () => invoke<void>("autofill_enable"),
 
   backupWaiting: () => invoke<number | null>("backup_waiting"),
-  photoCount: () => invoke<{ count: number; bytes: number }>("backup_photo_count"),
+  mediaFolders: () => invoke<MediaFolder[]>("backup_media_folders"),
 };

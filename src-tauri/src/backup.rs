@@ -108,6 +108,13 @@ pub struct BackupStatus {
     pub photos_allowed: bool,
     #[serde(default)]
     pub contacts_allowed: bool,
+    #[serde(default)]
+    pub videos: bool,
+    #[serde(default)]
+    pub videos_allowed: bool,
+    /// Gallery folders backed up; empty means all of them.
+    #[serde(default)]
+    pub folders: Vec<String>,
     #[serde(default = "yes")]
     pub remind: bool,
     #[serde(default)]
@@ -127,6 +134,10 @@ pub struct BackupSettings {
     pub charging_only: bool,
     #[serde(default)]
     pub include_existing: bool,
+    #[serde(default)]
+    pub videos: bool,
+    #[serde(default)]
+    pub folders: Vec<String>,
     #[serde(default = "yes")]
     pub remind: bool,
 }
@@ -194,7 +205,7 @@ pub async fn backup_configure(
     state: State<'_, AppState>,
     settings: BackupSettings,
 ) -> Result<BackupStatus, String> {
-    if !settings.photos && !settings.contacts {
+    if !settings.photos && !settings.videos && !settings.contacts {
         return backup_disable(app, state).await;
     }
     let silo = crate::commands::active_silo(&state)?;
@@ -218,6 +229,7 @@ pub async fn backup_configure(
                 "requestAccess",
                 serde_json::json!({
                     "photos": settings.photos,
+                    "videos": settings.videos,
                     "contacts": settings.contacts,
                     "remind": settings.remind,
                 }),
@@ -227,6 +239,11 @@ pub async fn backup_configure(
     if settings.photos && !allowed.photos_allowed {
         return Err(
             "Photos were not allowed. Allow them in the phone's settings for SilentSilo.".into(),
+        );
+    }
+    if settings.videos && !allowed.videos_allowed {
+        return Err(
+            "Videos were not allowed. Allow them in the phone's settings for SilentSilo.".into(),
         );
     }
     if settings.contacts && !allowed.contacts_allowed {
@@ -306,6 +323,8 @@ pub async fn backup_configure(
                 "wifiOnly": settings.wifi_only,
                 "chargingOnly": settings.charging_only,
                 "includeExisting": settings.include_existing,
+                "videos": settings.videos,
+                "folders": settings.folders,
                 "remind": settings.remind,
             }),
         )
@@ -529,19 +548,30 @@ pub fn waiting_from_job(data_dir: &Path) -> i64 {
         .unwrap_or(-1)
 }
 
-/// How many photos the phone holds and their size, before sending them all.
+/// One folder of the phone's gallery: Camera, Screenshots, WhatsApp Images.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PhotoCount {
-    pub count: i64,
+pub struct MediaFolder {
+    pub id: String,
+    pub name: String,
+    pub photos: i64,
+    pub videos: i64,
     pub bytes: i64,
 }
 
+/// The gallery's folders, asking for photo and video access first.
 #[tauri::command]
-pub async fn backup_photo_count(app: AppHandle) -> Result<PhotoCount, String> {
+pub async fn backup_media_folders(app: AppHandle) -> Result<Vec<MediaFolder>, String> {
+    #[derive(Deserialize)]
+    struct Folders {
+        #[serde(default)]
+        folders: Vec<MediaFolder>,
+    }
     let lock = app.state::<BackgroundLock>();
     let _prompt = lock.prompt();
-    plugin(&app).call("photoCount", serde_json::json!({})).await
+    let listed: Folders = plugin(&app)
+        .call("mediaFolders", serde_json::json!({}))
+        .await?;
+    Ok(listed.folders)
 }
 
 #[tauri::command]

@@ -28,6 +28,9 @@ let backup = {
   contactsAllowed: false,
   remind: true,
   waiting: 0,
+  videos: false,
+  videosAllowed: false,
+  folders: [] as string[],
 };
 let phoneKey = joined;
 
@@ -226,7 +229,11 @@ const handlers: Record<string, Handler> = {
   autofill_status: () => ({ supported: true, enabled: false }),
   autofill_enable: () => undefined,
   backup_waiting: () => (backup.photos || backup.contacts ? 3 : null),
-  backup_photo_count: () => ({ count: 48213, bytes: 256 * 1024 ** 3 }),
+  backup_media_folders: () => [
+    { id: "1", name: "Camera", photos: 41200, videos: 1320, bytes: 230 * 1024 ** 3 },
+    { id: "2", name: "Screenshots", photos: 5210, videos: 12, bytes: 6 * 1024 ** 3 },
+    { id: "3", name: "WhatsApp Images", photos: 1803, videos: 0, bytes: 2 * 1024 ** 3 },
+  ],
   backup_run_now: () => {
     backup = { ...backup, lastRun: Math.floor(Date.now() / 1000) };
   },

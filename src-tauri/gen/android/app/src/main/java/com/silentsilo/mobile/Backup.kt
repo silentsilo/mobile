@@ -42,6 +42,13 @@ class BackupPrefs(context: Context) {
   // The newest photo already sent: MediaStore's DATE_ADDED, then _ID.
   var addedMark: Long by long("addedMark")
   var idMark: Long by long("idMark")
+  var videos: Boolean by bool("videos")
+  // The same for videos, which started being sent at their own moment.
+  var videoAddedMark: Long by long("videoAddedMark")
+  var videoIdMark: Long by long("videoIdMark")
+  // Gallery folders (MediaStore bucket ids) to back up, comma separated.
+  // Empty means every folder.
+  var folders: String by string("folders")
   var sent: Long by long("sent")
   var lastRun: Long by long("lastRun")
   var lastError: String by string("lastError")
@@ -89,6 +96,12 @@ object BackupScheduler {
           .addTriggerContentUri(
             JobInfo.TriggerContentUri(
               MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+              JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS,
+            )
+          )
+          .addTriggerContentUri(
+            JobInfo.TriggerContentUri(
+              MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
               JobInfo.TriggerContentUri.FLAG_NOTIFY_FOR_DESCENDANTS,
             )
           )
@@ -174,6 +187,10 @@ class BackupRunner(private val context: Context) {
     fun photoPermission(): String =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_IMAGES
       else Manifest.permission.READ_EXTERNAL_STORAGE
+
+    fun videoPermission(): String =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_VIDEO
+      else Manifest.permission.READ_EXTERNAL_STORAGE
   }
 
   fun backUp(stopped: () -> Boolean): Boolean {
@@ -194,7 +211,10 @@ class BackupRunner(private val context: Context) {
     try {
       if (sendAgain(stopped)) return true
       if (prefs.photos && granted(photoPermission())) {
-        if (sendPhotos(stopped)) return true
+        if (sendMedia(Media.PHOTO, stopped)) return true
+      }
+      if (prefs.videos && granted(videoPermission()) && !stopped()) {
+        if (sendMedia(Media.VIDEO, stopped)) return true
       }
       if (prefs.contacts && granted(Manifest.permission.READ_CONTACTS) && !stopped()) {
         if (sendContacts()) return true
@@ -221,14 +241,14 @@ class BackupRunner(private val context: Context) {
           prefs.contactsSentAt = 0
           Native.resolveResend(dataDir, kind, reference)
         }
-        "photo" -> {
+        "photo", "video" -> {
           val id = reference.substringBefore(':').toLongOrNull()
           val added = reference.substringAfter(':').toLongOrNull()
           if (id == null || added == null) {
             Native.resolveResend(dataDir, kind, reference)
             continue
           }
-          val outcome = resendPhoto(id, added)
+          val outcome = resendMedia(if (kind == "video") Media.VIDEO else Media.PHOTO, id, added)
           if (outcome.startsWith("retry")) {
             prefs.lastError = outcome.removePrefix("retry: ")
             return true
@@ -241,27 +261,18 @@ class BackupRunner(private val context: Context) {
     return false
   }
 
-  // "ok", "gone" when the photo left the phone, or "retry: why".
-  private fun resendPhoto(id: Long, added: Long): String {
-    val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
-    val columns = arrayOf(MediaStore.Images.Media.DISPLAY_NAME, MediaStore.Images.Media.MIME_TYPE, MediaStore.Images.Media.DATE_TAKEN, MediaStore.Images.Media.DATE_ADDED)
+  // "ok", "gone" when it left the phone, or "retry: why".
+  private fun resendMedia(media: Media, id: Long, added: Long): String {
+    val uri = ContentUris.withAppendedId(media.uri, id)
+    val columns = arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.MIME_TYPE, MediaStore.MediaColumns.DATE_TAKEN, MediaStore.MediaColumns.DATE_ADDED)
     val row = context.contentResolver.query(uri, columns, null, null, null)?.use { rows ->
       if (rows.moveToFirst() && rows.getLong(3) == added) {
-        listOf(rows.getString(0) ?: "photo-$id.jpg", rows.getString(1) ?: "", rows.getLong(2).toString())
+        listOf(rows.getString(0) ?: "${media.kind}-$id", rows.getString(1) ?: "", rows.getLong(2).toString())
       } else {
         null
       }
     } ?: return "gone"
-    val takenMs = row[2].toLongOrNull() ?: 0
-    val taken = if (takenMs > 0) takenMs / 1000 else added
-    val month = SimpleDateFormat("yyyy-MM", Locale.ROOT).format(Date(taken * 1000))
-    val itemId = UUID.nameUUIDFromBytes("photo:${prefs.vaultId}:$id:$added".toByteArray()).toString()
-    val folder = listOf("Phone backup", prefs.label, "Photos", month).joinToString("\n")
-    val outcome = openPhoto(uri)?.use { fd ->
-      Native.sendItem(dataDir, fd.fd, itemId, row[0], row[1], taken, folder, "photos")
-    } ?: return "gone"
-    if (outcome == "ok") Native.recordSent(dataDir, itemId, "photo", "$id:$added")
-    return outcome
+    return send(media, id, added, row[0], row[1], row[2].toLongOrNull() ?: 0) ?: "gone"
   }
 
   // Items only join the silo when a device opens it. If they have waited
@@ -284,34 +295,55 @@ class BackupRunner(private val context: Context) {
     }
   }
 
-  private fun sendPhotos(stopped: () -> Boolean): Boolean {
+  // Photos and videos go the same way: oldest first from where the last run
+  // stopped, each under an item id made from the MediaStore row, into
+  // Phone backup / <phone> / Photos or Videos / <month taken>.
+  enum class Media(val kind: String, val uri: Uri, val folder: String) {
+    PHOTO("photo", MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "Photos"),
+    VIDEO("video", MediaStore.Video.Media.EXTERNAL_CONTENT_URI, "Videos"),
+  }
+
+  private fun marks(media: Media): Pair<Long, Long> =
+    if (media == Media.PHOTO) prefs.addedMark to prefs.idMark else prefs.videoAddedMark to prefs.videoIdMark
+
+  private fun setMarks(media: Media, added: Long, id: Long) {
+    if (media == Media.PHOTO) {
+      prefs.addedMark = added
+      prefs.idMark = id
+    } else {
+      prefs.videoAddedMark = added
+      prefs.videoIdMark = id
+    }
+  }
+
+  private fun sendMedia(media: Media, stopped: () -> Boolean): Boolean {
     val columns = arrayOf(
-      MediaStore.Images.Media._ID,
-      MediaStore.Images.Media.DISPLAY_NAME,
-      MediaStore.Images.Media.MIME_TYPE,
-      MediaStore.Images.Media.DATE_TAKEN,
-      MediaStore.Images.Media.DATE_ADDED,
+      MediaStore.MediaColumns._ID,
+      MediaStore.MediaColumns.DISPLAY_NAME,
+      MediaStore.MediaColumns.MIME_TYPE,
+      MediaStore.MediaColumns.DATE_TAKEN,
+      MediaStore.MediaColumns.DATE_ADDED,
     )
-    val selection = "${MediaStore.Images.Media.DATE_ADDED} > ? OR (${MediaStore.Images.Media.DATE_ADDED} = ? AND ${MediaStore.Images.Media._ID} > ?)"
-    val args = arrayOf(prefs.addedMark.toString(), prefs.addedMark.toString(), prefs.idMark.toString())
-    val order = "${MediaStore.Images.Media.DATE_ADDED} ASC, ${MediaStore.Images.Media._ID} ASC"
-    context.contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, columns, selection, args, order)?.use { rows ->
+    val (addedMark, idMark) = marks(media)
+    val added = MediaStore.MediaColumns.DATE_ADDED
+    val rowId = MediaStore.MediaColumns._ID
+    var selection = "($added > ? OR ($added = ? AND $rowId > ?))"
+    val args = mutableListOf(addedMark.toString(), addedMark.toString(), idMark.toString())
+    val chosen = prefs.folders.split(',').filter { it.isNotBlank() }
+    if (chosen.isNotEmpty()) {
+      selection += " AND ${MediaStore.MediaColumns.BUCKET_ID} IN (${chosen.joinToString(",") { "?" }})"
+      args += chosen
+    }
+    val order = "$added ASC, $rowId ASC"
+    context.contentResolver.query(media.uri, columns, selection, args.toTypedArray(), order)?.use { rows ->
       while (rows.moveToNext()) {
         if (stopped()) return true
         val id = rows.getLong(0)
-        val name = rows.getString(1) ?: "photo-$id.jpg"
+        val name = rows.getString(1) ?: "${media.kind}-$id"
         val mime = rows.getString(2) ?: ""
-        val added = rows.getLong(4)
-        val takenMs = rows.getLong(3)
-        val taken = if (takenMs > 0) takenMs / 1000 else added
-        val month = SimpleDateFormat("yyyy-MM", Locale.ROOT).format(Date(taken * 1000))
-        val itemId = UUID.nameUUIDFromBytes("photo:${prefs.vaultId}:$id:$added".toByteArray()).toString()
-        val folder = listOf("Phone backup", prefs.label, "Photos", month).joinToString("\n")
-
-        val uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id)
-        val outcome = openPhoto(uri)?.use { fd ->
-          Native.sendItem(dataDir, fd.fd, itemId, name, mime, taken, folder, "photos")
-        } ?: "skip: the photo could not be opened"
+        val dateAdded = rows.getLong(4)
+        val outcome = send(media, id, dateAdded, name, mime, rows.getLong(3))
+          ?: "skip: it could not be opened"
 
         if (outcome.startsWith("retry")) {
           prefs.lastError = outcome.removePrefix("retry: ")
@@ -321,15 +353,28 @@ class BackupRunner(private val context: Context) {
           prefs.sent = prefs.sent + 1
           // An earlier failure is history once something goes through.
           prefs.lastError = ""
-          Native.recordSent(dataDir, itemId, "photo", "$id:$added")
         } else {
           prefs.lastError = "$name: ${outcome.removePrefix("skip: ")}"
         }
-        prefs.addedMark = added
-        prefs.idMark = id
+        setMarks(media, dateAdded, id)
       }
     }
     return false
+  }
+
+  // Sends one row and notes it in the ledger. Null when it cannot be opened.
+  private fun send(media: Media, id: Long, added: Long, name: String, mime: String, takenMs: Long): String? {
+    val taken = if (takenMs > 0) takenMs / 1000 else added
+    val month = SimpleDateFormat("yyyy-MM", Locale.ROOT).format(Date(taken * 1000))
+    // Photos keep the prefix they were first sent with, so ids never change.
+    val itemId = UUID.nameUUIDFromBytes("${media.kind}:${prefs.vaultId}:$id:$added".toByteArray()).toString()
+    val folder = listOf("Phone backup", prefs.label, media.folder, month).joinToString("\n")
+    val uri = ContentUris.withAppendedId(media.uri, id)
+    val outcome = openPhoto(uri)?.use { fd ->
+      Native.sendItem(dataDir, fd.fd, itemId, name, mime, taken, folder, if (media == Media.PHOTO) "photos" else "videos")
+    } ?: return null
+    if (outcome == "ok") Native.recordSent(dataDir, itemId, media.kind, "$id:$added")
+    return outcome
   }
 
   // The original, with its location, when the app may read that.

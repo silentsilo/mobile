@@ -1,6 +1,6 @@
-import { RefreshCw } from "lucide-react";
+import { ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type BackupSettings, type BackupStatus } from "../api";
+import { api, type BackupSettings, type BackupStatus, type MediaFolder } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
@@ -19,8 +19,11 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const saving = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [askExisting, setAskExisting] = useState(false);
-  const [onPhone, setOnPhone] = useState<{ count: number; bytes: number } | null>(null);
+  // Turning photos or videos on asks whether to send what is already there.
+  const [askExisting, setAskExisting] = useState<"photos" | "videos" | null>(null);
+  const [folders, setFolders] = useState<MediaFolder[] | null>(null);
+  const [choosingFolders, setChoosingFolders] = useState(false);
+  const [chosen, setChosen] = useState<string[]>([]);
   const [waiting, setWaiting] = useState<number | null>(null);
   const toast = useToast();
 
@@ -43,6 +46,8 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
     if (!status || busy) return;
     const settings = {
       photos: status.photos,
+      videos: status.videos,
+      folders: status.folders,
       contacts: status.contacts,
       wifiOnly: status.wifiOnly,
       chargingOnly: status.chargingOnly,
@@ -66,15 +71,37 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
     }
   };
 
-  // Counted first, so "All photos" says what it would send.
-  const askAboutExisting = async () => {
-    setOnPhone(null);
-    setAskExisting(true);
+  const readFolders = async () => {
     try {
-      setOnPhone(await api.photoCount());
-    } catch {
-      setOnPhone(null);
+      const listed = await api.mediaFolders();
+      setFolders(listed);
+      return listed;
+    } catch (e) {
+      toast(formatAppError(e));
+      return null;
     }
+  };
+
+  // Counted first, so "All" says what it would send.
+  const askAboutExisting = (kind: "photos" | "videos") => {
+    setAskExisting(kind);
+    if (!folders) void readFolders();
+  };
+
+  const openFolders = async () => {
+    setChosen(status?.folders ?? []);
+    setChoosingFolders(true);
+    if (!folders) await readFolders();
+  };
+
+  // What "all existing" would send, in the folders backed up.
+  const existing = (kind: "photos" | "videos") => {
+    if (!folders || !status) return null;
+    const inScope = folders.filter((f) => status.folders.length === 0 || status.folders.includes(f.id));
+    const count = inScope.reduce((n, f) => n + (kind === "photos" ? f.photos : f.videos), 0);
+    // Folder sizes cover photos and videos together; shared out by count.
+    const bytes = inScope.reduce((n, f) => n + (f.photos + f.videos ? (f.bytes * (kind === "photos" ? f.photos : f.videos)) / (f.photos + f.videos) : 0), 0);
+    return { count, bytes };
   };
 
   const runNow = async () => {
@@ -96,7 +123,9 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
     </div>
   );
 
-  const on = !!status && (status.photos || status.contacts);
+  const on = !!status && (status.photos || status.videos || status.contacts);
+  const media = !!status && (status.photos || status.videos);
+  const offer = askExisting ? existing(askExisting) : null;
 
   return (
     <div className="screen">
@@ -105,7 +134,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
           <h1 className="title">Phone backup</h1>
           <p className="hint">
-            New photos and your contacts are encrypted on this phone and sent to the silo's storage on their own, even while the
+            New photos, videos and your contacts are encrypted on this phone and sent to the silo's storage on their own, even while the
             silo is locked. They join the silo, under Files, Phone backup, the next time it is opened on this phone or on a computer
             running SilentSilo 1.1 or later. Until then they wait in storage, still encrypted, and the originals stay on the phone.
           </p>
@@ -114,9 +143,24 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
         {status && (
           <>
             <div className="panel">
-              {toggle("Photos", "Every new photo", status.photos, () => (status.photos ? void apply({ photos: false }) : void askAboutExisting()), true)}
+              {toggle("Photos", "Every new photo", status.photos, () => (status.photos ? void apply({ photos: false }) : askAboutExisting("photos")), true)}
+              {toggle("Videos", "Large: best left to Wi-Fi", status.videos, () => (status.videos ? void apply({ videos: false }) : askAboutExisting("videos")))}
               {toggle("Contacts", "Once a day, when they change", status.contacts, () => void apply({ contacts: !status.contacts }))}
             </div>
+            {media && (
+              <div className="panel">
+                <button className="row" style={{ minHeight: 60 }} onClick={() => void openFolders()}>
+                  <span className="row-text">
+                    <span className="row-title">Folders</span>
+                    <span className="row-sub">Camera, screenshots, messaging apps</span>
+                  </span>
+                  <span className="muted">
+                    {status.folders.length === 0 ? "All" : `${status.folders.length} chosen`}
+                  </span>
+                  <ChevronRight size={18} color="var(--text-dim)" />
+                </button>
+              </div>
+            )}
             {on && (
               <div className="panel">
                 {toggle("Only on Wi-Fi", "No mobile data", status.wifiOnly, () => void apply({ wifiOnly: !status.wifiOnly }), true)}
@@ -155,31 +199,71 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
         )}
       </div>
 
-      <Sheet open={askExisting} onClose={() => setAskExisting(false)} title="Photos already on this phone">
-        <p className="hint">Back up only the photos you take from now on, or every photo already on the phone as well.</p>
-        {onPhone && (
+      <Sheet open={askExisting !== null} onClose={() => setAskExisting(null)} title={askExisting === "videos" ? "Videos already on this phone" : "Photos already on this phone"}>
+        <p className="hint">Back up only what you take from now on, or everything already on the phone as well.</p>
+        {offer && (
           <p className="hint">
-            This phone holds {onPhone.count.toLocaleString()} photos, {formatBytes(onPhone.bytes)} in all. Check that the silo's storage has
-            room for them before choosing all.
+            {offer.count.toLocaleString()} {askExisting} in the folders backed up, about {formatBytes(offer.bytes)}. Check that the
+            silo's storage has room before choosing all.
           </p>
         )}
         <button
           className="btn"
           onClick={() => {
-            setAskExisting(false);
-            void apply({ photos: true, includeExisting: false });
+            const kind = askExisting;
+            setAskExisting(null);
+            void apply({ [kind ?? "photos"]: true, includeExisting: false });
           }}
         >
-          Only new photos
+          Only new ones
         </button>
         <button
           className="btn secondary"
           onClick={() => {
-            setAskExisting(false);
-            void apply({ photos: true, includeExisting: true });
+            const kind = askExisting;
+            setAskExisting(null);
+            void apply({ [kind ?? "photos"]: true, includeExisting: true });
           }}
         >
-          {onPhone ? `All photos (${formatBytes(onPhone.bytes)})` : "All photos"}
+          {offer ? `All of them (${formatBytes(offer.bytes)})` : "All of them"}
+        </button>
+      </Sheet>
+
+      <Sheet open={choosingFolders} onClose={() => setChoosingFolders(false)} title="Folders to back up">
+        <p className="hint">Nothing ticked backs up every folder. A folder added later sends what arrives in it from then on.</p>
+        {folders === null && <p className="hint">Reading the gallery…</p>}
+        {folders && (
+          <div className="panel" style={{ maxHeight: "45vh", overflowY: "auto" }}>
+            {folders.map((folder, i) => {
+              const ticked = chosen.includes(folder.id);
+              return (
+                <button
+                  key={folder.id}
+                  className={`row${i ? " divide" : ""}`}
+                  style={{ minHeight: 56 }}
+                  aria-pressed={ticked}
+                  onClick={() => setChosen(ticked ? chosen.filter((id) => id !== folder.id) : [...chosen, folder.id])}
+                >
+                  <span className="row-text">
+                    <span className="row-title">{folder.name}</span>
+                    <span className="row-sub">
+                      {folder.photos.toLocaleString()} photos · {folder.videos.toLocaleString()} videos · {formatBytes(folder.bytes)}
+                    </span>
+                  </span>
+                  <span className="switch" role="presentation" aria-checked={ticked} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+        <button
+          className="btn"
+          onClick={() => {
+            setChoosingFolders(false);
+            void apply({ folders: chosen });
+          }}
+        >
+          Save
         </button>
       </Sheet>
     </div>

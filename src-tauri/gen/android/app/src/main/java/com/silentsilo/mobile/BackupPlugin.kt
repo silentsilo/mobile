@@ -10,6 +10,7 @@ import app.tauri.annotation.Permission
 import app.tauri.annotation.PermissionCallback
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSArray
 import app.tauri.plugin.JSObject
 import app.tauri.plugin.Plugin
 
@@ -18,6 +19,7 @@ import app.tauri.plugin.Plugin
 @TauriPlugin(
   permissions = [
     Permission(strings = [Manifest.permission.READ_MEDIA_IMAGES], alias = "photos"),
+    Permission(strings = [Manifest.permission.READ_MEDIA_VIDEO], alias = "videos"),
     Permission(strings = [Manifest.permission.READ_EXTERNAL_STORAGE], alias = "photosLegacy"),
     Permission(strings = [Manifest.permission.ACCESS_MEDIA_LOCATION], alias = "mediaLocation"),
     Permission(strings = [Manifest.permission.READ_CONTACTS], alias = "contacts"),
@@ -35,8 +37,13 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
   fun requestAccess(invoke: Invoke) {
     val args = invoke.getArgs()
     val aliases = mutableListOf<String>()
+    val modern = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
     if (args.getBoolean("photos", false)) {
-      aliases += if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) "photos" else "photosLegacy"
+      aliases += if (modern) "photos" else "photosLegacy"
+      aliases += "mediaLocation"
+    }
+    if (args.getBoolean("videos", false)) {
+      aliases += if (modern) "videos" else "photosLegacy"
       aliases += "mediaLocation"
     }
     if (args.getBoolean("contacts", false)) aliases += "contacts"
@@ -53,39 +60,53 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     invoke.resolve(statusObject())
   }
 
-  // Asks for photo access if needed, then counts what "all photos" would send.
+  // Asks for photo and video access if needed, then lists the gallery's
+  // folders with what each holds, for choosing and for "send everything".
   @Command
-  fun photoCount(invoke: Invoke) {
-    val alias = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) "photos" else "photosLegacy"
-    if (granted(alias)) {
-      countPhotos(invoke)
+  fun mediaFolders(invoke: Invoke) {
+    val modern = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val aliases = if (modern) arrayOf("photos", "videos", "mediaLocation") else arrayOf("photosLegacy", "mediaLocation")
+    if (aliases.all { it == "mediaLocation" || granted(it) }) {
+      listFolders(invoke)
     } else {
-      requestPermissionForAliases(arrayOf(alias, "mediaLocation"), invoke, "countPhotos")
+      requestPermissionForAliases(aliases, invoke, "listFolders")
     }
   }
 
   @PermissionCallback
-  fun countPhotos(invoke: Invoke) {
-    val result = JSObject()
-    var count = 0L
-    var bytes = 0L
-    try {
-      activity.contentResolver.query(
-        MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-        arrayOf(MediaStore.Images.Media.SIZE),
-        null,
-        null,
-        null,
-      )?.use { rows ->
-        while (rows.moveToNext()) {
-          count++
-          bytes += rows.getLong(0)
+  fun listFolders(invoke: Invoke) {
+    class Folder(val id: String, var name: String, var photos: Long = 0, var videos: Long = 0, var bytes: Long = 0)
+    val folders = linkedMapOf<String, Folder>()
+    val columns = arrayOf(
+      MediaStore.MediaColumns.BUCKET_ID,
+      MediaStore.MediaColumns.BUCKET_DISPLAY_NAME,
+      MediaStore.MediaColumns.SIZE,
+    )
+    for ((uri, video) in listOf(MediaStore.Images.Media.EXTERNAL_CONTENT_URI to false, MediaStore.Video.Media.EXTERNAL_CONTENT_URI to true)) {
+      try {
+        activity.contentResolver.query(uri, columns, null, null, null)?.use { rows ->
+          while (rows.moveToNext()) {
+            val id = rows.getString(0) ?: continue
+            val folder = folders.getOrPut(id) { Folder(id, rows.getString(1) ?: "Other") }
+            if (video) folder.videos++ else folder.photos++
+            folder.bytes += rows.getLong(2)
+          }
         }
+      } catch (_: Exception) {
       }
-    } catch (_: Exception) {
     }
-    result.put("count", count)
-    result.put("bytes", bytes)
+    val list = JSArray()
+    for (folder in folders.values.sortedByDescending { it.photos + it.videos }) {
+      val item = JSObject()
+      item.put("id", folder.id)
+      item.put("name", folder.name)
+      item.put("photos", folder.photos)
+      item.put("videos", folder.videos)
+      item.put("bytes", folder.bytes)
+      list.put(item)
+    }
+    val result = JSObject()
+    result.put("folders", list)
     invoke.resolve(result)
   }
 
@@ -112,11 +133,20 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
       prefs.clear()
       prefs.vaultId = vaultId
     }
-    // Where photos start: now, or the oldest photo on the phone.
+    val videos = args.getBoolean("videos", false)
+    val start = if (args.getBoolean("includeExisting", false)) 0 else System.currentTimeMillis() / 1000
+    // Where each starts: now, or the oldest one on the phone.
     if (photos && !prefs.photos) {
-      prefs.addedMark = if (args.getBoolean("includeExisting", false)) 0 else System.currentTimeMillis() / 1000
+      prefs.addedMark = start
       prefs.idMark = 0
     }
+    if (videos && !prefs.videos) {
+      prefs.videoAddedMark = start
+      prefs.videoIdMark = 0
+    }
+    prefs.videos = videos
+    val folders = args.optJSONArray("folders")
+    prefs.folders = (0 until (folders?.length() ?: 0)).joinToString(",") { folders!!.getString(it) }
     prefs.label = args.getString("label")
     prefs.photos = photos
     prefs.contacts = args.getBoolean("contacts", false)
@@ -148,6 +178,9 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     val result = JSObject()
     result.put("vaultId", prefs.vaultId)
     result.put("photos", prefs.photos)
+    result.put("videos", prefs.videos)
+    result.put("folders", JSArray(prefs.folders.split(',').filter { it.isNotBlank() }))
+    result.put("videosAllowed", activity.checkSelfPermission(BackupRunner.videoPermission()) == PackageManager.PERMISSION_GRANTED)
     result.put("contacts", prefs.contacts)
     result.put("wifiOnly", prefs.wifiOnly)
     result.put("chargingOnly", prefs.chargingOnly)
@@ -164,6 +197,7 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
   private fun granted(alias: String): Boolean {
     val permission = when (alias) {
       "photos" -> Manifest.permission.READ_MEDIA_IMAGES
+      "videos" -> Manifest.permission.READ_MEDIA_VIDEO
       "photosLegacy" -> Manifest.permission.READ_EXTERNAL_STORAGE
       "mediaLocation" -> Manifest.permission.ACCESS_MEDIA_LOCATION
       "notifications" -> Manifest.permission.POST_NOTIFICATIONS

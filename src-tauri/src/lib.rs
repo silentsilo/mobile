@@ -79,7 +79,7 @@ pub fn run() {
             backup::backup_configure,
             backup::backup_disable,
             backup::backup_run_now,
-            backup::backup_photo_count,
+            backup::backup_media_folders,
             backup::backup_waiting,
             incoming::files_pick,
             incoming::files_take_shared,
