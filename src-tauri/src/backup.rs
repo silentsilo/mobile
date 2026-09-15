@@ -373,6 +373,11 @@ struct Sent {
     /// for a photo, the vCard hash for contacts.
     reference: String,
     sent_at: i64,
+    /// Found in neither place by the last check. Lost only when the next
+    /// check agrees: an import finishing elsewhere during this device's pass
+    /// takes the item from the inbox before its record reaches here.
+    #[serde(default)]
+    missing: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize)]
@@ -423,6 +428,7 @@ pub fn record_sent(data_dir: &Path, item_id: Uuid, kind: &str, reference: &str) 
         kind: kind.into(),
         reference: reference.into(),
         sent_at: now(),
+        missing: false,
     });
     save_ledger(data_dir, &ledger);
 }
@@ -479,7 +485,7 @@ pub async fn confirm_sent(app: &AppHandle, silo: &silentsilo_vault::SiloEntry) {
         .map(|s| s.item_id)
         .collect();
 
-    let mut lost = Vec::new();
+    let mut absent = Vec::new();
     let old: Vec<&Sent> = pending
         .iter()
         .filter(|s| !known.contains(&s.item_id) && now() - s.sent_at > LOST_AFTER)
@@ -492,27 +498,41 @@ pub async fn confirm_sent(app: &AppHandle, silo: &silentsilo_vault::SiloEntry) {
             let envelope = format!("{}{}.env", inbox::INBOX_ITEMS_PREFIX, sent.item_id);
             // Unreachable storage says nothing either way: try again later.
             if let Ok(None) = store.head(&envelope).await {
-                lost.push(sent.item_id);
+                absent.push(sent.item_id);
             }
         }
     }
-    if known.is_empty() && lost.is_empty() {
-        return;
-    }
-
     let _held = LEDGER.lock();
     let mut ledger = load_ledger(data_dir);
+    if settle_ledger(&mut ledger, &known, &absent) {
+        save_ledger(data_dir, &ledger);
+    }
+}
+
+/// Drops what the silo knows, and moves to the resend list what two checks
+/// in a row found nowhere. True when anything changed.
+fn settle_ledger(ledger: &mut Ledger, known: &[Uuid], absent: &[Uuid]) -> bool {
+    let mut changed = false;
     let mut moved = Vec::new();
-    ledger.sent.retain(|s| {
-        if lost.contains(&s.item_id) {
-            moved.push(s.clone());
-            false
-        } else {
-            !known.contains(&s.item_id)
+    ledger.sent.retain_mut(|s| {
+        if known.contains(&s.item_id) {
+            changed = true;
+            return false;
         }
+        let now_absent = absent.contains(&s.item_id);
+        if now_absent && s.missing {
+            moved.push(s.clone());
+            changed = true;
+            return false;
+        }
+        if s.missing != now_absent {
+            s.missing = now_absent;
+            changed = true;
+        }
+        true
     });
     ledger.resend.extend(moved);
-    save_ledger(data_dir, &ledger);
+    changed
 }
 
 /// Items sent to the silo's inbox and not imported yet. Needs no key: the
@@ -732,5 +752,28 @@ mod tests {
         save_ledger(dir.path(), &ledger);
         resolve_resend(dir.path(), "photo", "42:1700000000");
         assert_eq!(resends(dir.path()), "[]");
+    }
+
+    #[test]
+    fn an_item_is_lost_only_when_two_checks_in_a_row_find_it_nowhere() {
+        let dir = tempfile::tempdir().unwrap();
+        let (item, other) = (Uuid::new_v4(), Uuid::new_v4());
+        record_sent(dir.path(), item, "photo", "1:1");
+        record_sent(dir.path(), other, "photo", "2:2");
+        let mut ledger = load_ledger(dir.path());
+
+        // Finished elsewhere during this pass: absent, record not here yet.
+        assert!(settle_ledger(&mut ledger, &[], &[item]));
+        assert!(ledger.resend.is_empty());
+        // The next pass brought the record.
+        assert!(settle_ledger(&mut ledger, &[item], &[]));
+        assert!(ledger.resend.is_empty());
+        assert_eq!(ledger.sent.len(), 1);
+
+        // Twice nowhere: sent again.
+        settle_ledger(&mut ledger, &[], &[other]);
+        settle_ledger(&mut ledger, &[], &[other]);
+        assert_eq!(ledger.resend.len(), 1);
+        assert!(ledger.sent.is_empty());
     }
 }
