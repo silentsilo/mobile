@@ -184,13 +184,26 @@ pub async fn vault_join_with_recovery(
     let store_config = config.into_config(None)?;
     let store = store_config.open().map_err(|e| e.to_string())?;
     let join = flows::recovery_join_begin(&*store, &code).await?;
+    finish_join(&app, &state, &store_config, &*store, join, &name).await
+}
 
+/// Everything after the recovery code or a security key opened the silo:
+/// this phone's folder, credentials and storage settings, the silo created
+/// and filled from storage, and opened.
+pub(crate) async fn finish_join(
+    app: &AppHandle,
+    state: &AppState,
+    store_config: &silentsilo_store::StoreConfig,
+    store: &dyn silentsilo_store::ObjectStore,
+    join: flows::RecoveryJoin,
+    name: &str,
+) -> Result<VaultMeta, String> {
     // The silo list and this phone's folder for it.
     let name = name.trim();
     if name.is_empty() {
         return Err("Give the silo a name.".into());
     }
-    let app_data = app_data(&app)?;
+    let app_data = app_data(app)?;
     let mut registry = load_registry(&app_data);
     if registry.silos.iter().any(|s| s.id == join.vault_id) {
         return Err("That silo is already on this phone.".into());
@@ -212,9 +225,9 @@ pub async fn vault_join_with_recovery(
         device_secret: device_secret.clone(),
     })
     .map_err(|e| e.to_string())?;
-    silentsilo_vault::save_s3_config(join.vault_id, &store_config).map_err(|e| e.to_string())?;
+    silentsilo_vault::save_s3_config(join.vault_id, store_config).map_err(|e| e.to_string())?;
 
-    let session = flows::recovery_join_provision(&*store, &join, root, &device_secret).await?;
+    let session = flows::recovery_join_provision(store, &join, root, &device_secret).await?;
 
     registry.upsert(entry.clone());
     registry.active = Some(entry.id);
@@ -223,7 +236,7 @@ pub async fn vault_join_with_recovery(
 
     let emitter = app.clone();
     let plan = silentsilo_sync::fetch_join_plan_reporting(
-        &*store,
+        store,
         join.dek(),
         &mut move |fetched, total| {
             let _ = emitter.emit("join-progress", JoinProgress { fetched, total });
@@ -236,7 +249,7 @@ pub async fn vault_join_with_recovery(
         tauri::async_runtime::spawn_blocking(move || flows::join_finish(session, plan))
             .await
             .map_err(|e| e.to_string())??;
-    state.open_session(&host(&app), entry.id, session)?;
+    state.open_session(&host(app), entry.id, session)?;
     Ok(meta)
 }
 

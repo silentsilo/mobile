@@ -110,6 +110,8 @@ export const api = {
   previewJoin: (config: StoreConfigInput) => invoke<JoinPreview>("vault_preview_join", { config }),
   joinWithRecovery: (config: StoreConfigInput, code: string, name: string) =>
     invoke<VaultMeta>("vault_join_with_recovery", { config, code, name, location: null }),
+  joinWithSecurityKey: (config: StoreConfigInput, name: string) =>
+    invoke<VaultMeta>("vault_join_with_security_key", { config, name }),
   enrollDeviceKey: (label: string) => invoke<void>("device_key_enroll", { label }),
 
   unlock: () => invoke<VaultMeta>("vault_unlock"),

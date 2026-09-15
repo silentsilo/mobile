@@ -107,6 +107,7 @@ pub fn run() {
             security_key::security_key_count,
             security_key::vault_unlock_with_security_key,
             security_key::security_key_enroll,
+            security_key::vault_join_with_security_key,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SilentSilo");

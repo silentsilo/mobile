@@ -463,3 +463,61 @@ pub async fn security_key_enroll(
         .ok_or_else(|| "The silo locked while the key was added. Add it again.".to_string())?;
     flows::enrol_device_key(session, &key).map(|_| ())
 }
+
+/// Joins a silo from its storage with a security key already on it, for
+/// someone without the recovery code at hand. The phone key comes after, as
+/// with the code.
+#[tauri::command]
+pub async fn vault_join_with_security_key(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    config: silentsilo_app::StoreConfigInput,
+    name: String,
+) -> Result<VaultMeta, String> {
+    let store_config = config.into_config(None)?;
+    let store = store_config.open().map_err(|e| e.to_string())?;
+    let offer = flows::key_join_begin(&*store).await?;
+    let ids: Vec<Vec<u8>> = offer
+        .keys
+        .iter()
+        .filter(|k| {
+            k.kind == silentsilo_vault::KIND_FIDO2
+                && k.derivation == silentsilo_vault::DERIVATION_HMAC_V1
+                && !k.platform
+        })
+        .filter_map(|k| hex::decode(&k.credential_id).ok())
+        .collect();
+    if ids.is_empty() {
+        return Err(
+            "None of this silo's keys is a security key. Join with the recovery code.".into(),
+        );
+    }
+    let envelopes: std::collections::HashMap<String, String> = offer
+        .keys
+        .iter()
+        .map(|k| (k.credential_id.clone(), k.wrapped_dek.clone()))
+        .collect();
+    let vault_id = offer.vault_id.to_string();
+    let ceremony = move |dev: &mut dyn Ctap, pin: Option<&str>| {
+        if pin.is_none() && ctap2::get_info(dev)?.pin_set {
+            return Err(CtapError::PinRequired);
+        }
+        let found = ctap2::unlock_candidates(dev, &ids, &vault_id, pin, true)?;
+        let id = hex::encode(&found.credential_id);
+        let hit = envelopes.get(&id).and_then(|wrapped| {
+            found.wrap_keys.iter().find_map(|(_, key)| {
+                silentsilo_vault::unwrap_dek_hex(wrapped, key)
+                    .ok()
+                    .map(|_| (id.clone(), key.clone(), found.verified))
+            })
+        });
+        Ok(hit.ok_or(NOT_OPENED))
+    };
+    let (found, _) = with_pin(&app, None, ceremony).await?;
+    let (credential_id, wrap_key, verified) = found.map_err(str::to_string)?;
+    let join = flows::key_join_open(&*store, &offer, &credential_id, &wrap_key).await?;
+    let meta =
+        crate::commands::finish_join(&app, &state, &store_config, &*store, join, &name).await?;
+    remember_pin_key(&credential_id, verified);
+    Ok(meta)
+}

@@ -152,6 +152,14 @@ const handlers: Record<string, Handler> = {
     silo.name = String(args.name || "Personal");
     return meta();
   },
+  vault_join_with_security_key: async (args) => {
+    await keyTouch();
+    joined = true;
+    unlocked = true;
+    phoneKey = false;
+    silo.name = String(args.name || "Personal");
+    return meta();
+  },
   device_key_enroll: async (args) => {
     await wait(900);
     phoneKey = true;

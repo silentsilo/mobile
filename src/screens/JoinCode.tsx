@@ -3,8 +3,9 @@ import { useState } from "react";
 import { api, type JoinPreview, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { isComplete } from "../shared/recoveryCode";
-import { Field, StepBar, useToast } from "../ui/chrome";
+import { Field, Sheet, StepBar, useToast } from "../ui/chrome";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
+import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 
 export function JoinCode({
   config,
@@ -21,7 +22,22 @@ export function JoinCode({
   const [name, setName] = useState("Personal");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [waitingForKey, setWaitingForKey] = useState(false);
   const toast = useToast();
+
+  // For someone with one of the silo's security keys and no code at hand.
+  const joinWithKey = async () => {
+    setError(null);
+    setWaitingForKey(true);
+    try {
+      await api.joinWithSecurityKey(config, name.trim() || "Personal");
+      setWaitingForKey(false);
+      onJoined();
+    } catch (e) {
+      setWaitingForKey(false);
+      if (e !== "Cancelled") setError(formatAppError(e));
+    }
+  };
 
   const paste = async () => {
     try {
@@ -70,7 +86,19 @@ export function JoinCode({
         <button className="btn" disabled={!isComplete(code) || busy} onClick={join}>
           {busy ? "Opening the silo" : "Continue"}
         </button>
+        {preview.key_labels.length > 0 && (
+          <button className="btn secondary" disabled={busy} onClick={() => void joinWithKey()}>
+            Use a security key instead
+          </button>
+        )}
       </div>
+
+      <Sheet open={waitingForKey} onClose={() => void api.cancelSecurityKey()} title="Open the silo with a security key">
+        <SecurityKeyWait />
+        <button className="btn secondary" onClick={() => void api.cancelSecurityKey()}>
+          Cancel
+        </button>
+      </Sheet>
     </div>
   );
 }
