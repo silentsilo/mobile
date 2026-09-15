@@ -23,8 +23,10 @@
 -keep class com.silentsilo.mobile.DeviceKeyPlugin { *; }
 -keep class com.silentsilo.mobile.BackupPlugin { *; }
 -keep class com.silentsilo.mobile.FilesPlugin { *; }
+-keep class com.silentsilo.mobile.SecurityKeyPlugin { *; }
 # Called from Rust by name.
 -keep class com.silentsilo.mobile.LocalSecrets { *; }
 -keep class com.silentsilo.mobile.SenderKeys { *; }
 -keep class com.silentsilo.mobile.PdfPages { *; }
 -keep class com.silentsilo.mobile.Native { *; }
+-keep class com.silentsilo.mobile.SecurityKeys { *; }
