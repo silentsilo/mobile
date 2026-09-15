@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push supersedes the runs before it.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The React screens and the Rust backend on the host, the way `tauri dev`
+  # builds them. The Android-only code is checked in the job below.
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      # Tauri's webview on the host build.
+      - name: System libraries
+        run: |
+          for attempt in 1 2 3; do
+            sudo timeout 180 apt-get -o Acquire::Retries=3 update && break
+            echo "apt-get update stalled or failed (attempt $attempt)"
+            sleep 5
+          done
+          sudo apt-get install -y libwebkit2gtk-4.1-dev librsvg2-dev libssl-dev pkg-config
+      - run: npm ci
+      - run: npm run typecheck
+      # `tauri::generate_context!` needs the built frontend.
+      - run: npm run build
+      - run: cargo fmt --all -- --check
+      # `--locked` everywhere: the core crates come from silentsilo/core by
+      # git, and a lockfile rewritten by a local `[patch]` must not build.
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+
+  guards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - run: node scripts/check-lockfile.mjs
+      - run: node scripts/check-proguard.mjs
+
+  # The Android build as it ships: Rust for the phone, the Kotlin plugins,
+  # and a release APK through R8, unsigned. Signing happens on the release
+  # machine only.
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.97.1
+          targets: aarch64-linux-android
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: android
+      # The runner image ships the SDK and an NDK.
+      - name: Android NDK
+        run: |
+          echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
+          bin="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          echo "CC_aarch64_linux_android=$bin/aarch64-linux-android31-clang" >> "$GITHUB_ENV"
+          echo "AR_aarch64_linux_android=$bin/llvm-ar" >> "$GITHUB_ENV"
+          echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$bin/aarch64-linux-android31-clang" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm run build
+      - run: cargo clippy --locked --target aarch64-linux-android --all-targets -- -D warnings
+      - run: npx tauri android build --apk --target aarch64
