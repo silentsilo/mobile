@@ -574,3 +574,79 @@ a {
     animation: none;
   }
 }
+
+/* Wider screens: tablets, unfolded phones, phones on their side. */
+
+/* Below the two-pane width, one column of readable width, centred, rather
+   than rows stretched across a tablet. */
+@media (min-width: 600px) {
+  #root > .screen {
+    max-width: 640px;
+    margin: 0 auto;
+    border-left: 1px solid var(--border-subtle);
+    border-right: 1px solid var(--border-subtle);
+  }
+
+  /* A bottom sheet across a tablet is a banner; a centred dialog reads as
+     the question it is. */
+  .sheet {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    width: min(520px, calc(100% - 48px));
+    max-height: 80%;
+    transform: translate(-50%, -50%);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding-bottom: 20px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+  }
+
+  .sheet-grabber {
+    display: none;
+  }
+}
+
+.wide-shell {
+  display: grid;
+  grid-template-columns: auto minmax(320px, 420px) 1fr;
+  height: 100%;
+}
+
+.wide-shell .pane {
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.wide-shell .list-pane {
+  border-right: 1px solid var(--border-subtle);
+}
+
+/* The detail keeps a comfortable measure on very wide screens. */
+.wide-shell .detail-pane > .screen {
+  max-width: 820px;
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: calc(16px + var(--safe-top)) 8px calc(16px + var(--safe-bottom));
+  border-right: 1px solid var(--border-subtle);
+  background: var(--tabbar-bg);
+}
+
+.rail .tab {
+  min-width: 72px;
+}
+
+.empty-detail {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+}

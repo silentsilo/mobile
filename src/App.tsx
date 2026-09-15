@@ -23,6 +23,7 @@ import { formatAppError } from "./shared/errors";
 import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
 import { ToastProvider, useToast } from "./ui/chrome";
 import { SyncActivityProvider } from "./ui/syncActivity";
+import { useWide } from "./ui/useWide";
 
 type Phase =
   | { at: "loading" }
@@ -224,8 +225,10 @@ function OpenSiloScreens({
   const [tab, setTab] = useState<Tab>("passwords");
   const [detail, setDetail] = useState<Detail | null>(null);
   const toast = useToast();
+  const wide = useWide();
 
-  if (detail) {
+  const detailScreen = () => {
+    if (!detail) return null;
     switch (detail.at) {
       case "entry":
         return <Entry entry={detail.entry} onBack={() => setDetail(null)} onEdit={() => setDetail({ at: "edit", entry: detail.entry })} />;
@@ -256,7 +259,9 @@ function OpenSiloScreens({
       case "health":
         return <Health onBack={() => setDetail(null)} onOpen={(entry) => setDetail({ at: "entry", entry })} />;
     }
-  }
+  };
+
+  if (detail && !wide) return detailScreen();
 
   const tabs: { id: Tab; label: string; Icon: typeof KeyRound }[] = [
     { id: "passwords", label: "Passwords", Icon: KeyRound },
@@ -264,8 +269,8 @@ function OpenSiloScreens({
     { id: "silo", label: "Silo", Icon: ShieldCheck },
   ];
 
-  return (
-    <div className="screen">
+  const tabScreen = (
+    <>
       {tab === "passwords" && (
         <Passwords
           siloName={siloName}
@@ -277,13 +282,56 @@ function OpenSiloScreens({
       )}
       {tab === "files" && <Files siloName={siloName} sync={sync} reloadKey={reloadKey} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
       {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onLocked={onLocked} />}
+    </>
+  );
+
+  const tabButtons = tabs.map(({ id, label, Icon }) => (
+    <button
+      key={id}
+      className="tab"
+      role="tab"
+      aria-selected={tab === id}
+      onClick={() => {
+        setTab(id);
+        if (wide) setDetail(null);
+      }}
+    >
+      <Icon size={24} />
+      {label}
+    </button>
+  ));
+
+  // A list and what is open from it, side by side, with the tabs down the
+  // side. On a phone the detail takes the whole screen instead.
+  if (wide) {
+    return (
+      <div className="wide-shell">
+        <nav className="rail" role="tablist" aria-orientation="vertical">
+          {tabButtons}
+        </nav>
+        <div className="pane list-pane">
+          <div className="screen">{tabScreen}</div>
+        </div>
+        <div className="pane detail-pane">
+          {detail ? (
+            detailScreen()
+          ) : (
+            <div className="screen">
+              <div className="empty-detail dim">
+                {tab === "passwords" ? "Choose an entry to see it here." : tab === "files" ? "Choose a file to see it here." : "Choose a setting to open it here."}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="screen">
+      {tabScreen}
       <nav className="tabbar" role="tablist">
-        {tabs.map(({ id, label, Icon }) => (
-          <button key={id} className="tab" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}>
-            <Icon size={24} />
-            {label}
-          </button>
-        ))}
+        {tabButtons}
       </nav>
     </div>
   );
