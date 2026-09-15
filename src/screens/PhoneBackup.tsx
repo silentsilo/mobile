@@ -25,6 +25,8 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
   const [choosingFolders, setChoosingFolders] = useState(false);
   const [chosen, setChosen] = useState<string[]>([]);
   const [waiting, setWaiting] = useState<number | null>(null);
+  // Said before Android asks for access, the first time each kind is turned on.
+  const [disclosing, setDisclosing] = useState<"photos" | "videos" | "contacts" | null>(null);
   const toast = useToast();
 
   const load = useCallback(() => {
@@ -143,9 +145,9 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
         {status && (
           <>
             <div className="panel">
-              {toggle("Photos", "Every new photo", status.photos, () => (status.photos ? void apply({ photos: false }) : askAboutExisting("photos")), true)}
-              {toggle("Videos", "Large: best left to Wi-Fi", status.videos, () => (status.videos ? void apply({ videos: false }) : askAboutExisting("videos")))}
-              {toggle("Contacts", "Once a day, when they change", status.contacts, () => void apply({ contacts: !status.contacts }))}
+              {toggle("Photos", "Every new photo", status.photos, () => (status.photos ? void apply({ photos: false }) : status.photosAllowed ? askAboutExisting("photos") : setDisclosing("photos")), true)}
+              {toggle("Videos", "Large: best left to Wi-Fi", status.videos, () => (status.videos ? void apply({ videos: false }) : status.videosAllowed ? askAboutExisting("videos") : setDisclosing("videos")))}
+              {toggle("Contacts", "Once a day, when they change", status.contacts, () => (status.contacts ? void apply({ contacts: false }) : status.contactsAllowed ? void apply({ contacts: true }) : setDisclosing("contacts")))}
             </div>
             {media && (
               <div className="panel">
@@ -198,6 +200,37 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
           </>
         )}
       </div>
+
+      <Sheet
+        open={disclosing !== null}
+        onClose={() => setDisclosing(null)}
+        title={disclosing === "contacts" ? "Back up your contacts" : disclosing === "videos" ? "Back up your videos" : "Back up your photos"}
+      >
+        <p className="hint">
+          {disclosing === "contacts"
+            ? "SilentSilo reads the contacts on this phone, names, numbers, addresses and the rest of each card, once a day when they change."
+            : `SilentSilo reads the ${disclosing === "videos" ? "videos" : "photos"} in the gallery folders you choose, with the place they were taken when the file records it, including ones added later while the app is closed.`}
+        </p>
+        <p className="hint">
+          Each copy is encrypted on this phone and sent only to this silo's storage. Nothing goes to SilentSilo or to anyone else,
+          and turning this off stops it.
+        </p>
+        <p className="hint small">Android asks for access next.</p>
+        <button
+          className="btn"
+          onClick={() => {
+            const kind = disclosing;
+            setDisclosing(null);
+            if (kind === "contacts") void apply({ contacts: true });
+            else if (kind) askAboutExisting(kind);
+          }}
+        >
+          Continue
+        </button>
+        <button className="btn secondary" onClick={() => setDisclosing(null)}>
+          Not now
+        </button>
+      </Sheet>
 
       <Sheet open={askExisting !== null} onClose={() => setAskExisting(null)} title={askExisting === "videos" ? "Videos already on this phone" : "Photos already on this phone"}>
         <p className="hint">Back up only what you take from now on, or everything already on the phone as well.</p>
