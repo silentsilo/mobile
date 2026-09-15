@@ -97,7 +97,7 @@ export function Entry({ entry, onBack, onEdit }: { entry: PasswordEntry; onBack:
   const copy = async (label: string, value: string) => {
     try {
       await api.copySecret(value);
-      toast(`${label} copied. It clears from the clipboard after 30 seconds.`);
+      toast(`${label} copied. It clears from the clipboard after 45 seconds.`);
     } catch (e) {
       toast(formatAppError(e));
     }

@@ -120,6 +120,7 @@ pub(crate) fn with_front_silo<T>(
                 let session = open(&silo)?;
                 state.open_session(&crate::host::MobileHost(app.clone()), silo.id, session)?;
                 let _ = tauri::Emitter::emit(app, "vault-changed", ());
+                crate::background::opened_while_away(app);
             }
             state.touch(silo.id);
             state.with_session_id(silo.id, |_session, vfs| f(vfs))
@@ -217,6 +218,12 @@ fn save(
         field(&login, "password").to_string(),
         field(&login, "url").trim().to_string(),
     );
+    // Only a trusted browser's site may replace a kept password; an app's
+    // name is whatever the app says it is.
+    let may_update = login
+        .get("fromBrowser")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     if password.is_empty() {
         return Err("There is no password to save.".into());
     }
@@ -240,15 +247,13 @@ fn save(
             .find(same_account);
 
         let (entry, outcome) = match existing {
-            Some(mut entry) => {
-                if field(&entry, "password") == password {
-                    return Ok("unchanged");
-                }
+            Some(entry) if field(&entry, "password") == password => return Ok("unchanged"),
+            Some(mut entry) if may_update => {
                 entry["password"] = password.clone().into();
                 entry["updated_at"] = now.into();
                 (entry, "updated")
             }
-            None => (
+            _ => (
                 serde_json::json!({
                     "id": Uuid::new_v4().to_string(),
                     "service": if service.is_empty() { host_of(&url).unwrap_or_default() } else { service.clone() },

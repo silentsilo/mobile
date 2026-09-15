@@ -3,7 +3,9 @@ package com.silentsilo.mobile
 import android.app.Activity
 import android.app.PendingIntent
 import android.app.assist.AssistStructure
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.CancellationSignal
 import android.service.autofill.AutofillService
@@ -23,30 +25,78 @@ import android.view.autofill.AutofillManager
 import android.view.autofill.AutofillValue
 import android.widget.RemoteViews
 import org.json.JSONObject
+import java.security.MessageDigest
 
-// The fields of one form, and what the form belongs to.
+// Browsers whose word about the site on screen is believed: the same list
+// the passkey provider uses, checked by signing certificate. Any other app
+// can put any site name in its own views.
+object TrustedBrowsers {
+  @Volatile private var fingerprints: Map<String, Set<String>>? = null
+
+  private fun load(context: Context): Map<String, Set<String>> =
+    fingerprints ?: try {
+      val json = JSONObject(context.assets.open("privileged_browsers.json").bufferedReader().use { it.readText() })
+      val apps = json.getJSONArray("apps")
+      (0 until apps.length()).associate { i ->
+        val info = apps.getJSONObject(i).getJSONObject("info")
+        val signatures = info.getJSONArray("signatures")
+        info.getString("package_name") to (0 until signatures.length())
+          .map { signatures.getJSONObject(it) }
+          .filter { it.optString("build") == "release" }
+          .map { it.getString("cert_fingerprint_sha256").replace(":", "").lowercase() }
+          .toSet()
+      }
+    } catch (_: Exception) {
+      emptyMap()
+    }.also { fingerprints = it }
+
+  fun contains(context: Context, packageName: String): Boolean {
+    val allowed = load(context)[packageName] ?: return false
+    return try {
+      val signing = context.packageManager
+        .getPackageInfo(packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+        .signingInfo ?: return false
+      val certs = if (signing.hasMultipleSigners()) signing.apkContentsSigners else signing.signingCertificateHistory
+      certs.any { cert ->
+        MessageDigest.getInstance("SHA-256").digest(cert.toByteArray()).joinToString("") { "%02x".format(it) } in allowed
+      }
+    } catch (_: Exception) {
+      false
+    }
+  }
+}
+
+// The fields of one form, and what the form belongs to. `webDomain` is the
+// site the password field sits in, and only when a trusted browser says so.
 class FormFields(val username: AutofillId?, val password: AutofillId?, val webDomain: String?, val packageName: String) {
   val ids: Array<AutofillId> get() = listOfNotNull(username, password).toTypedArray()
 
   companion object {
-    fun from(structure: AssistStructure): FormFields {
+    fun from(context: Context, structure: AssistStructure): FormFields {
       var username: AutofillId? = null
       var password: AutofillId? = null
       var domain: String? = null
 
-      fun visit(node: AssistStructure.ViewNode) {
-        node.webDomain?.takeIf { it.isNotBlank() }?.let { domain = it }
+      // The site of the password field itself, from its nearest page: a
+      // frame from another site on the same screen does not lend its name.
+      fun visit(node: AssistStructure.ViewNode, site: String?) {
+        val here = node.webDomain?.takeIf { it.isNotBlank() } ?: site
         val id = node.autofillId
         if (id != null && node.autofillType == View.AUTOFILL_TYPE_TEXT) {
           when {
-            password == null && isPassword(node) -> password = id
+            password == null && isPassword(node) -> {
+              password = id
+              domain = here
+            }
             username == null && isUsername(node) -> username = id
           }
         }
-        for (i in 0 until node.childCount) visit(node.getChildAt(i))
+        for (i in 0 until node.childCount) visit(node.getChildAt(i), here)
       }
-      for (i in 0 until structure.windowNodeCount) visit(structure.getWindowNodeAt(i).rootViewNode)
-      return FormFields(username, password, domain, structure.activityComponent.packageName)
+      for (i in 0 until structure.windowNodeCount) visit(structure.getWindowNodeAt(i).rootViewNode, null)
+      val packageName = structure.activityComponent.packageName
+      val trusted = domain?.takeIf { TrustedBrowsers.contains(context, packageName) }
+      return FormFields(username, password, trusted?.lowercase()?.removePrefix("www."), packageName)
     }
 
     // What was typed into the username and password fields, for saving.
@@ -104,7 +154,7 @@ class FormFields(val username: AutofillId?, val password: AutofillId?, val webDo
 class SiloAutofillService : AutofillService() {
   override fun onFillRequest(request: FillRequest, cancellation: CancellationSignal, callback: FillCallback) {
     val structure = request.fillContexts.lastOrNull()?.structure ?: return callback.onSuccess(null)
-    val fields = FormFields.from(structure)
+    val fields = FormFields.from(this, structure)
     // Never offered inside SilentSilo itself, and only where there is a password.
     if (fields.password == null || fields.packageName == packageName) return callback.onSuccess(null)
 
@@ -113,6 +163,7 @@ class SiloAutofillService : AutofillService() {
       .putExtra(AutofillUnlockActivity.PASSWORD, fields.password)
       .putExtra(AutofillUnlockActivity.DOMAIN, fields.webDomain)
       .putExtra(AutofillUnlockActivity.PACKAGE, fields.packageName)
+      .putExtra(AutofillUnlockActivity.APP_LABEL, appLabel(this, fields.packageName))
     val sender = PendingIntent.getActivity(
       this,
       System.nanoTime().toInt(),
@@ -131,15 +182,11 @@ class SiloAutofillService : AutofillService() {
   // fingerprint.
   override fun onSaveRequest(request: SaveRequest, callback: SaveCallback) {
     val structure = request.fillContexts.lastOrNull()?.structure ?: return callback.onSuccess()
-    val fields = FormFields.from(structure)
+    val fields = FormFields.from(this, structure)
     val (user, pass) = FormFields.typed(structure, fields)
     if (pass.isEmpty() || fields.packageName == packageName) return callback.onSuccess()
 
-    val label = try {
-      packageManager.getApplicationLabel(packageManager.getApplicationInfo(fields.packageName, 0)).toString()
-    } catch (_: Exception) {
-      fields.packageName
-    }
+    val label = appLabel(this, fields.packageName)
     val intent = Intent(this, AutofillSaveActivity::class.java)
       .putExtra(AutofillSaveActivity.USERNAME, user)
       .putExtra(AutofillSaveActivity.PASSWORD, pass)
@@ -156,14 +203,24 @@ class SiloAutofillService : AutofillService() {
   }
 }
 
+fun appLabel(context: Context, packageName: String): String =
+  try {
+    context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(packageName, 0)).toString()
+  } catch (_: Exception) {
+    packageName
+  }
+
 // Unlocks the silo with the phone's key, then offers the logins for this
-// app or site, best matches first.
+// app or site, best matches first. A fingerprint every time, open silo or
+// not: whatever asks is another app, and the prompt names where the login
+// goes.
 class AutofillUnlockActivity : Activity() {
   companion object {
     const val USERNAME = "username"
     const val PASSWORD = "password"
     const val DOMAIN = "domain"
     const val PACKAGE = "package"
+    const val APP_LABEL = "appLabel"
     private const val MAX_OFFERED = 20
 
     fun row(context: android.content.Context, text: String): RemoteViews =
@@ -180,17 +237,15 @@ class AutofillUnlockActivity : Activity() {
     val vaultId = silo.optString("vaultId")
     if (vaultId.isEmpty()) return finishWith(null)
 
-    if (silo.optBoolean("open")) {
-      offer(Native.autofillLogins(dataDir, "", ""))
-      return
-    }
     val ids = silo.optJSONArray("credentialIds")
     val list = (0 until (ids?.length() ?: 0)).map { ids!!.getString(it) }
+    val where = intent.getStringExtra(DOMAIN)?.let { "on $it" }
+      ?: "in ${intent.getStringExtra(APP_LABEL) ?: intent.getStringExtra(PACKAGE) ?: "this app"}"
     PhoneKey.unlock(
       this,
       vaultId,
       list,
-      "Unlock ${silo.optString("name", "the silo")} to fill",
+      "Fill a login $where",
       onUnlocked = { credentialId, wrapKey -> offer(Native.autofillLogins(dataDir, credentialId, wrapKey)) },
       onFailed = { finishWith(null) },
     )
@@ -207,7 +262,8 @@ class AutofillUnlockActivity : Activity() {
     val scored = (0 until logins.length()).map { logins.getJSONObject(it) }
       .map { it to Matching.score(it.optString("url"), it.optString("service"), domain, pkg) }
     val matched = scored.filter { it.second > 0 }.sortedByDescending { it.second }.map { it.first }
-    // With no match, every login, so a site the entry does not name is still one tap away.
+    // With no match, every login, so a site the entry does not name is still
+    // one tap away. The fingerprint prompt named the site or app first.
     val offered = (matched.ifEmpty { scored.map { it.first }.sortedBy { it.optString("service").lowercase() } }).take(MAX_OFFERED)
 
     val response = FillResponse.Builder()
@@ -243,17 +299,22 @@ object Matching {
   fun score(url: String, service: String, webDomain: String?, packageName: String): Int {
     val host = hostOf(url)
     if (webDomain != null) {
+      // The stored site or a page below it (login.example.com for
+      // example.com), never a neighbour under a shared suffix such as
+      // github.io, and never a name that only looks alike.
       val asked = webDomain.lowercase().removePrefix("www.")
-      if (host != null) {
-        if (host == asked) return 3
-        if (registrable(host) == registrable(asked)) return 2
+      if (host == null || !host.contains('.')) return 0
+      return when {
+        host == asked -> 3
+        asked.endsWith(".$host") -> 2
+        else -> 0
       }
-      return if (service.isNotBlank() && label(asked) == service.lowercase().filter { it.isLetterOrDigit() }) 1 else 0
     }
-    // An app: its package names the company often enough, e.g. com.github.android.
-    val parts = packageName.lowercase().split('.').filter { it.length > 2 && it !in setOf("com", "org", "net", "android", "app", "mobile") }
+    // An app: the owner part of its package, com.github.android for github.
+    // Only a ranking; the prompt names the app before anything is filled.
+    val owner = packageName.lowercase().split('.').getOrNull(1) ?: return 0
     val names = listOfNotNull(host?.let { label(it) }, service.lowercase().filter { it.isLetterOrDigit() }.takeIf { it.length > 2 })
-    return if (names.any { name -> parts.any { it == name } }) 2 else 0
+    return if (owner.length > 2 && names.any { it == owner }) 2 else 0
   }
 
   private fun hostOf(url: String): String? {
@@ -292,6 +353,9 @@ class AutofillSaveActivity : Activity() {
     const val APP_LABEL = "appLabel"
   }
 
+  // A fingerprint every time. Only a trusted browser's site may change the
+  // password of a login already kept; from any other app a login is added
+  // beside it, since an app can call itself anything.
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
@@ -304,19 +368,19 @@ class AutofillSaveActivity : Activity() {
       .put("username", intent.getStringExtra(USERNAME) ?: "")
       .put("password", intent.getStringExtra(PASSWORD) ?: "")
       .put("url", domain?.let { "https://$it" } ?: "")
+      .put("fromBrowser", domain != null)
       .toString()
 
     val silo = JSONObject(Native.autofillSilo(dataDir))
     val vaultId = silo.optString("vaultId")
     if (vaultId.isEmpty()) return done("There is no silo on this phone to save to.")
-    if (silo.optBoolean("open")) return save(Native.autofillSave(dataDir, "", "", login))
 
     val ids = silo.optJSONArray("credentialIds")
     PhoneKey.unlock(
       this,
       vaultId,
       (0 until (ids?.length() ?: 0)).map { ids!!.getString(it) },
-      "Unlock ${silo.optString("name", "the silo")} to save this login",
+      "Save the login from ${domain ?: intent.getStringExtra(APP_LABEL) ?: "this app"}",
       onUnlocked = { credentialId, wrapKey -> save(Native.autofillSave(dataDir, credentialId, wrapKey, login)) },
       onFailed = { if (it.code == "cancelled") done(null) else done(it.message) },
     )

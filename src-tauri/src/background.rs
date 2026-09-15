@@ -16,9 +16,14 @@ use crate::host::MobileHost;
 /// Seconds a silo stays open after the app leaves the screen.
 const DEFAULT_LOCK_AFTER: u64 = 30;
 const CHOICES: [u64; 4] = [0, 30, 60, 300];
+/// The longest a system prompt, picker or key wait may keep a silo open
+/// with the app away: someone who pressed Home there has left.
+const PROMPT_LIMIT: u64 = 120;
 
 pub struct BackgroundLock {
     suspended_at: Mutex<Option<Instant>>,
+    /// Suspended while a prompt was up, which may be the prompt itself.
+    prompt_suspended_at: Mutex<Option<Instant>>,
     /// Android cancels a fingerprint prompt started while the app is away.
     foreground: AtomicBool,
     /// Bumped on every suspend and resume, so a timer from an earlier trip to
@@ -33,6 +38,7 @@ impl Default for BackgroundLock {
     fn default() -> Self {
         Self {
             suspended_at: Mutex::new(None),
+            prompt_suspended_at: Mutex::new(None),
             foreground: AtomicBool::new(true),
             generation: AtomicU64::new(0),
             prompts: AtomicUsize::new(0),
@@ -112,14 +118,26 @@ pub fn lock_all(app: &AppHandle) {
 pub fn suspended(app: &AppHandle) {
     let lock = app.state::<BackgroundLock>();
     if lock.prompts.load(Ordering::SeqCst) > 0 {
+        // Most likely the prompt covering the app, which is not leaving. It
+        // may also be Home pressed from a picker or a key wait, so a longer
+        // timer still runs; coming back cancels it.
+        if let Ok(mut at) = lock.prompt_suspended_at.lock() {
+            at.get_or_insert_with(Instant::now);
+        }
+        arm(app, lock_after(app).max(PROMPT_LIMIT));
         return;
     }
     lock.foreground.store(false, Ordering::SeqCst);
-    let generation = lock.generation.fetch_add(1, Ordering::SeqCst) + 1;
     if let Ok(mut at) = lock.suspended_at.lock() {
         *at = Some(Instant::now());
     }
-    let delay = lock_after(app);
+    arm(app, lock_after(app));
+}
+
+/// Locks after `delay` unless the app comes back or goes away again first.
+fn arm(app: &AppHandle, delay: u64) {
+    let lock = app.state::<BackgroundLock>();
+    let generation = lock.generation.fetch_add(1, Ordering::SeqCst) + 1;
     if delay == 0 {
         lock_soon(app);
         return;
@@ -132,6 +150,19 @@ pub fn suspended(app: &AppHandle) {
             lock_soon(&app);
         }
     });
+}
+
+/// Autofill or a passkey opened a silo into the app while it is away. The
+/// suspend timer already ran or was never started for this, so one starts
+/// now. A short grace when the choice is "at once", so the fill that opened
+/// it can finish.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn opened_while_away(app: &AppHandle) {
+    let lock = app.state::<BackgroundLock>();
+    if lock.foreground.load(Ordering::SeqCst) {
+        return;
+    }
+    arm(app, lock_after(app).max(5));
 }
 
 /// The timer may not have run while Android had the process frozen, so the
@@ -148,8 +179,15 @@ pub fn resumed(app: &AppHandle) {
         .ok()
         .and_then(|mut at| at.take())
         .map(|at| at.elapsed());
-    if let Some(away) = away
-        && away >= Duration::from_secs(lock_after(app))
+    let away_prompting = lock
+        .prompt_suspended_at
+        .lock()
+        .ok()
+        .and_then(|mut at| at.take())
+        .map(|at| at.elapsed());
+    if away.is_some_and(|away| away >= Duration::from_secs(lock_after(app)))
+        || away_prompting
+            .is_some_and(|away| away >= Duration::from_secs(lock_after(app).max(PROMPT_LIMIT)))
     {
         lock_soon(app);
     }

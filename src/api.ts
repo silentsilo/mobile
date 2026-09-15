@@ -117,6 +117,7 @@ export type StorageView = {
   username: string;
   path: string;
   authMethod: string;
+  hostFingerprint: string;
   copies: number;
 };
 

@@ -173,7 +173,7 @@ const handlers: Record<string, Handler> = {
     await wait(400);
     return "K7M2-9QXA-R4TD-8VBN-3HJW-6PZC-1YFE-5GSL";
   },
-  storage_view: () => ({ configured: true, kind: "sftp", endpoint: "", region: "", bucket: "", prefix: "", pathStyle: false, accessKeyId: "", url: "", host: "nas.example.com", port: 22, username: "alex", path: "/backups/silo", authMethod: "password", copies: 1 }),
+  storage_view: () => ({ configured: true, kind: "sftp", endpoint: "", region: "", bucket: "", prefix: "", pathStyle: false, accessKeyId: "", url: "", host: "nas.example.com", port: 22, username: "alex", path: "/backups/silo", authMethod: "password", hostFingerprint: "", copies: 1 }),
   storage_save: async () => {
     await wait(700);
   },

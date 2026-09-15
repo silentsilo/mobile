@@ -23,6 +23,66 @@
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
+    <!-- The trusted browsers, so autofill can check their signing certificates
+         (Android hides other apps' packages otherwise). -->
+    <queries>
+        <package android:name="ai.perplexity.comet" />
+        <package android:name="app.vanadium.browser" />
+        <package android:name="com.amazon.cloud9" />
+        <package android:name="com.android.browser" />
+        <package android:name="com.android.chrome" />
+        <package android:name="com.brave.browser" />
+        <package android:name="com.brave.browser_beta" />
+        <package android:name="com.brave.browser_nightly" />
+        <package android:name="com.chrome.beta" />
+        <package android:name="com.chrome.canary" />
+        <package android:name="com.chrome.dev" />
+        <package android:name="com.citrix.Receiver" />
+        <package android:name="com.duckduckgo.mobile.android" />
+        <package android:name="com.google.android.gms" />
+        <package android:name="com.heytap.browser" />
+        <package android:name="com.microsoft.emmx" />
+        <package android:name="com.microsoft.emmx.beta" />
+        <package android:name="com.microsoft.emmx.canary" />
+        <package android:name="com.microsoft.emmx.dev" />
+        <package android:name="com.naver.whale" />
+        <package android:name="com.netskope.browser" />
+        <package android:name="com.norton.neo" />
+        <package android:name="com.opera.browser" />
+        <package android:name="com.opera.browser.beta" />
+        <package android:name="com.opera.mini.native" />
+        <package android:name="com.opera.mini.native.beta" />
+        <package android:name="com.oplus.credential" />
+        <package android:name="com.sec.android.app.sbrowser" />
+        <package android:name="com.sec.android.app.sbrowser.beta" />
+        <package android:name="com.talonsec.intune.talon" />
+        <package android:name="com.talonsec.talon" />
+        <package android:name="com.talonsec.talon_beta" />
+        <package android:name="com.vivaldi.browser" />
+        <package android:name="com.vivaldi.browser.snapshot" />
+        <package android:name="com.wsapp.browser" />
+        <package android:name="com.yandex.browser" />
+        <package android:name="com.yandex.browser.beta" />
+        <package android:name="com.zoho.primeum.stable" />
+        <package android:name="cz.seznam.sbrowser" />
+        <package android:name="io.island.Island" />
+        <package android:name="io.island.IslandBeta" />
+        <package android:name="io.island.IslandCanary" />
+        <package android:name="io.island.island.beta.intune" />
+        <package android:name="io.island.island.canary.intune" />
+        <package android:name="io.island.island.intune" />
+        <package android:name="net.quetta.browser" />
+        <package android:name="net.waterfox.android.release" />
+        <package android:name="org.mozilla.fenix" />
+        <package android:name="org.mozilla.firefox" />
+        <package android:name="org.mozilla.firefox_beta" />
+        <package android:name="org.mozilla.focus" />
+        <package android:name="org.mozilla.focus.beta" />
+        <package android:name="org.mozilla.focus.nightly" />
+        <package android:name="org.mozilla.klar" />
+        <package android:name="org.mozilla.rocket" />
+    </queries>
+
     <!-- Nothing leaves the phone through Google backup or a device transfer:
          the app's storage holds working copies and this phone's own key
          material, and a new phone joins with the recovery code instead. -->

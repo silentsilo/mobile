@@ -139,6 +139,19 @@ export function StorageForm({
     </div>
   );
 
+  // The contents stay encrypted over plain HTTP; the key or password that
+  // reaches the storage does not, on whatever network the phone is on.
+  const plainHttp = /^http:\/\//i.test(kind === "s3" ? f.endpoint.trim() : kind === "web-dav" ? f.url.trim() : "");
+
+  // The same server answering with another key than the one confirmed before.
+  const rekeyed =
+    fingerprint !== null &&
+    known === "sftp" &&
+    !!current?.hostFingerprint &&
+    current.host === f.host.trim() &&
+    current.port === (Number(f.port) || 22) &&
+    current.hostFingerprint !== fingerprint;
+
   return (
     <>
       <div className="segmented" role="group" aria-label="Storage type">
@@ -182,6 +195,12 @@ export function StorageForm({
           </>
         )}
       </div>
+      {plainHttp && (
+        <div className="notice warning">
+          Plain HTTP. The files stay encrypted, but the key or password used to reach this storage travels readable on
+          every network the phone joins, including public Wi-Fi. Use https://.
+        </div>
+      )}
       <p className="hint small">Only encrypted data is kept there. These details stay on this phone.</p>
       {error && <div className="notice error">{error}</div>}
       <div className="spacer" />
@@ -197,7 +216,13 @@ export function StorageForm({
         <div className="panel mono" style={{ padding: 14, wordBreak: "break-all", fontSize: "0.9rem" }}>
           {fingerprint}
         </div>
-        <button className="btn" onClick={() => { const fp = fingerprint; setFingerprint(null); void submit(fp); }}>
+        {rekeyed && (
+          <div className="notice error">
+            This is not the key this server had before. If you did not change the server, someone may be between this phone
+            and it. The saved password is not sent to it: type the password again to trust the new key.
+          </div>
+        )}
+        <button className="btn" disabled={rekeyed && !f.password} onClick={() => { const fp = fingerprint; setFingerprint(null); void submit(fp); }}>
           They match, continue
         </button>
         <button className="btn secondary" onClick={() => setFingerprint(null)}>

@@ -41,10 +41,16 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
       Intent.ACTION_SEND_MULTIPLE -> parcelables(intent)
       else -> return
     }
-    if (uris.isNotEmpty()) shared = uris
+    // Content another app offers, never a raw path or this app's own files:
+    // those it would read with SilentSilo's access, not the sender's.
+    val offered = uris.filter(::foreign)
+    if (offered.isNotEmpty()) shared = offered
     // Handled once: a later restart of the activity must not share again.
     intent.action = Intent.ACTION_MAIN
   }
+
+  private fun foreign(uri: Uri): Boolean =
+    uri.scheme == "content" && uri.authority?.startsWith(activity.packageName) != true
 
   @Suppress("DEPRECATION")
   private fun parcelable(intent: Intent): Uri? =
@@ -152,6 +158,10 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun openFd(invoke: Invoke) {
     val uri = Uri.parse(invoke.getArgs().getString("uri"))
+    if (!foreign(uri)) {
+      invoke.reject("This file could not be opened.")
+      return
+    }
     try {
       val fd = activity.contentResolver.openFileDescriptor(uri, "r")?.detachFd()
       if (fd == null) {

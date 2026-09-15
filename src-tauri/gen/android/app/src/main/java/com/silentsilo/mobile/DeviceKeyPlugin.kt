@@ -52,6 +52,8 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     const val CLIP_TTL_MS = 45_000L
   }
 
+  private var clipSerial = 0
+
   // A secret on the clipboard: marked sensitive so the keyboard and the
   // clipboard preview do not show it, and cleared after 45 s if still ours.
   @Command
@@ -65,8 +67,13 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
         putBoolean("android.content.extra.IS_SENSITIVE", true)
       }
       clipboard.setPrimaryClip(clip)
+      val serial = ++clipSerial
       Handler(Looper.getMainLooper()).postDelayed({
-        if (clipboard.primaryClipDescription?.label == CLIP_LABEL) {
+        // The description is readable only while the app has focus. From the
+        // background it is null and the secret may well still be there, so
+        // null clears too; a later copy from here restarts the wait.
+        val label = clipboard.primaryClipDescription?.label
+        if (serial == clipSerial && (label == null || label == CLIP_LABEL)) {
           clipboard.clearPrimaryClip()
         }
       }, CLIP_TTL_MS)

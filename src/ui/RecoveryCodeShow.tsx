@@ -65,7 +65,7 @@ export function RecoveryCodeShow({
       </div>
       <button
         className="btn secondary"
-        onClick={() => api.copySecret(code).then(() => toast("Copied. The clipboard clears itself in a minute."), (e) => toast(formatAppError(e)))}
+        onClick={() => api.copySecret(code).then(() => toast("Copied. It clears from the clipboard after 45 seconds."), (e) => toast(formatAppError(e)))}
       >
         <Copy size={18} />
         Copy

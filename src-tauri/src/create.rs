@@ -148,6 +148,8 @@ pub struct StorageView {
     path: String,
     /// `password` or `key`, so an edit keeps signing in the same way.
     auth_method: String,
+    /// The SFTP server key confirmed before, to notice when it changes.
+    host_fingerprint: String,
     /// How many copies the silo has; the phone changes only the first.
     copies: usize,
 }
@@ -185,6 +187,7 @@ pub fn storage_view(state: State<'_, AppState>) -> Result<StorageView, String> {
             view.port = c.port;
             view.username = c.username.clone();
             view.path = c.path.clone();
+            view.host_fingerprint = c.host_fingerprint.clone().unwrap_or_default();
             view.auth_method = match c.auth {
                 silentsilo_store::SftpAuth::Password { .. } => "password".into(),
                 silentsilo_store::SftpAuth::Key { .. } => "key".into(),

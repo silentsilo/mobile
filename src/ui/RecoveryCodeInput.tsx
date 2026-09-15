@@ -96,6 +96,7 @@ export function RecoveryCodeInput({ value, onChange, disabled, autoFocus }: Prop
           inputMode="text"
           spellCheck={false}
           autoComplete="off"
+          autoCorrect="off"
           autoCapitalize="characters"
           disabled={disabled}
           autoFocus={autoFocus && index === 0}
