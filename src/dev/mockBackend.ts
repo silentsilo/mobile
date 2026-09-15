@@ -170,7 +170,7 @@ const handlers: Record<string, Handler> = {
     return meta();
   },
   security_key_status: () => ({ nfc: true, nfcOn: true, usb: true }),
-  security_key_count: () => keys.filter((k) => (k.kind ?? "fido2") === "fido2" && !k.platform).length,
+  security_key_offer: () => ({ count: keys.filter((k) => (k.kind ?? "fido2") === "fido2" && !k.platform).length, pinFirst: false }),
   security_key_cancel: () => {
     keyWait?.("Cancelled");
   },

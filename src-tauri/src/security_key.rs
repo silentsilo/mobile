@@ -80,9 +80,11 @@ async fn with_key<T: Send + 'static>(
     let usb = found.transport == "usb";
     let outcome = tauri::async_runtime::spawn_blocking(move || run(usb, f)).await;
     let _ = plugin(app).call::<serde_json::Value>("release").await;
-    outcome
-        .map_err(|e| e.to_string())?
-        .map_err(|e| describe(&e, usb))
+    outcome.map_err(|e| e.to_string())?.map_err(|e| {
+        // No secrets in a CTAP error: statuses and framing only.
+        eprintln!("[security-key] {e:?}");
+        describe(&e, usb)
+    })
 }
 
 #[cfg(target_os = "android")]
@@ -90,10 +92,18 @@ fn run<T>(
     usb: bool,
     f: impl FnOnce(&mut dyn Ctap) -> Result<T, CtapError>,
 ) -> Result<T, CtapError> {
+    // What the key says about itself, for the log: no secrets in it.
+    let traced = |dev: &mut dyn Ctap| {
+        match ctap2::get_info(dev) {
+            Ok(info) => eprintln!("[security-key] usb {usb}: {info:?}"),
+            Err(e) => eprintln!("[security-key] usb {usb}: getInfo failed: {e:?}"),
+        }
+        f(dev)
+    };
     if usb {
-        f(&mut ctap2::hid::Hid::new(crate::android::UsbKey))
+        traced(&mut ctap2::hid::Hid::new(crate::android::UsbKey))
     } else {
-        f(&mut ctap2::nfc::Nfc::new(crate::android::NfcKey))
+        traced(&mut ctap2::nfc::Nfc::new(crate::android::NfcKey))
     }
 }
 
@@ -102,7 +112,9 @@ fn run<T>(
     _usb: bool,
     _f: impl FnOnce(&mut dyn Ctap) -> Result<T, CtapError>,
 ) -> Result<T, CtapError> {
-    Err(CtapError::Transport("no security key link in this build".into()))
+    Err(CtapError::Transport(
+        "no security key link in this build".into(),
+    ))
 }
 
 /// What to tell someone holding the key.
@@ -136,8 +148,10 @@ fn security_key_ids(root: &std::path::Path) -> Vec<Vec<u8>> {
         .map(|keys| {
             keys.active()
                 .filter(|k| {
+                    // Windows Hello and the like live in one computer, not a key.
                     k.kind == silentsilo_vault::KIND_FIDO2
                         && k.derivation == silentsilo_vault::DERIVATION_HMAC_V1
+                        && !k.platform
                 })
                 .filter_map(|k| hex::decode(&k.credential_id).ok())
                 .collect()
@@ -153,34 +167,117 @@ pub async fn security_key_status(app: AppHandle) -> Result<KeyStatus, String> {
 /// Stops waiting for a key; the waiting command fails with "Cancelled".
 #[tauri::command]
 pub async fn security_key_cancel(app: AppHandle) -> Result<(), String> {
-    plugin(&app).call::<serde_json::Value>("cancel").await.map(|_| ())
+    plugin(&app)
+        .call::<serde_json::Value>("cancel")
+        .await
+        .map(|_| ())
 }
 
-/// How many of the silo's keys are security keys, for the unlock screen.
+/// What the unlock screen offers: a security key button when the silo has
+/// any, and the PIN field first when one of them last opened with its PIN.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct KeyOffer {
+    count: usize,
+    pin_first: bool,
+}
+
+/// Credential ids (not secret) that opened this phone's silos with a PIN.
+fn pin_keys_path() -> Option<std::path::PathBuf> {
+    crate::background::data_dir().map(|dir| dir.join("security-key-pin.json"))
+}
+
+fn pin_keys() -> Vec<String> {
+    pin_keys_path()
+        .and_then(|path| std::fs::read(path).ok())
+        .and_then(|bytes| serde_json::from_slice(&bytes).ok())
+        .unwrap_or_default()
+}
+
+fn remember_pin_key(credential_id: &str, verified: bool) {
+    let mut keys = pin_keys();
+    let known = keys.iter().any(|k| k == credential_id);
+    if known == verified {
+        return;
+    }
+    keys.retain(|k| k != credential_id);
+    if verified {
+        keys.push(credential_id.to_string());
+    }
+    if let (Some(path), Ok(bytes)) = (pin_keys_path(), serde_json::to_vec(&keys)) {
+        let _ = std::fs::write(path, bytes);
+    }
+}
+
 #[tauri::command]
-pub fn security_key_count(state: State<AppState>) -> Result<usize, String> {
-    Ok(security_key_ids(&active_silo(&state)?.path).len())
+pub fn security_key_offer(state: State<AppState>) -> Result<KeyOffer, String> {
+    let ids = security_key_ids(&active_silo(&state)?.path);
+    let remembered = pin_keys();
+    Ok(KeyOffer {
+        count: ids.len(),
+        pin_first: ids.iter().any(|id| remembered.contains(&hex::encode(id))),
+    })
 }
 
+/// Opens the silo with a security key.
+///
+/// The wrap key depends on how the silo was wrapped: Windows asks for the
+/// PIN of a key that has one, which reaches the key's verified secret, and
+/// PRF-style platforms hash the salt. So a key with a PIN is asked for it
+/// first (`pin` on the second call), each answer is tried against the
+/// envelope while the key is still there, and an unverified answer is tried
+/// last for a key enrolled somewhere that did not verify.
 #[tauri::command]
 pub async fn vault_unlock_with_security_key(
     app: AppHandle,
     state: State<'_, AppState>,
+    pin: Option<String>,
 ) -> Result<VaultMeta, String> {
     let silo = active_silo(&state)?;
     let ids = security_key_ids(&silo.path);
     if ids.is_empty() {
         return Err("This silo has no security keys.".into());
     }
+    let envelopes: std::collections::HashMap<String, String> =
+        silentsilo_vault::load_fido_keys(&silo.path)
+            .map(|keys| {
+                keys.active()
+                    .map(|k| (k.credential_id.clone(), k.wrapped_dek.clone()))
+                    .collect()
+            })
+            .unwrap_or_default();
     let vault_id = silo.id.to_string();
-    let (credential_id, wrap_key) = with_key(&app, move |dev| {
-        let unlock = ctap2::derive_unlock_material(dev, &ids, &vault_id)?;
-        Ok((
-            hex::encode(&unlock.credential_id),
-            Zeroizing::new(unlock.wrap_key),
-        ))
+    let found = with_key(&app, move |dev| {
+        let pin = pin.map(Zeroizing::new);
+        let pin = pin.as_deref().map(String::as_str);
+        if pin.is_none() && ctap2::get_info(dev)?.pin_set {
+            return Err(CtapError::PinRequired);
+        }
+        let opens = |c: &ctap2::UnlockCandidates| {
+            let id = hex::encode(&c.credential_id);
+            let wrapped = envelopes.get(&id)?;
+            c.wrap_keys.iter().find_map(|(shape, key)| {
+                silentsilo_vault::unwrap_dek_hex(wrapped, key)
+                    .ok()
+                    .map(|_| (id.clone(), *shape, c.verified, key.clone()))
+            })
+        };
+        let first = ctap2::unlock_candidates(dev, &ids, &vault_id, pin)?;
+        if let Some(hit) = opens(&first) {
+            return Ok(Some(hit));
+        }
+        if pin.is_some() {
+            let unverified = ctap2::unlock_candidates(dev, &ids, &vault_id, None)?;
+            return Ok(opens(&unverified));
+        }
+        Ok(None)
     })
     .await?;
+    let Some((credential_id, shape, verified, wrap_key)) = found else {
+        return Err("This security key could not open the silo.".into());
+    };
+    eprintln!("[security-key] opened with {shape:?} salt, verified {verified}");
+    remember_pin_key(&credential_id, verified);
     let root = silo.path.clone();
     let (session, meta) = tauri::async_runtime::spawn_blocking(move || {
         flows::open_with_device_key(root, &credential_id, &wrap_key, silo.id)
@@ -207,17 +304,27 @@ pub async fn security_key_enroll(
     let lock = app.state::<crate::background::BackgroundLock>();
     let _prompt = lock.prompt();
     let vault_id = silo.id.to_string();
-    let (made, wrap_key) = with_key(&app, move |dev| {
+    let (made, wrap_key, verified) = with_key(&app, move |dev| {
         let pin = pin.map(Zeroizing::new);
-        let made = ctap2::make_credential(dev, &vault_id, pin.as_deref().map(String::as_str))?;
-        let unlock = ctap2::derive_unlock_material(
+        let pin = pin.as_deref().map(String::as_str);
+        let made = ctap2::make_credential(dev, &vault_id, pin)?;
+        // Verified when the key has a PIN, as Windows will be.
+        let found = ctap2::unlock_candidates(
             dev,
             std::slice::from_ref(&made.credential_id),
             &vault_id,
+            pin,
         )?;
-        Ok((made, Zeroizing::new(unlock.wrap_key)))
+        let verified = found.verified;
+        let (_, key) = found
+            .wrap_keys
+            .into_iter()
+            .find(|(shape, _)| *shape == ctap2::SaltShape::Raw)
+            .ok_or_else(|| CtapError::Protocol("no raw hmac-secret output".into()))?;
+        Ok((made, key, verified))
     })
     .await?;
+    remember_pin_key(&hex::encode(&made.credential_id), verified);
     let label = label.trim();
     let key = DeviceKey {
         kind: silentsilo_vault::KIND_FIDO2.into(),
@@ -225,7 +332,12 @@ pub async fn security_key_enroll(
         credential_id: hex::encode(&made.credential_id),
         public_key: hex::encode(&made.public_key),
         wrap_key: *wrap_key,
-        label: if label.is_empty() { "Security key" } else { label }.to_string(),
+        label: if label.is_empty() {
+            "Security key"
+        } else {
+            label
+        }
+        .to_string(),
     };
     let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
     let session = sessions

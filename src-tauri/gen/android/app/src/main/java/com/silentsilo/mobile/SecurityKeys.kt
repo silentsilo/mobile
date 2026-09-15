@@ -19,6 +19,7 @@ import android.nfc.tech.IsoDep
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
@@ -29,6 +30,7 @@ import app.tauri.plugin.Plugin
 // Rust calls these statically from a worker thread; bytes only, no secrets
 // decided here. See core `silentsilo-fido/src/ctap2`.
 object SecurityKeys {
+  private const val TAG = "SecurityKeys"
   @Volatile private var nfc: IsoDep? = null
   @Volatile private var usb: UsbLink? = null
 
@@ -54,7 +56,8 @@ object SecurityKeys {
   fun transceive(apdu: ByteArray): ByteArray? =
     try {
       nfc?.transceive(apdu)
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+      Log.w(TAG, "NFC transceive failed: ${e.javaClass.simpleName}")
       null
     }
 
@@ -62,8 +65,11 @@ object SecurityKeys {
   fun hidWrite(report: ByteArray): Boolean {
     val link = usb ?: return false
     return try {
-      link.connection.bulkTransfer(link.output, report, report.size, 1000) == report.size
-    } catch (_: Exception) {
+      val n = link.connection.bulkTransfer(link.output, report, report.size, 1000)
+      if (n != report.size) Log.w(TAG, "USB write returned $n")
+      n == report.size
+    } catch (e: Exception) {
+      Log.w(TAG, "USB write failed: ${e.javaClass.simpleName}")
       false
     }
   }
@@ -99,8 +105,10 @@ object SecurityKeys {
 @TauriPlugin
 class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
   private companion object {
+    const val TAG = "SecurityKeys"
     const val PERMISSION_ACTION = "com.silentsilo.mobile.USB_PERMISSION"
     const val POLL_MS = 400L
+    const val READER_GRACE_MS = 4000L
   }
 
   private val main = Handler(Looper.getMainLooper())
@@ -151,13 +159,20 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
   fun release(invoke: Invoke) {
     main.post {
       SecurityKeys.close()
+      // Still on for a moment: a key lifted slowly would otherwise be read
+      // by Android, which offers to open the key's own web page.
+      main.postDelayed({
+        if (waiting == null) runCatching { NfcAdapter.getDefaultAdapter(activity)?.disableReaderMode(activity) }
+      }, READER_GRACE_MS)
       invoke.resolve()
     }
   }
 
-  private fun stopWaiting(reason: String?) {
+  // The reader stays on while a found key is in use, since turning it off
+  // drops the tag; `release` and `cancel` turn it off.
+  private fun stopWaiting(reason: String?, readerOff: Boolean = true) {
     main.removeCallbacksAndMessages(null)
-    runCatching { NfcAdapter.getDefaultAdapter(activity)?.disableReaderMode(activity) }
+    if (readerOff) runCatching { NfcAdapter.getDefaultAdapter(activity)?.disableReaderMode(activity) }
     receiver?.let { runCatching { activity.unregisterReceiver(it) } }
     receiver = null
     val pending = waiting
@@ -167,7 +182,8 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
 
   private fun found(transport: String) {
     val pending = waiting ?: return
-    stopWaiting(null)
+    Log.i(TAG, "security key found over $transport")
+    stopWaiting(null, readerOff = false)
     pending.resolve(JSObject().apply { put("transport", transport) })
   }
 
@@ -178,7 +194,8 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
       iso.timeout = 5000
       SecurityKeys.holdNfc(iso)
       main.post { found("nfc") }
-    } catch (_: Exception) {
+    } catch (e: Exception) {
+      Log.w(TAG, "NFC connect failed: ${e.javaClass.simpleName}")
       runCatching { iso.close() }
     }
   }
@@ -188,6 +205,7 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
     val manager = activity.getSystemService(UsbManager::class.java)
     for (device in manager.deviceList.values) {
       val candidate = fidoInterface(device) ?: continue
+      Log.i(TAG, "USB FIDO candidate ${device.vendorId}:${device.productId}, allowed ${manager.hasPermission(device)}")
       if (!manager.hasPermission(device)) {
         if (asked.add(device.deviceName)) askPermission(manager, device)
         continue
@@ -247,6 +265,7 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
     val fido = n > 2 && (0 until n - 2).any {
       descriptor[it] == 0x06.toByte() && descriptor[it + 1] == 0xD0.toByte() && descriptor[it + 2] == 0xF1.toByte()
     }
+    Log.i(TAG, "HID report descriptor $n bytes, FIDO page $fido")
     if (!fido) {
       connection.releaseInterface(iface)
       connection.close()

@@ -117,9 +117,9 @@ export const api = {
 
   unlock: () => invoke<VaultMeta>("vault_unlock"),
   unlockWithRecovery: (code: string) => invoke<VaultMeta>("vault_unlock_with_recovery", { code }),
-  unlockWithSecurityKey: () => invoke<VaultMeta>("vault_unlock_with_security_key"),
+  unlockWithSecurityKey: (pin: string | null = null) => invoke<VaultMeta>("vault_unlock_with_security_key", { pin }),
   securityKeyStatus: () => invoke<SecurityKeyStatus>("security_key_status"),
-  securityKeyCount: () => invoke<number>("security_key_count"),
+  securityKeyOffer: () => invoke<{ count: number; pinFirst: boolean }>("security_key_offer"),
   cancelSecurityKey: () => invoke<void>("security_key_cancel"),
   enrollSecurityKey: (label: string, pin: string | null) => invoke<void>("security_key_enroll", { label, pin }),
   lock: () => invoke<void>("vault_lock", { id: null }),

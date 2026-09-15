@@ -376,7 +376,9 @@ impl silentsilo_fido::ctap2::hid::Reports for UsbKey {
         })();
         match written {
             Some(true) => Ok(()),
-            _ => Err(silentsilo_fido::ctap2::CtapError::Transport("unplugged".into())),
+            _ => Err(silentsilo_fido::ctap2::CtapError::Transport(
+                "unplugged".into(),
+            )),
         }
     }
 
@@ -402,7 +404,9 @@ impl silentsilo_fido::ctap2::hid::Reports for UsbKey {
             bytes
         })();
         match read {
-            None => Err(silentsilo_fido::ctap2::CtapError::Transport("unplugged".into())),
+            None => Err(silentsilo_fido::ctap2::CtapError::Transport(
+                "unplugged".into(),
+            )),
             Some(bytes) if bytes.is_empty() => Ok(None),
             Some(bytes) => bytes
                 .try_into()

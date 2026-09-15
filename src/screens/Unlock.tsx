@@ -1,9 +1,9 @@
 import { ScanFace } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, type Offered } from "../api";
+import { api, PIN_REQUIRED, type Offered } from "../api";
 import { formatAppError } from "../shared/errors";
 import { isComplete } from "../shared/recoveryCode";
-import { Sheet } from "../ui/chrome";
+import { Field, Sheet } from "../ui/chrome";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 
@@ -25,23 +25,42 @@ export function Unlock({
   const [recovering, setRecovering] = useState(false);
   const [code, setCode] = useState("");
   const [keyCount, setKeyCount] = useState(0);
+  const [pinFirst, setPinFirst] = useState(false);
   const [waitingForKey, setWaitingForKey] = useState(false);
+  // Asked only when the key's secret without its PIN did not open the silo.
+  const [askingPin, setAskingPin] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState<string | null>(null);
   const asked = useRef(false);
 
   useEffect(() => {
-    api.securityKeyCount().then(setKeyCount, () => setKeyCount(0));
+    api.securityKeyOffer().then(
+      (offer) => {
+        setKeyCount(offer.count);
+        setPinFirst(offer.pinFirst);
+      },
+      () => setKeyCount(0),
+    );
   }, []);
 
-  const unlockWithKey = async () => {
+  const unlockWithKey = async (withPin: string | null = null) => {
     setError(null);
+    setPinError(null);
+    setAskingPin(false);
     setWaitingForKey(true);
     try {
-      await api.unlockWithSecurityKey();
+      await api.unlockWithSecurityKey(withPin);
       setWaitingForKey(false);
+      setPin("");
       onUnlocked();
     } catch (e) {
       setWaitingForKey(false);
-      if (e !== "Cancelled") setError(formatAppError(e));
+      if (e === PIN_REQUIRED || e === "Wrong PIN.") {
+        setPinError(e === PIN_REQUIRED ? null : e);
+        setAskingPin(true);
+      } else if (e !== "Cancelled") {
+        setError(formatAppError(e));
+      }
     }
   };
 
@@ -151,7 +170,18 @@ export function Unlock({
             Unlock
           </button>
           {keyCount > 0 && (
-            <button className="btn secondary" disabled={busy} onClick={() => void unlockWithKey()}>
+            <button
+              className="btn secondary"
+              disabled={busy}
+              onClick={() => {
+                if (pinFirst) {
+                  setPinError(null);
+                  setAskingPin(true);
+                } else {
+                  void unlockWithKey();
+                }
+              }}
+            >
               Use security key
             </button>
           )}
@@ -170,6 +200,19 @@ export function Unlock({
         <SecurityKeyWait />
         <button className="btn secondary" onClick={() => void api.cancelSecurityKey()}>
           Cancel
+        </button>
+      </Sheet>
+
+      <Sheet open={askingPin} onClose={() => setAskingPin(false)} title="Security key PIN">
+        <p className="hint">This key has a PIN. Opening the silo with it needs the PIN, as on your computer.</p>
+        <Field label="PIN">
+          <div className="input">
+            <input type="password" inputMode="numeric" autoComplete="off" value={pin} autoFocus onChange={(e) => setPin(e.target.value)} />
+          </div>
+        </Field>
+        {pinError && <div className="notice error">{pinError}</div>}
+        <button className="btn" disabled={pin.length < 4} onClick={() => void unlockWithKey(pin)}>
+          Continue
         </button>
       </Sheet>
 
