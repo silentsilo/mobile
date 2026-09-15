@@ -204,7 +204,7 @@ export function Unlock({
       </Sheet>
 
       <Sheet open={askingPin} onClose={() => setAskingPin(false)} title="Security key PIN">
-        <p className="hint">This key has a PIN. Opening the silo with it needs the PIN, as on your computer.</p>
+        <p className="hint">A security key with a PIN needs it to open the silo, as on your computer. It is sent to the key only, and not kept.</p>
         <Field label="PIN">
           <div className="input">
             <input type="password" inputMode="numeric" autoComplete="off" value={pin} autoFocus onChange={(e) => setPin(e.target.value)} />
@@ -213,6 +213,9 @@ export function Unlock({
         {pinError && <div className="notice error">{pinError}</div>}
         <button className="btn" disabled={pin.length < 4} onClick={() => void unlockWithKey(pin)}>
           Continue
+        </button>
+        <button className="btn secondary" onClick={() => void unlockWithKey(null)}>
+          This key has no PIN
         </button>
       </Sheet>
 

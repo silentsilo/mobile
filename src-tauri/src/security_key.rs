@@ -135,11 +135,18 @@ fn describe(error: &CtapError, usb: bool) -> String {
             "Three wrong PINs in a row. Take the key away from the phone or unplug it, then try again."
                 .into()
         }
+        CtapError::PinNotSet => "This security key needs a PIN before it can be used. Set one with \
+             the key maker's app (for a YubiKey, Yubico Authenticator), then add it again."
+            .into(),
         CtapError::PinBlocked => "This security key's PIN is blocked after too many wrong tries. \
              Only a reset of the key unblocks it, and a reset erases it from every silo, so open \
              the silo another way: this phone's fingerprint, another key or the recovery code."
             .into(),
         CtapError::Timeout => "No touch arrived in time. Try again and touch the key.".into(),
+        CtapError::TouchAgain => {
+            "The key wants another touch. Take it away from the phone or unplug it, and try again."
+                .into()
+        }
         CtapError::Unsupported(why) => format!("This security key cannot open a silo: {why}."),
         CtapError::Protocol(_) | CtapError::Status(_) => {
             format!("The security key did not answer as expected ({error}). Try again.")
@@ -274,15 +281,15 @@ pub async fn vault_unlock_with_security_key(
                     .map(|_| (id.clone(), *shape, c.verified, key.clone()))
             })
         };
-        let first = ctap2::unlock_candidates(dev, &ids, &vault_id, pin)?;
+        let first = ctap2::unlock_candidates(dev, &ids, &vault_id, pin, true)?;
         if let Some(hit) = opens(&first) {
             return Ok(Ok(hit));
         }
-        if pin.is_some() {
+        if first.verified {
             // A key added somewhere that did not use its PIN. Over NFC the
             // key refuses a second assertion in one tap after a verified
             // one, so this only works plugged in.
-            return match ctap2::unlock_candidates(dev, &ids, &vault_id, None) {
+            return match ctap2::unlock_candidates(dev, &ids, &vault_id, None, false) {
                 Ok(unverified) => Ok(opens(&unverified).ok_or(NOT_OPENED)),
                 Err(CtapError::NoCredentials) => Ok(Err(NOT_OPENED)),
                 Err(e) => {
@@ -323,24 +330,31 @@ pub async fn security_key_enroll(
     let lock = app.state::<crate::background::BackgroundLock>();
     let _prompt = lock.prompt();
     let vault_id = silo.id.to_string();
-    let (made, wrap_key, verified) = with_key(&app, move |dev| {
-        let pin = pin.map(Zeroizing::new);
+    let pin = std::sync::Arc::new(pin.map(Zeroizing::new));
+
+    // Two touches, or two taps: a key counts one presence per operation,
+    // and over NFC one per tap, so the credential and its secret cannot
+    // share one.
+    let (made_pin, made_vault) = (pin.clone(), vault_id.clone());
+    let made = with_key(&app, move |dev| {
+        ctap2::make_credential(dev, &made_vault, made_pin.as_deref().map(String::as_str))
+    })
+    .await?;
+    use tauri::Emitter;
+    let _ = app.emit("security-key-step", 2);
+
+    let id = made.credential_id.clone();
+    let (wrap_key, verified) = with_key(&app, move |dev| {
         let pin = pin.as_deref().map(String::as_str);
-        let made = ctap2::make_credential(dev, &vault_id, pin)?;
         // Verified when the key has a PIN, as Windows will be.
-        let found = ctap2::unlock_candidates(
-            dev,
-            std::slice::from_ref(&made.credential_id),
-            &vault_id,
-            pin,
-        )?;
+        let found = ctap2::unlock_candidates(dev, std::slice::from_ref(&id), &vault_id, pin, true)?;
         let verified = found.verified;
         let (_, key) = found
             .wrap_keys
             .into_iter()
             .find(|(shape, _)| *shape == ctap2::SaltShape::Raw)
             .ok_or_else(|| CtapError::Protocol("no raw hmac-secret output".into()))?;
-        Ok((made, key, verified))
+        Ok((key, verified))
     })
     .await?;
     remember_pin_key(&hex::encode(&made.credential_id), verified);
