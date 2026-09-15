@@ -49,6 +49,34 @@ object Native {
   // Adds a login, or updates the password of the same account: {saved} or {error}.
   @JvmStatic external fun autofillSave(dataDir: String, credentialId: String, wrapKey: String, login: String): String
 
+  // Passkeys, for the provider in Passkeys.kt. Each answers JSON.
+  @JvmStatic external fun passkeyOverview(dataDir: String, request: String, origin: String): String
+
+  @JvmStatic external fun passkeyFind(dataDir: String, credentialId: String, wrapKey: String, request: String, origin: String): String
+
+  @JvmStatic
+  external fun passkeyCreate(
+    dataDir: String,
+    credentialId: String,
+    wrapKey: String,
+    request: String,
+    origin: String,
+    packageName: String,
+    clientDataHash: String,
+  ): String
+
+  @JvmStatic
+  external fun passkeyAssert(
+    dataDir: String,
+    credentialId: String,
+    wrapKey: String,
+    passkeyId: String,
+    request: String,
+    origin: String,
+    packageName: String,
+    clientDataHash: String,
+  ): String
+
   // Locks every open silo in this process.
   @JvmStatic external fun lockAll()
 

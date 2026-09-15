@@ -265,6 +265,8 @@ const handlers: Record<string, Handler> = {
   device_name: () => "Pixel 10 Pro",
   autofill_status: () => ({ supported: true, enabled: false }),
   autofill_enable: () => undefined,
+  passkeys_status: () => ({ supported: true, enabled: false }),
+  passkeys_enable: () => undefined,
   backup_waiting: () => (backup.photos || backup.contacts ? 3 : null),
   backup_media_folders: () => [
     { id: "1", name: "Camera", photos: 41200, videos: 1320, bytes: 230 * 1024 ** 3 },

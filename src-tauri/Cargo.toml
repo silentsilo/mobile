@@ -28,7 +28,7 @@ silentsilo-app = { workspace = true }
 uuid = { version = "1", features = ["v4"] }
 hex = "0.4"
 tokio = { version = "1", features = ["time"] }
-silentsilo-fido = { workspace = true, features = ["enclave", "ctap2"] }
+silentsilo-fido = { workspace = true, features = ["enclave", "ctap2", "passkey"] }
 zeroize = "1"
 
 [target.'cfg(target_os = "android")'.dependencies]

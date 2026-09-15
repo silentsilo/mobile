@@ -180,6 +180,8 @@ export const api = {
 
   autofillStatus: () => invoke<{ supported: boolean; enabled: boolean }>("autofill_status"),
   enableAutofill: () => invoke<void>("autofill_enable"),
+  passkeysStatus: () => invoke<{ supported: boolean; enabled: boolean }>("passkeys_status"),
+  enablePasskeys: () => invoke<void>("passkeys_enable"),
 
   backupWaiting: () => invoke<number | null>("backup_waiting"),
   mediaFolders: () => invoke<MediaFolder[]>("backup_media_folders"),

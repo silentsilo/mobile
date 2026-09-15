@@ -113,6 +113,45 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     }
   }
 
+  // Whether this phone can use SilentSilo for passkeys (Android 14+), and
+  // whether it is chosen in Android's settings.
+  @Command
+  fun passkeysStatus(invoke: Invoke) {
+    val result = JSObject()
+    val supported = Build.VERSION.SDK_INT >= 34
+    result.put("supported", supported)
+    var enabled = false
+    if (supported) {
+      try {
+        val manager = activity.getSystemService(android.credentials.CredentialManager::class.java)
+        enabled = manager?.isEnabledCredentialProviderService(
+          android.content.ComponentName(activity, "com.silentsilo.mobile.PasskeyService")
+        ) == true
+      } catch (_: Exception) {
+      }
+    }
+    result.put("enabled", enabled)
+    invoke.resolve(result)
+  }
+
+  // Android's screen for choosing passkey and password providers.
+  @Command
+  fun passkeysEnable(invoke: Invoke) {
+    try {
+      activity.startActivity(
+        Intent("android.settings.CREDENTIAL_PROVIDER").setData(Uri.parse("package:${activity.packageName}"))
+      )
+      invoke.resolve()
+    } catch (e: Exception) {
+      try {
+        activity.startActivity(Intent("android.settings.CREDENTIAL_PROVIDER"))
+        invoke.resolve()
+      } catch (_: Exception) {
+        invoke.reject("This phone did not open its passkey settings.")
+      }
+    }
+  }
+
   @Command
   fun check(invoke: Invoke) {
     try {

@@ -79,6 +79,12 @@ impl<R: Runtime> DeviceKey<R> {
     pub async fn autofill_enable(&self) -> Result<(), String> {
         Err(Self::ABSENT.into())
     }
+    pub async fn passkeys_status(&self) -> Result<AutofillStatus, String> {
+        Err(Self::ABSENT.into())
+    }
+    pub async fn passkeys_enable(&self) -> Result<(), String> {
+        Err(Self::ABSENT.into())
+    }
 }
 
 #[cfg(target_os = "android")]
@@ -140,6 +146,16 @@ impl<R: Runtime> DeviceKey<R> {
             .map(|_| ())
     }
 
+    pub async fn passkeys_status(&self) -> Result<AutofillStatus, String> {
+        self.call("passkeysStatus", serde_json::json!({})).await
+    }
+
+    pub async fn passkeys_enable(&self) -> Result<(), String> {
+        self.call::<serde_json::Value>("passkeysEnable", serde_json::json!({}))
+            .await
+            .map(|_| ())
+    }
+
     async fn call<T: serde::de::DeserializeOwned>(
         &self,
         command: &str,
@@ -193,4 +209,17 @@ pub async fn autofill_enable(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub async fn device_name(app: tauri::AppHandle) -> Result<String, String> {
     app.state::<DeviceKey<tauri::Wry>>().device_name().await
+}
+
+#[tauri::command]
+pub async fn passkeys_status(app: tauri::AppHandle) -> Result<AutofillStatus, String> {
+    app.state::<DeviceKey<tauri::Wry>>().passkeys_status().await
+}
+
+/// Android's settings screen covers the app; that is not leaving it.
+#[tauri::command]
+pub async fn passkeys_enable(app: tauri::AppHandle) -> Result<(), String> {
+    let lock = app.state::<crate::background::BackgroundLock>();
+    let _prompt = lock.prompt();
+    app.state::<DeviceKey<tauri::Wry>>().passkeys_enable().await
 }

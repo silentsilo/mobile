@@ -9,6 +9,8 @@ mod device_key;
 mod host;
 mod incoming;
 mod manage;
+#[cfg(target_os = "android")]
+mod passkeys;
 mod security_key;
 mod viewer;
 
@@ -54,6 +56,8 @@ pub fn run() {
             device_key::autofill_status,
             device_key::device_name,
             device_key::autofill_enable,
+            device_key::passkeys_status,
+            device_key::passkeys_enable,
             commands::app_bootstrap,
             commands::sftp_probe_host_key,
             commands::vault_preview_join,

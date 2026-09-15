@@ -214,8 +214,20 @@ export type CredentialType = "login" | "card" | "identity" | "ssh_key" | "note";
  * `withEdits` in `lib/passwordEntry.ts`), never an object built field by
  * field, and never the output of a schema that strips what it does not know.
  */
+/** A passkey kept in a login entry. The private key is in the entry too,
+ * sealed with the silo like a password; the screens never show it. */
+export type PasskeyField = {
+  version: number;
+  rp_id: string;
+  credential_id: string;
+  user_name: string;
+  user_display_name?: string;
+  created_at: number;
+};
+
 export type PasswordEntry = {
   id: string;
+  passkey?: PasskeyField;
   /** Display name for every kind: the site for a login, the card's label,
    * the person for an identity, the key's purpose for an SSH key. */
   service: string;

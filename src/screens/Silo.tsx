@@ -1,4 +1,4 @@
-import { ChevronRight, Cloud, HeartPulse, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, Fingerprint, HeartPulse, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -50,6 +50,8 @@ export function Silo({
   const [removing, setRemoving] = useState(false);
   const [autofill, setAutofill] = useState<{ supported: boolean; enabled: boolean } | null>(null);
   const [aboutAutofill, setAboutAutofill] = useState(false);
+  const [passkeys, setPasskeys] = useState<{ supported: boolean; enabled: boolean } | null>(null);
+  const [aboutPasskeys, setAboutPasskeys] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -57,7 +59,10 @@ export function Silo({
     api.recoveryStatus().then(setRecovery, () => setRecovery(null));
     api.lockAfter().then(setLockAfter, () => setLockAfter(null));
     api.lockOnScreenOff().then(setScreenOff, () => setScreenOff(null));
-    const readAutofill = () => api.autofillStatus().then(setAutofill, () => setAutofill(null));
+    const readAutofill = () => {
+      api.autofillStatus().then(setAutofill, () => setAutofill(null));
+      api.passkeysStatus().then(setPasskeys, () => setPasskeys(null));
+    };
     void readAutofill();
     // Coming back from Android's settings screen.
     const onVisible = () => document.visibilityState === "visible" && void readAutofill();
@@ -139,6 +144,7 @@ export function Silo({
           <div className="panel">
             {navRow(HeartPulse, "Password health", "", onHealth, true)}
             {autofill?.supported && navRow(TextCursorInput, "Autofill", autofill.enabled ? "On" : "Off", () => setAboutAutofill(true))}
+            {passkeys?.supported && navRow(Fingerprint, "Passkeys", passkeys.enabled ? "On" : "Off", () => setAboutPasskeys(true))}
             {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys)}
             {navRow(LockKeyhole, "Recovery code", recovery?.enabled ? "Active" : recovery ? "Not set" : "", () => setAboutRecovery(true))}
             {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
@@ -226,6 +232,23 @@ export function Silo({
           }}
         >
           {autofill?.enabled ? "Change in Android settings" : "Turn on in Android settings"}
+        </button>
+      </Sheet>
+
+      <Sheet open={aboutPasskeys} onClose={() => setAboutPasskeys(false)} title="Passkeys">
+        <p className="hint">
+          {passkeys?.enabled
+            ? "Sites and apps can save passkeys in this silo and sign in with them. Each use asks for your fingerprint. Passkeys sync to the silo's backup like its passwords."
+            : "Let sites and apps save passkeys in this silo and sign in with them. Choose SilentSilo for passkeys in Android's settings."}
+        </p>
+        <button
+          className="btn"
+          onClick={() => {
+            setAboutPasskeys(false);
+            api.enablePasskeys().catch((e) => toast(formatAppError(e)));
+          }}
+        >
+          {passkeys?.enabled ? "Change in Android settings" : "Turn on in Android settings"}
         </button>
       </Sheet>
 

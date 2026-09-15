@@ -200,6 +200,24 @@ export function Entry({ entry, onBack, onEdit }: { entry: PasswordEntry; onBack:
           )}
         </div>
 
+        {entry.passkey && (
+          <div className="panel">
+            <div className="row" style={{ minHeight: 68 }}>
+              <div className="row-text" style={{ gap: 4 }}>
+                <span className="label" style={{ color: "var(--text-dim)", letterSpacing: "0.03em" }}>
+                  Passkey
+                </span>
+                <span style={{ fontSize: "1rem" }}>
+                  {entry.passkey.user_name || entry.passkey.user_display_name || "Account"} on {entry.passkey.rp_id}
+                </span>
+                <span className="muted" style={{ fontSize: "0.85rem" }}>
+                  Added {new Date(entry.passkey.created_at).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!editable && <p className="hint small" style={{ padding: "0 4px" }}>Edit this kind of entry in SilentSilo on your computer.</p>}
       </div>
     </div>

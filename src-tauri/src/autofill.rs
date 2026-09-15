@@ -28,7 +28,7 @@ impl Host for Quiet {
     }
 }
 
-fn front_silo(data_dir: &Path) -> Option<SiloEntry> {
+pub(crate) fn front_silo(data_dir: &Path) -> Option<SiloEntry> {
     let registry = load_registry(data_dir);
     registry
         .active
@@ -36,11 +36,11 @@ fn front_silo(data_dir: &Path) -> Option<SiloEntry> {
         .or_else(|| registry.silos.first().cloned())
 }
 
-fn text(env: &mut JNIEnv, value: &JString) -> String {
+pub(crate) fn text(env: &mut JNIEnv, value: &JString) -> String {
     env.get_string(value).map(String::from).unwrap_or_default()
 }
 
-fn answer(env: &mut JNIEnv, json: serde_json::Value) -> jstring {
+pub(crate) fn answer(env: &mut JNIEnv, json: serde_json::Value) -> jstring {
     env.new_string(json.to_string())
         .map(|s| s.into_raw())
         .unwrap_or(std::ptr::null_mut())
@@ -97,7 +97,7 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_autofillLogins(
 /// Runs `f` against the front silo, opening it with the unwrapped key when
 /// it is not open yet. Into the app's session map when the app is running;
 /// otherwise opened, used and closed again, which saves what `f` wrote.
-fn with_front_silo<T>(
+pub(crate) fn with_front_silo<T>(
     data_dir: &Path,
     credential_id: &str,
     wrap_hex: &str,
@@ -170,7 +170,7 @@ fn logins(
 }
 
 /// The host of a URL as entries store it, without `www.`.
-fn host_of(url: &str) -> Option<String> {
+pub(crate) fn host_of(url: &str) -> Option<String> {
     let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
     let host = rest
         .split(['/', '?', '#', ':'])
