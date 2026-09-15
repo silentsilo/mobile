@@ -8,8 +8,8 @@ use silentsilo_app::flows::{self, DeviceKey};
 use silentsilo_app::{AppState, StoreConfigInput, SyncReport};
 use silentsilo_core::{FolderEntry, VaultEntry, VaultMeta};
 use silentsilo_vault::{
-    KIND_ANDROID_KEYSTORE, LocalVaultAuth, SiloEntry, StoredFidoCredential, load_registry,
-    save_registry,
+    KIND_ANDROID_KEYSTORE, LocalVaultAuth, SiloEntry, StoredFidoCredential, VaultSession,
+    load_registry, save_registry,
 };
 use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
@@ -92,6 +92,9 @@ pub struct Bootstrap {
     platform_authenticator: bool,
     portable_enrolled: bool,
     platform_enrolled: bool,
+    /// Made on this phone and left before its first key: nothing but the
+    /// device secret opens it (`silo_resume_new`).
+    keyless: bool,
     silo: Option<SiloView>,
 }
 
@@ -117,6 +120,7 @@ pub fn app_bootstrap(app: AppHandle, state: State<AppState>) -> Result<Bootstrap
         platform_authenticator: true,
         portable_enrolled: false,
         platform_enrolled,
+        keyless: silo.as_ref().is_some_and(crate::create::keyless),
         silo: silo.map(|s| SiloView {
             id: s.id.to_string(),
             name: s.name.clone(),
@@ -189,7 +193,8 @@ pub async fn vault_join_with_recovery(
 
 /// Everything after the recovery code or a security key opened the silo:
 /// this phone's folder, credentials and storage settings, the silo created
-/// and filled from storage, and opened.
+/// and filled from storage, and opened. A join that fails part way leaves
+/// nothing behind, so trying again is not refused as a silo already here.
 pub(crate) async fn finish_join(
     app: &AppHandle,
     state: &AppState,
@@ -219,6 +224,34 @@ pub(crate) async fn finish_join(
         auto_lock_minutes: None,
     };
 
+    let (session, meta) = match provision_joined(app, store_config, store, &join, &root).await {
+        Ok(made) => made,
+        Err(e) => {
+            silentsilo_vault::clear_credentials(join.vault_id);
+            silentsilo_vault::clear_s3_config(join.vault_id);
+            silentsilo_vault::wipe_machine_state(&root);
+            let _ =
+                std::fs::remove_dir_all(silentsilo_vault::workdir::secrets_dir_for(join.vault_id));
+            let _ = std::fs::remove_dir_all(&root);
+            return Err(e);
+        }
+    };
+
+    registry.upsert(entry.clone());
+    registry.active = Some(entry.id);
+    save_registry(&app_data, &registry).map_err(|e| e.to_string())?;
+    *state.active_silo.lock().map_err(|e| e.to_string())? = Some(entry.clone());
+    state.open_session(&host(app), entry.id, session)?;
+    Ok(meta)
+}
+
+async fn provision_joined(
+    app: &AppHandle,
+    store_config: &silentsilo_store::StoreConfig,
+    store: &dyn silentsilo_store::ObjectStore,
+    join: &flows::RecoveryJoin,
+    root: &std::path::Path,
+) -> Result<(VaultSession, VaultMeta), String> {
     let device_secret = hex::encode(silentsilo_crypto::generate_dek().as_bytes());
     silentsilo_vault::save_credentials(&LocalVaultAuth {
         vault_id: join.vault_id,
@@ -227,12 +260,8 @@ pub(crate) async fn finish_join(
     .map_err(|e| e.to_string())?;
     silentsilo_vault::save_s3_config(join.vault_id, store_config).map_err(|e| e.to_string())?;
 
-    let session = flows::recovery_join_provision(store, &join, root, &device_secret).await?;
-
-    registry.upsert(entry.clone());
-    registry.active = Some(entry.id);
-    save_registry(&app_data, &registry).map_err(|e| e.to_string())?;
-    *state.active_silo.lock().map_err(|e| e.to_string())? = Some(entry.clone());
+    let session =
+        flows::recovery_join_provision(store, join, root.to_path_buf(), &device_secret).await?;
 
     let emitter = app.clone();
     let plan = silentsilo_sync::fetch_join_plan_reporting(
@@ -245,12 +274,9 @@ pub(crate) async fn finish_join(
     .await
     .map_err(|e| e.to_string())?;
 
-    let (session, meta) =
-        tauri::async_runtime::spawn_blocking(move || flows::join_finish(session, plan))
-            .await
-            .map_err(|e| e.to_string())??;
-    state.open_session(&host(app), entry.id, session)?;
-    Ok(meta)
+    tauri::async_runtime::spawn_blocking(move || flows::join_finish(session, plan))
+        .await
+        .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

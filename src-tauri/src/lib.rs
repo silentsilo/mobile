@@ -112,6 +112,7 @@ pub fn run() {
             manage::silo_switch,
             manage::silo_remove,
             create::silo_create,
+            create::silo_resume_new,
             create::recovery_create,
             create::storage_view,
             create::storage_save,

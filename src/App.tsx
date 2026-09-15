@@ -1,6 +1,6 @@
 import { Folder, KeyRound, ShieldCheck } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { api, type DeviceCheck as Check, type JoinPreview, type Offered, type StoreConfigInput, type SyncStatus } from "./api";
 import { blockingFailures, DeviceCheck } from "./screens/DeviceCheck";
 import { Entry } from "./screens/Entry";
@@ -39,7 +39,7 @@ type Phase =
   | { at: "join-key" }
   | { at: "create-name" }
   | { at: "create-key" }
-  | { at: "create-recovery" }
+  | { at: "create-recovery"; made: boolean }
   | { at: "create-storage" }
   | { at: "locked"; siloName: string; autoPrompt: boolean }
   | { at: "open"; siloName: string };
@@ -70,7 +70,15 @@ export default function App() {
 
   const refresh = useCallback(async (autoPrompt = true) => {
     try {
-      setPhase(phaseFor(await api.bootstrap(), autoPrompt));
+      const boot = await api.bootstrap();
+      // A silo made here and left before its first key has nothing else to
+      // open it with: its making goes on from the key.
+      if (boot.silo && boot.keyless) {
+        if (boot.locked) await api.resumeNewSilo();
+        setPhase({ at: "create-key" });
+        return;
+      }
+      setPhase(phaseFor(boot, autoPrompt));
     } catch (e) {
       setPhase({ at: "failed", message: formatAppError(e) });
     }
@@ -153,11 +161,17 @@ export default function App() {
       case "create-name":
         return <CreateSilo onBack={() => void refresh()} onCreated={() => setPhase({ at: "create-key" })} />;
       case "create-key":
-        return <JoinKey step={1} onBack={() => void refresh()} onDone={() => setPhase({ at: "create-recovery" })} />;
+        return <JoinKey step={1} onBack={() => void refresh()} onDone={() => setPhase({ at: "create-recovery", made: false })} />;
       case "create-recovery":
-        return <CreateRecovery onBack={() => void refresh()} onDone={() => setPhase({ at: "create-storage" })} />;
+        return (
+          <CreateRecovery
+            made={phase.made}
+            onBack={() => void refresh()}
+            onDone={() => setPhase({ at: "create-storage" })}
+          />
+        );
       case "create-storage":
-        return <CreateStorage onBack={() => setPhase({ at: "create-recovery" })} onDone={() => void refresh()} />;
+        return <CreateStorage onBack={() => setPhase({ at: "create-recovery", made: true })} onDone={() => void refresh()} />;
       case "join-storage":
         return <JoinStorage onBack={() => void refresh()} onFound={(config, preview) => setPhase({ at: "join-code", config, preview })} />;
       case "join-code":
@@ -246,7 +260,19 @@ function OpenSiloScreens({
   const toast = useToast();
   const wide = useWide();
 
-  const detailScreen = () => {
+  // Keyed by what is open, so opening another entry beside the list starts
+  // its screen fresh instead of keeping the last one's state.
+  const detailKey = !detail
+    ? ""
+    : detail.at === "entry" || detail.at === "edit"
+      ? `${detail.at}:${detail.entry?.id ?? "new"}:${detail.entry?.updated_at ?? ""}`
+      : detail.at === "preview"
+        ? `preview:${detail.file.id}`
+        : detail.at;
+
+  const detailScreen = () => <Fragment key={detailKey}>{detailBody()}</Fragment>;
+
+  const detailBody = () => {
     if (!detail) return null;
     switch (detail.at) {
       case "entry":

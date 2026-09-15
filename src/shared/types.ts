@@ -81,6 +81,8 @@ export type Bootstrap = {
   portable_enrolled: boolean;
   /** Whether any enrolled key is the machine's built-in authenticator. */
   platform_enrolled: boolean;
+  /** Mobile: a silo made here and left before its first key. */
+  keyless?: boolean;
   /** The silo currently open. Null means show the picker. */
   silo: Silo | null;
 };

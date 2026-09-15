@@ -104,6 +104,7 @@
             android:enabled="@bool/passkeys_supported"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <activity
@@ -111,6 +112,7 @@
             android:enabled="@bool/passkeys_supported"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|uiMode"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <service

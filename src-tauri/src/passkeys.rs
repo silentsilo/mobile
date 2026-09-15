@@ -53,6 +53,7 @@ fn describe(error: PasskeyError) -> serde_json::Value {
         PasskeyError::Unsupported => "unsupported",
         PasskeyError::WrongOrigin { .. } => "origin",
         PasskeyError::Invalid(_) => "invalid",
+        PasskeyError::AppCaller => "app",
     };
     serde_json::json!({ "error": error.to_string(), "code": code })
 }

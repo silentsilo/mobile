@@ -81,6 +81,39 @@ pub async fn silo_create(
     Ok(meta)
 }
 
+/// A silo made here whose making stopped before its first key, the app
+/// closed or the phone locked in between. No key and no recovery code, so
+/// only the device secret it was made with opens it.
+pub(crate) fn keyless(silo: &SiloEntry) -> bool {
+    !silentsilo_vault::is_fido_enrolled(&silo.path)
+        && silentsilo_vault::load_recovery_envelope(&silo.path).is_err()
+        && silentsilo_vault::load_credentials(silo.id).is_ok()
+}
+
+/// Opens a [`keyless`] silo again, so its making can go on from the key.
+#[tauri::command]
+pub async fn silo_resume_new(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<VaultMeta, String> {
+    let silo = active_silo(&state)?;
+    if !keyless(&silo) {
+        return Err("This silo already has a key. Unlock it with that.".into());
+    }
+    let secret = silentsilo_vault::load_credentials(silo.id).map_err(|e| e.to_string())?;
+    let root = silo.path.clone();
+    let (session, meta) = tauri::async_runtime::spawn_blocking(move || {
+        let session = VaultSession::open_with_device_secret(root, &secret.device_secret)
+            .map_err(|e| e.to_string())?;
+        let meta = Vfs::new(&session).meta().map_err(|e| e.to_string())?;
+        Ok::<_, String>((session, meta))
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    state.open_session(&host(&app), silo.id, session)?;
+    Ok(meta)
+}
+
 /// Makes the open silo's recovery code and returns it, the only time it is
 /// shown. A code made again replaces the old one once it syncs.
 #[tauri::command]
@@ -105,12 +138,16 @@ pub struct StorageView {
     endpoint: String,
     region: String,
     bucket: String,
+    prefix: String,
+    path_style: bool,
     access_key_id: String,
     url: String,
     host: String,
     port: u16,
     username: String,
     path: String,
+    /// `password` or `key`, so an edit keeps signing in the same way.
+    auth_method: String,
     /// How many copies the silo has; the phone changes only the first.
     copies: usize,
 }
@@ -133,6 +170,8 @@ pub fn storage_view(state: State<'_, AppState>) -> Result<StorageView, String> {
             view.endpoint = c.endpoint.clone();
             view.region = c.region.clone();
             view.bucket = c.bucket.clone();
+            view.prefix = c.prefix.clone();
+            view.path_style = c.path_style;
             view.access_key_id = c.access_key_id.clone();
         }
         StoreConfig::WebDav(c) => {
@@ -146,6 +185,10 @@ pub fn storage_view(state: State<'_, AppState>) -> Result<StorageView, String> {
             view.port = c.port;
             view.username = c.username.clone();
             view.path = c.path.clone();
+            view.auth_method = match c.auth {
+                silentsilo_store::SftpAuth::Password { .. } => "password".into(),
+                silentsilo_store::SftpAuth::Key { .. } => "key".into(),
+            };
         }
         StoreConfig::Folder { .. } => view.kind = "folder".into(),
     }
@@ -169,13 +212,14 @@ pub async fn storage_save(
     // A blank secret keeps the stored one, for the same server only.
     let config = config.into_config(existing)?;
     let store = config.open().map_err(|e| e.to_string())?;
+    // Another silo's place is refused before anything is written there.
+    silentsilo_sync::refuse_foreign_vault(&*store, silo.id)
+        .await
+        .map_err(|e| e.to_string())?;
     store
         .check()
         .await
         .map_err(|e| format!("The storage did not accept a test write: {e}"))?;
-    silentsilo_sync::refuse_foreign_vault(&*store, silo.id)
-        .await
-        .map_err(|e| e.to_string())?;
 
     match targets.first_mut() {
         Some(first) => first.config = config,

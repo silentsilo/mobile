@@ -338,6 +338,9 @@ pub async fn vault_unlock_with_security_key(
     if ids.is_empty() {
         return Err("This silo has no security keys.".into());
     }
+    // Android's USB permission and PIN dialogs take the screen for a moment.
+    let lock = app.state::<crate::background::BackgroundLock>();
+    let _prompt = lock.prompt();
     let envelopes: std::collections::HashMap<String, String> =
         silentsilo_vault::load_fido_keys(&silo.path)
             .map(|keys| {
@@ -474,6 +477,8 @@ pub async fn vault_join_with_security_key(
     config: silentsilo_app::StoreConfigInput,
     name: String,
 ) -> Result<VaultMeta, String> {
+    let lock = app.state::<crate::background::BackgroundLock>();
+    let _prompt = lock.prompt();
     let store_config = config.into_config(None)?;
     let store = store_config.open().map_err(|e| e.to_string())?;
     let offer = flows::key_join_begin(&*store).await?;

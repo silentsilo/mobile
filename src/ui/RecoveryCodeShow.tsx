@@ -9,7 +9,16 @@ import { useToast } from "./chrome";
  * Makes the silo's recovery code and shows it, once. `replacing` warns that
  * the old code stops working. Done only after the person says it is kept.
  */
-export function RecoveryCodeShow({ replacing, onDone }: { replacing: boolean; onDone: () => void }) {
+export function RecoveryCodeShow({
+  replacing,
+  onShown,
+  onDone,
+}: {
+  replacing: boolean;
+  /** The code exists from here on, whether or not it gets written down. */
+  onShown?: () => void;
+  onDone: () => void;
+}) {
   const [code, setCode] = useState<string | null>(null);
   const [kept, setKept] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -21,6 +30,7 @@ export function RecoveryCodeShow({ replacing, onDone }: { replacing: boolean; on
     setError(null);
     try {
       setCode(await api.createRecovery());
+      onShown?.();
     } catch (e) {
       setError(formatAppError(e));
     } finally {

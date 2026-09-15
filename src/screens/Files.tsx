@@ -58,6 +58,8 @@ export function Files({
   const [folders, setFolders] = useState<FolderEntry[] | null>(null);
   // Typing two letters or more searches the whole silo.
   const [hits, setHits] = useState<Hit[] | null>(null);
+  // Bumped by a change made here, so search results do not show what moved.
+  const [edits, setEdits] = useState(0);
   const pressTimer = useRef<number | undefined>(undefined);
   const pressed = useRef(false);
   const toast = useToast();
@@ -85,6 +87,7 @@ export function Files({
   const enter = (crumb: Crumb) => {
     setTrail([...trail, crumb]);
     setQuery("");
+    setSelected(new Map());
     void load(crumb.id);
   };
 
@@ -92,6 +95,7 @@ export function Files({
     const next = trail.slice(0, -1);
     setTrail(next);
     setQuery("");
+    setSelected(new Map());
     void load(next[next.length - 1]!.id);
   };
 
@@ -102,11 +106,19 @@ export function Files({
       return;
     }
     const q = query.trim();
+    // Only the latest query's answer lands; a slower earlier one is dropped.
+    let live = true;
     const timer = window.setTimeout(() => {
-      api.search(q).then(setHits, (e) => setError(formatAppError(e)));
+      api.search(q).then(
+        (found) => live && setHits(found),
+        (e) => live && toast(formatAppError(e)),
+      );
     }, 250);
-    return () => window.clearTimeout(timer);
-  }, [query, searching]);
+    return () => {
+      live = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, searching, reloadKey, edits, toast]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -165,6 +177,7 @@ export function Files({
       if (renaming.kind === "folder") await api.renameFolder(renaming.id, newName.trim());
       else await api.renameFile(renaming.id, newName.trim());
       setRenaming(null);
+      setEdits((n) => n + 1);
       void load(here.id);
     } catch (e) {
       toast(formatAppError(e));
@@ -178,6 +191,7 @@ export function Files({
       if (entry.kind === "folder") await api.trashFolder(entry.id);
       else await api.trashFile(entry.id);
       toast("Moved to the trash.");
+      setEdits((n) => n + 1);
       void load(here.id);
     } catch (e) {
       toast(formatAppError(e));
@@ -233,6 +247,7 @@ export function Files({
         crumbs.push({ id: f.id, name: f.name });
       }
       setQuery("");
+      setSelected(new Map());
       setTrail(crumbs);
       void load(crumbs[crumbs.length - 1]!.id);
     } catch (e) {
@@ -266,18 +281,29 @@ export function Files({
     const list = moving;
     setMoving(null);
     let failed = 0;
+    let reason = "";
     for (const [i, entry] of list.entries()) {
       setProgress(`Moving ${i + 1} of ${list.length}`);
       try {
         if (entry.kind === "folder") await api.moveFolder(entry.id, destination.id);
         else await api.moveFile(entry.id, destination.id);
-      } catch {
+      } catch (e) {
         failed += 1;
+        reason ||= formatAppError(e);
       }
     }
     setProgress(null);
     setSelected(new Map());
-    toast(failed ? `Moved ${list.length - failed} of ${list.length}.` : list.length === 1 ? "Moved." : `Moved ${list.length} items.`);
+    setEdits((n) => n + 1);
+    toast(
+      failed === list.length
+        ? reason
+        : failed
+          ? `Moved ${list.length - failed} of ${list.length}. ${reason}`
+          : list.length === 1
+            ? "Moved."
+            : `Moved ${list.length} items.`,
+    );
     void load(here.id);
   };
 
@@ -285,15 +311,27 @@ export function Files({
     if (!here) return;
     const list = [...selected.values()];
     setSelected(new Map());
+    let failed = 0;
+    let reason = "";
     for (const entry of list) {
       try {
         if (entry.kind === "folder") await api.trashFolder(entry.id);
         else await api.trashFile(entry.id);
       } catch (e) {
-        toast(formatAppError(e));
+        failed += 1;
+        reason ||= formatAppError(e);
       }
     }
-    toast(list.length === 1 ? "Moved to the trash." : `Moved ${list.length} items to the trash.`);
+    setEdits((n) => n + 1);
+    toast(
+      failed === list.length
+        ? reason
+        : failed
+          ? `Moved ${list.length - failed} of ${list.length} to the trash. ${reason}`
+          : list.length === 1
+            ? "Moved to the trash."
+            : `Moved ${list.length} items to the trash.`,
+    );
     void load(here.id);
   };
 

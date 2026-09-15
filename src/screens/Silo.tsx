@@ -47,6 +47,8 @@ export function Silo({
   const [choosingLock, setChoosingLock] = useState(false);
   const [aboutRecovery, setAboutRecovery] = useState(false);
   const [makingCode, setMakingCode] = useState(false);
+  // A code on screen is already the silo's: the sheet stays until it is kept.
+  const [codeShown, setCodeShown] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [theme, setTheme] = useState<ThemeChoice>(readTheme);
   const [backupOn, setBackupOn] = useState<boolean | null>(null);
@@ -245,8 +247,8 @@ export function Silo({
       <Sheet open={aboutPasskeys} onClose={() => setAboutPasskeys(false)} title="Passkeys">
         <p className="hint">
           {passkeys?.enabled
-            ? "Sites and apps can save passkeys in this silo and sign in with them. Each use asks for your fingerprint. Passkeys sync to the silo's backup like its passwords."
-            : "Let sites and apps save passkeys in this silo and sign in with them. Choose SilentSilo for passkeys in Android's settings."}
+            ? "Sites in your browser can save passkeys in this silo and sign in with them. Each use asks for your fingerprint. Passkeys sync to the silo's backup like its passwords."
+            : "Let sites in your browser save passkeys in this silo and sign in with them. Choose SilentSilo for passkeys in Android's settings."}
         </p>
         <button
           className="btn"
@@ -286,7 +288,7 @@ export function Silo({
         </button>
       </Sheet>
 
-      <Sheet open={aboutRecovery} onClose={() => { setAboutRecovery(false); setMakingCode(false); }} title="Recovery code">
+      <Sheet open={aboutRecovery} onClose={() => { if (codeShown) return; setAboutRecovery(false); setMakingCode(false); }} title="Recovery code">
         <p className="hint">
           {recovery?.enabled
             ? "This silo has a recovery code. It was shown once, when it was made, and is not stored anywhere it could be read back. Keep the paper copy safe: it opens the silo when every key is gone."
@@ -295,7 +297,9 @@ export function Silo({
         {makingCode ? (
           <RecoveryCodeShow
             replacing={!!recovery?.enabled}
+            onShown={() => setCodeShown(true)}
             onDone={() => {
+              setCodeShown(false);
               setMakingCode(false);
               setAboutRecovery(false);
               api.recoveryStatus().then(setRecovery, () => setRecovery(null));

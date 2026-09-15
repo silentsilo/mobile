@@ -59,18 +59,6 @@
     {
       "type": "android",
       "info": {
-        "package_name": "org.chromium.chrome",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "C6:AD:B8:B8:3C:6D:4C:17:D2:92:AF:DE:56:FD:48:8A:51:D3:16:FF:8F:2C:11:C5:41:02:23:BF:F8:A7:DB:B3"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
         "package_name": "org.mozilla.firefox",
         "signatures": [
           {
@@ -100,18 +88,6 @@
           {
             "build": "release",
             "cert_fingerprint_sha256": "62:03:A4:73:BE:36:D6:4E:E3:7F:87:FA:50:0E:DB:C7:9E:AB:93:06:10:AB:9B:9F:A4:CA:7D:5C:1F:1B:4F:FC"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
-        "package_name": "org.mozilla.fennec_aurora",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "BC:04:88:83:8D:06:F4:CA:6B:F3:23:86:DA:AB:0D:D8:EB:CF:3E:77:30:78:74:59:F6:2F:B3:CD:14:A1:BA:AA"
           }
         ]
       }
@@ -172,18 +148,6 @@
           {
             "build": "release",
             "cert_fingerprint_sha256": "62:03:A4:73:BE:36:D6:4E:E3:7F:87:FA:50:0E:DB:C7:9E:AB:93:06:10:AB:9B:9F:A4:CA:7D:5C:1F:1B:4F:FC"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
-        "package_name": "org.mozilla.reference.browser",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "B0:09:90:E3:0F:9D:81:5D:2E:BC:7B:9B:B2:21:CE:47:E5:C9:D5:17:AA:C7:0E:7F:D5:95:B1:E5:3E:9A:4B:14"
           }
         ]
       }
@@ -311,18 +275,6 @@
     {
       "type": "android",
       "info": {
-        "package_name": "com.vivaldi.browser.sopranos",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "E8:A7:85:44:65:5B:A8:C0:98:17:F7:32:76:8F:56:89:B1:66:2E:C4:B2:BC:5A:0B:C0:EC:13:8D:33:CA:3D:1E"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
         "package_name": "com.citrix.Receiver",
         "signatures": [
           {
@@ -435,54 +387,6 @@
     {
       "type": "android",
       "info": {
-        "package_name": "com.yandex.browser.alpha",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "AC:A4:05:DE:D8:B2:5C:B2:E8:C6:DA:69:42:5D:2B:43:07:D0:87:C1:27:6F:C0:6A:D5:94:27:31:CC:C5:1D:BA"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
-        "package_name": "com.yandex.browser.corp",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "AC:A4:05:DE:D8:B2:5C:B2:E8:C6:DA:69:42:5D:2B:43:07:D0:87:C1:27:6F:C0:6A:D5:94:27:31:CC:C5:1D:BA"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
-        "package_name": "com.yandex.browser.canary",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "1D:A9:CB:AE:2D:CC:C6:A5:8D:6C:94:7B:E9:4C:DB:B7:33:D6:5D:A4:D1:77:0F:A1:4A:53:64:CB:4A:28:EB:49"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
-        "package_name": "com.yandex.browser.broteam",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "1D:A9:CB:AE:2D:CC:C6:A5:8D:6C:94:7B:E9:4C:DB:B7:33:D6:5D:A4:D1:77:0F:A1:4A:53:64:CB:4A:28:EB:49"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
         "package_name": "com.talonsec.talon",
         "signatures": [
           {
@@ -527,18 +431,6 @@
     {
       "type": "android",
       "info": {
-        "package_name": "com.duckduckgo.mobile.android.debug",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "C4:F0:9E:2B:D7:25:AD:F5:AD:92:0B:A2:80:27:66:AC:16:4A:C1:53:B3:EA:9E:08:48:B0:57:98:37:F7:6A:29"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
         "package_name": "com.duckduckgo.mobile.android",
         "signatures": [
           {
@@ -556,18 +448,6 @@
           {
             "build": "release",
             "cert_fingerprint_sha256": "0B:8B:85:23:BB:4A:EF:FA:34:6E:4B:DD:4F:BF:7D:19:34:50:56:9A:A1:4A:AA:D4:AD:FD:94:A3:F7:B2:27:BB"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
-        "package_name": "com.fido.fido2client",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "FC:98:DA:E6:3A:D3:96:26:C8:C6:7F:BE:83:F2:F0:6F:74:93:2A:9C:D1:46:B9:2C:EC:FC:6A:04:7A:90:43:86"
           }
         ]
       }
@@ -808,18 +688,6 @@
           {
             "build": "release",
             "cert_fingerprint_sha256": "F5:21:95:30:FC:8F:87:99:3B:3C:F5:0E:83:8A:96:75:AB:3B:2D:C5:79:A2:A8:52:0D:99:87:2A:26:B1:5C:5F"
-          }
-        ]
-      }
-    },
-    {
-      "type": "android",
-      "info": {
-        "package_name": "io.github.jqssun.helium",
-        "signatures": [
-          {
-            "build": "release",
-            "cert_fingerprint_sha256": "09:55:40:49:4D:53:F4:8C:A0:51:BC:86:C3:92:C4:6E:DB:29:72:5D:A5:59:2B:D8:AF:3C:3D:02:7B:31:66:BB"
           }
         ]
       }

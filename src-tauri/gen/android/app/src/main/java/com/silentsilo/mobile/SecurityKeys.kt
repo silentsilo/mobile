@@ -120,6 +120,9 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
   @Volatile private var waiting: Invoke? = null
   private var asked = mutableSetOf<String>()
   private var receiver: BroadcastReceiver? = null
+  // One poll at a time: the permission broadcast restarts it rather than
+  // starting a second.
+  private val poll = Runnable { pollUsb() }
 
   @Command
   fun status(invoke: Invoke) {
@@ -148,6 +151,11 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
       )
       pollUsb()
     }
+  }
+
+  private fun pollSoon(delayMs: Long) {
+    main.removeCallbacks(poll)
+    main.postDelayed(poll, delayMs)
   }
 
   // The key's PIN, typed in Android's own dialog so it never reaches the
@@ -236,7 +244,10 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
     pending.resolve(JSObject().apply { put("transport", transport) })
   }
 
+  // A tap while nothing waits, a key in use or the moments after, is left
+  // alone: holding it would drop the link a request is still using.
   private fun onTag(tag: Tag) {
+    if (waiting == null) return
     val iso = IsoDep.get(tag) ?: return
     try {
       iso.connect()
@@ -250,6 +261,7 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
   }
 
   private fun pollUsb() {
+    main.removeCallbacks(poll)
     if (waiting == null) return
     val manager = activity.getSystemService(UsbManager::class.java)
     for (device in manager.deviceList.values) {
@@ -263,14 +275,14 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
         return
       }
     }
-    main.postDelayed({ pollUsb() }, POLL_MS)
+    pollSoon(POLL_MS)
   }
 
   private fun askPermission(manager: UsbManager, device: UsbDevice) {
     if (receiver == null) {
       val r = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-          main.post { pollUsb() }
+          main.post { pollSoon(0) }
         }
       }
       val filter = IntentFilter(PERMISSION_ACTION)
@@ -293,13 +305,15 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
     for (i in 0 until device.interfaceCount) {
       val iface = device.getInterface(i)
       if (iface.interfaceClass != UsbConstants.USB_CLASS_HID) continue
-      val endpoints = (0 until iface.endpointCount).map { iface.getEndpoint(it) }
-      val hasIn = endpoints.any { it.type == UsbConstants.USB_ENDPOINT_XFER_INT && it.direction == UsbConstants.USB_DIR_IN && it.maxPacketSize == 64 }
-      val hasOut = endpoints.any { it.type == UsbConstants.USB_ENDPOINT_XFER_INT && it.direction == UsbConstants.USB_DIR_OUT && it.maxPacketSize == 64 }
-      if (hasIn && hasOut) return iface
+      if (endpoint(iface, UsbConstants.USB_DIR_IN) != null && endpoint(iface, UsbConstants.USB_DIR_OUT) != null) return iface
     }
     return null
   }
+
+  private fun endpoint(iface: UsbInterface, direction: Int): UsbEndpoint? =
+    (0 until iface.endpointCount).map { iface.getEndpoint(it) }.firstOrNull {
+      it.type == UsbConstants.USB_ENDPOINT_XFER_INT && it.direction == direction && it.maxPacketSize == 64
+    }
 
   private fun open(manager: UsbManager, device: UsbDevice, iface: UsbInterface): Boolean {
     val connection = manager.openDevice(device) ?: return false
@@ -318,9 +332,13 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
       connection.close()
       return false
     }
-    val endpoints = (0 until iface.endpointCount).map { iface.getEndpoint(it) }
-    val input = endpoints.first { it.direction == UsbConstants.USB_DIR_IN }
-    val output = endpoints.first { it.direction == UsbConstants.USB_DIR_OUT }
+    val input = endpoint(iface, UsbConstants.USB_DIR_IN)
+    val output = endpoint(iface, UsbConstants.USB_DIR_OUT)
+    if (input == null || output == null) {
+      connection.releaseInterface(iface)
+      connection.close()
+      return false
+    }
     SecurityKeys.holdUsb(SecurityKeys.UsbLink(connection, iface, input, output))
     return true
   }

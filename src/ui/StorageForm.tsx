@@ -35,6 +35,7 @@ export function StorageForm({
     endpoint: current?.endpoint ?? "",
     region: current?.region ?? "",
     bucket: current?.bucket ?? "",
+    prefix: current?.prefix ?? "",
     accessKeyId: current?.accessKeyId ?? "",
     secret: "",
     url: current?.url ?? "",
@@ -44,6 +45,7 @@ export function StorageForm({
     port: current?.port ? String(current.port) : "22",
     path: current?.path ?? "",
   });
+  const [pathStyle, setPathStyle] = useState(current?.pathStyle ?? false);
   const [showSecret, setShowSecret] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,6 +54,8 @@ export function StorageForm({
   const set = (key: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [key]: e.target.value });
   // A stored secret may stand in for a blank one on the same kind.
   const secretKept = known === kind;
+  // A server the desktop set up with a private key keeps signing in with it.
+  const keyKept = secretKept && kind === "sftp" && current?.authMethod === "key";
 
   const ready =
     kind === "s3"
@@ -67,10 +71,10 @@ export function StorageForm({
         endpoint: f.endpoint.trim(),
         region: f.region.trim() || "auto",
         bucket: f.bucket.trim(),
-        prefix: "",
+        prefix: f.prefix.trim(),
         accessKeyId: f.accessKeyId.trim(),
         secretAccessKey: f.secret || null,
-        pathStyle: false,
+        pathStyle,
       };
     }
     if (kind === "web-dav") return { kind, url: f.url.trim(), username: f.username.trim(), password: f.password || null };
@@ -80,7 +84,10 @@ export function StorageForm({
       port: Number(f.port) || 22,
       username: f.username.trim(),
       path: f.path.trim(),
-      auth: { method: "password", password: f.password || null },
+      auth:
+        keyKept && !f.password
+          ? { method: "key", privateKey: null, passphrase: null }
+          : { method: "password", password: f.password || null },
       hostFingerprint,
     };
   };
@@ -147,8 +154,13 @@ export function StorageForm({
             <Field label="Endpoint">{text("endpoint", "https://s3.example.com", "url")}</Field>
             <Field label="Region">{text("region", "auto")}</Field>
             <Field label="Bucket">{text("bucket")}</Field>
+            <Field label="Folder in the bucket (optional)">{text("prefix")}</Field>
             <Field label="Access key ID">{text("accessKeyId")}</Field>
             <Field label="Secret access key">{secretInput("secret")}</Field>
+            <label style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <input type="checkbox" checked={pathStyle} onChange={(e) => setPathStyle(e.target.checked)} style={{ width: 22, height: 22 }} />
+              <span>Path-style addresses (MinIO and most self-hosted servers)</span>
+            </label>
           </>
         )}
         {kind === "web-dav" && (
@@ -166,7 +178,7 @@ export function StorageForm({
             </div>
             <Field label="Username">{text("username")}</Field>
             <Field label="Folder on the server">{text("path", "/backups/silentsilo")}</Field>
-            <Field label="Password">{secretInput("password")}</Field>
+            <Field label={keyKept ? "Password (blank keeps the stored private key)" : "Password"}>{secretInput("password")}</Field>
           </>
         )}
       </div>

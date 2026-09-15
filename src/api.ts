@@ -33,7 +33,9 @@ export type StoreConfigInput =
       port: number;
       username: string;
       path: string;
-      auth: { method: "password"; password: string | null };
+      auth:
+        | { method: "password"; password: string | null }
+        | { method: "key"; privateKey: string | null; passphrase: string | null };
       hostFingerprint: string | null;
     };
 
@@ -106,12 +108,15 @@ export type StorageView = {
   endpoint: string;
   region: string;
   bucket: string;
+  prefix: string;
+  pathStyle: boolean;
   accessKeyId: string;
   url: string;
   host: string;
   port: number;
   username: string;
   path: string;
+  authMethod: string;
   copies: number;
 };
 
@@ -130,6 +135,8 @@ export const api = {
     invoke<VaultMeta>("vault_join_with_security_key", { config, name }),
   enrollDeviceKey: (label: string) => invoke<void>("device_key_enroll", { label }),
   createSilo: (name: string) => invoke<VaultMeta>("silo_create", { name }),
+  /** Opens a silo whose making stopped before its first key. */
+  resumeNewSilo: () => invoke<VaultMeta>("silo_resume_new"),
   /** The only time the code is shown. */
   createRecovery: () => invoke<string>("recovery_create"),
   storageView: () => invoke<StorageView>("storage_view"),
