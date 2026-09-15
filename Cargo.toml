@@ -11,12 +11,12 @@ license = "AGPL-3.0-or-later"
 # Pinned to an exact core commit while the app is unreleased: core gets one
 # tag when mobile is finished, and this moves to it then. Never a branch.
 [workspace.dependencies]
-silentsilo-core = { git = "https://github.com/silentsilo/core", rev = "35ecd89fb2d8270ccaf1dd42ad5b6ad0fe2de57f" }
-silentsilo-crypto = { git = "https://github.com/silentsilo/core", rev = "35ecd89fb2d8270ccaf1dd42ad5b6ad0fe2de57f" }
-silentsilo-vault = { git = "https://github.com/silentsilo/core", rev = "35ecd89fb2d8270ccaf1dd42ad5b6ad0fe2de57f" }
-silentsilo-vfs = { git = "https://github.com/silentsilo/core", rev = "35ecd89fb2d8270ccaf1dd42ad5b6ad0fe2de57f" }
-silentsilo-store = { git = "https://github.com/silentsilo/core", rev = "35ecd89fb2d8270ccaf1dd42ad5b6ad0fe2de57f" }
-silentsilo-sync = { git = "https://github.com/silentsilo/core", rev = "35ecd89fb2d8270ccaf1dd42ad5b6ad0fe2de57f" }
-silentsilo-app = { git = "https://github.com/silentsilo/core", rev = "35ecd89fb2d8270ccaf1dd42ad5b6ad0fe2de57f" }
+silentsilo-core = { git = "https://github.com/silentsilo/core", rev = "b5a3bb58eff2db69a4b98b17897f98168d286faa" }
+silentsilo-crypto = { git = "https://github.com/silentsilo/core", rev = "b5a3bb58eff2db69a4b98b17897f98168d286faa" }
+silentsilo-vault = { git = "https://github.com/silentsilo/core", rev = "b5a3bb58eff2db69a4b98b17897f98168d286faa" }
+silentsilo-vfs = { git = "https://github.com/silentsilo/core", rev = "b5a3bb58eff2db69a4b98b17897f98168d286faa" }
+silentsilo-store = { git = "https://github.com/silentsilo/core", rev = "b5a3bb58eff2db69a4b98b17897f98168d286faa" }
+silentsilo-sync = { git = "https://github.com/silentsilo/core", rev = "b5a3bb58eff2db69a4b98b17897f98168d286faa" }
+silentsilo-app = { git = "https://github.com/silentsilo/core", rev = "b5a3bb58eff2db69a4b98b17897f98168d286faa" }
 # No HID stack on a phone: only the key-agreement math.
-silentsilo-fido = { git = "https://github.com/silentsilo/core", rev = "35ecd89fb2d8270ccaf1dd42ad5b6ad0fe2de57f", default-features = false }
+silentsilo-fido = { git = "https://github.com/silentsilo/core", rev = "b5a3bb58eff2db69a4b98b17897f98168d286faa", default-features = false }
