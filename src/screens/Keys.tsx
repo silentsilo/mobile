@@ -1,6 +1,6 @@
 import { EllipsisVertical, KeyRound, ScanFace, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api, PIN_REQUIRED } from "../api";
+import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { SecurityKeyInfo } from "../shared/types";
 import { Field, Sheet, TopBar } from "../ui/chrome";
@@ -22,10 +22,10 @@ export function Keys({ onBack }: { onBack: () => void }) {
   const [chosen, setChosen] = useState<SecurityKeyInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Adding a security key: its name, then the key, then its PIN if it asks.
-  const [adding, setAdding] = useState<"name" | "key" | "pin" | null>(null);
+  // Adding a security key: its name, then the key. A PIN, when the key has
+  // one, is asked in Android's own dialog.
+  const [adding, setAdding] = useState<"name" | "key" | null>(null);
   const [label, setLabel] = useState("Security key");
-  const [pin, setPin] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -49,20 +49,16 @@ export function Keys({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const addKey = async (withPin: string | null) => {
+  const addKey = async () => {
     setAddError(null);
     setAdding("key");
     try {
-      await api.enrollSecurityKey(label, withPin);
+      await api.enrollSecurityKey(label);
       setAdding(null);
-      setPin("");
       load();
     } catch (e) {
       if (e === "Cancelled") {
         setAdding(null);
-      } else if (e === PIN_REQUIRED || (typeof e === "string" && e.startsWith("Wrong PIN"))) {
-        setAddError(e === PIN_REQUIRED ? null : e);
-        setAdding("pin");
       } else {
         setAddError(formatAppError(e));
         setAdding("name");
@@ -113,7 +109,6 @@ export function Keys({ onBack }: { onBack: () => void }) {
           onClick={() => {
             setAddError(null);
             setLabel("Security key");
-            setPin("");
             setAdding("name");
           }}
         >
@@ -134,7 +129,7 @@ export function Keys({ onBack }: { onBack: () => void }) {
               </div>
             </Field>
             {addError && <div className="notice error">{addError}</div>}
-            <button className="btn" onClick={() => void addKey(null)}>
+            <button className="btn" onClick={() => void addKey()}>
               Continue
             </button>
           </>
@@ -144,20 +139,6 @@ export function Keys({ onBack }: { onBack: () => void }) {
             <SecurityKeyWait touches={2} />
             <button className="btn secondary" onClick={closeAdding}>
               Cancel
-            </button>
-          </>
-        )}
-        {adding === "pin" && (
-          <>
-            <p className="hint">This key has a PIN. It is asked once, to add the key; unlocking does not need it.</p>
-            <Field label="Security key PIN">
-              <div className="input">
-                <input type="password" inputMode="numeric" autoComplete="off" value={pin} autoFocus onChange={(e) => setPin(e.target.value)} />
-              </div>
-            </Field>
-            {addError && <div className="notice error">{addError}</div>}
-            <button className="btn" disabled={pin.length < 4} onClick={() => void addKey(pin)}>
-              Continue
             </button>
           </>
         )}

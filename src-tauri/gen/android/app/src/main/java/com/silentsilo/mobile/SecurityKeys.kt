@@ -1,6 +1,7 @@
 package com.silentsilo.mobile
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -19,6 +20,11 @@ import android.nfc.tech.IsoDep
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
+import android.view.WindowManager
+import android.view.inputmethod.EditorInfo
+import android.widget.EditText
+import android.widget.FrameLayout
 import android.util.Log
 import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
@@ -66,7 +72,6 @@ object SecurityKeys {
     val link = usb ?: return false
     return try {
       val n = link.connection.bulkTransfer(link.output, report, report.size, 1000)
-      if (n != report.size) Log.w(TAG, "USB write returned $n")
       n == report.size
     } catch (e: Exception) {
       Log.w(TAG, "USB write failed: ${e.javaClass.simpleName}")
@@ -145,6 +150,51 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
     }
   }
 
+  // The key's PIN, typed in Android's own dialog so it never reaches the
+  // web view. Resolves {pin}, {noPin: true} or {} when cancelled.
+  @Command
+  fun askPin(invoke: Invoke) {
+    val args = invoke.getArgs()
+    val note = args.optString("note", "").takeIf { it.isNotEmpty() && it != "null" }
+    val offerNoPin = args.optBoolean("offerNoPin", false)
+    main.post {
+      val field = EditText(activity).apply {
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        imeOptions = EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING
+        hint = "PIN"
+        isSingleLine = true
+      }
+      val box = FrameLayout(activity).apply {
+        val pad = (20 * activity.resources.displayMetrics.density).toInt()
+        setPadding(pad, pad / 2, pad, 0)
+        addView(field)
+      }
+      var answered = false
+      fun answer(result: JSObject) {
+        if (answered) return
+        answered = true
+        field.text?.clear()
+        invoke.resolve(result)
+      }
+      val builder = AlertDialog.Builder(activity)
+        .setTitle("Security key PIN")
+        .setMessage(note ?: "A security key with a PIN needs it to open the silo, as on your computer. It goes to the key only and is not kept.")
+        .setView(box)
+        .setPositiveButton("Continue") { _, _ ->
+          val pin = field.text?.toString().orEmpty()
+          answer(JSObject().apply { if (pin.isNotEmpty()) put("pin", pin) })
+        }
+        .setNegativeButton("Cancel") { _, _ -> answer(JSObject()) }
+        .setOnCancelListener { answer(JSObject()) }
+      if (offerNoPin) builder.setNeutralButton("Key has no PIN") { _, _ -> answer(JSObject().apply { put("no_pin", true) }) }
+      val dialog = builder.create()
+      dialog.window?.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+      dialog.show()
+      field.requestFocus()
+      dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_VISIBLE)
+    }
+  }
+
   @Command
   fun cancel(invoke: Invoke) {
     main.post {
@@ -182,7 +232,6 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
 
   private fun found(transport: String) {
     val pending = waiting ?: return
-    Log.i(TAG, "security key found over $transport")
     stopWaiting(null, readerOff = false)
     pending.resolve(JSObject().apply { put("transport", transport) })
   }
@@ -205,7 +254,6 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
     val manager = activity.getSystemService(UsbManager::class.java)
     for (device in manager.deviceList.values) {
       val candidate = fidoInterface(device) ?: continue
-      Log.i(TAG, "USB FIDO candidate ${device.vendorId}:${device.productId}, allowed ${manager.hasPermission(device)}")
       if (!manager.hasPermission(device)) {
         if (asked.add(device.deviceName)) askPermission(manager, device)
         continue
@@ -265,7 +313,6 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
     val fido = n > 2 && (0 until n - 2).any {
       descriptor[it] == 0x06.toByte() && descriptor[it + 1] == 0xD0.toByte() && descriptor[it + 2] == 0xF1.toByte()
     }
-    Log.i(TAG, "HID report descriptor $n bytes, FIDO page $fido")
     if (!fido) {
       connection.releaseInterface(iface)
       connection.close()

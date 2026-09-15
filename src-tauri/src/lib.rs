@@ -104,7 +104,7 @@ pub fn run() {
             manage::silo_remove,
             security_key::security_key_status,
             security_key::security_key_cancel,
-            security_key::security_key_offer,
+            security_key::security_key_count,
             security_key::vault_unlock_with_security_key,
             security_key::security_key_enroll,
         ])

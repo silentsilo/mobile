@@ -170,7 +170,7 @@ const handlers: Record<string, Handler> = {
     return meta();
   },
   security_key_status: () => ({ nfc: true, nfcOn: true, usb: true }),
-  security_key_offer: () => ({ count: keys.filter((k) => (k.kind ?? "fido2") === "fido2" && !k.platform).length, pinFirst: false }),
+  security_key_count: () => keys.filter((k) => (k.kind ?? "fido2") === "fido2" && !k.platform).length,
   security_key_cancel: () => {
     keyWait?.("Cancelled");
   },
@@ -181,8 +181,6 @@ const handlers: Record<string, Handler> = {
   },
   security_key_enroll: async (args) => {
     await keyTouch();
-    if (!args.pin) throw "This security key asks for its PIN.";
-    if (args.pin !== "1234") throw "Wrong PIN.";
     keys = [...keys, { kind: "fido2", credential_id: crypto.randomUUID(), public_key: "3059", key_slot: 4, rp_id: "silentsilo.com", label: String(args.label || "Security key"), wrapped_dek: "ef", platform: false }];
   },
   vault_lock: () => {
