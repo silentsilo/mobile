@@ -1,9 +1,10 @@
 import { EllipsisVertical, KeyRound, ScanFace, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api";
+import { api, PIN_REQUIRED } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { SecurityKeyInfo } from "../shared/types";
-import { Sheet, TopBar } from "../ui/chrome";
+import { Field, Sheet, TopBar } from "../ui/chrome";
+import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 
 function describe(key: SecurityKeyInfo) {
   switch (key.kind ?? "fido2") {
@@ -21,6 +22,11 @@ export function Keys({ onBack }: { onBack: () => void }) {
   const [chosen, setChosen] = useState<SecurityKeyInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Adding a security key: its name, then the key, then its PIN if it asks.
+  const [adding, setAdding] = useState<"name" | "key" | "pin" | null>(null);
+  const [label, setLabel] = useState("Security key");
+  const [pin, setPin] = useState("");
+  const [addError, setAddError] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api.listKeys().then(setKeys, (e) => setError(formatAppError(e)));
@@ -41,6 +47,32 @@ export function Keys({ onBack }: { onBack: () => void }) {
     } finally {
       setBusy(false);
     }
+  };
+
+  const addKey = async (withPin: string | null) => {
+    setAddError(null);
+    setAdding("key");
+    try {
+      await api.enrollSecurityKey(label, withPin);
+      setAdding(null);
+      setPin("");
+      load();
+    } catch (e) {
+      if (e === "Cancelled") {
+        setAdding(null);
+      } else if (e === PIN_REQUIRED || e === "Wrong PIN.") {
+        setAddError(e === PIN_REQUIRED ? null : e);
+        setAdding("pin");
+      } else {
+        setAddError(formatAppError(e));
+        setAdding("name");
+      }
+    }
+  };
+
+  const closeAdding = () => {
+    if (adding === "key") void api.cancelSecurityKey();
+    else setAdding(null);
   };
 
   return (
@@ -76,7 +108,60 @@ export function Keys({ onBack }: { onBack: () => void }) {
             })}
           </div>
         )}
+        <button
+          className="btn secondary"
+          onClick={() => {
+            setAddError(null);
+            setLabel("Security key");
+            setPin("");
+            setAdding("name");
+          }}
+        >
+          Add security key
+        </button>
       </div>
+
+      <Sheet open={adding !== null} onClose={closeAdding} title="Add a security key">
+        {adding === "name" && (
+          <>
+            <p className="hint">
+              A YubiKey or another FIDO2 key with NFC or USB-C. It opens this silo on this phone and on your computers, and
+              it is worth keeping somewhere apart from the phone.
+            </p>
+            <Field label="Name this key">
+              <div className="input">
+                <input value={label} onChange={(e) => setLabel(e.target.value)} />
+              </div>
+            </Field>
+            {addError && <div className="notice error">{addError}</div>}
+            <button className="btn" onClick={() => void addKey(null)}>
+              Continue
+            </button>
+          </>
+        )}
+        {adding === "key" && (
+          <>
+            <SecurityKeyWait touches={2} />
+            <button className="btn secondary" onClick={closeAdding}>
+              Cancel
+            </button>
+          </>
+        )}
+        {adding === "pin" && (
+          <>
+            <p className="hint">This key has a PIN. It is asked once, to add the key; unlocking does not need it.</p>
+            <Field label="Security key PIN">
+              <div className="input">
+                <input type="password" inputMode="numeric" autoComplete="off" value={pin} autoFocus onChange={(e) => setPin(e.target.value)} />
+              </div>
+            </Field>
+            {addError && <div className="notice error">{addError}</div>}
+            <button className="btn" disabled={pin.length < 4} onClick={() => void addKey(pin)}>
+              Continue
+            </button>
+          </>
+        )}
+      </Sheet>
 
       <Sheet open={chosen !== null} onClose={() => setChosen(null)} title={chosen ? `Remove ${chosen.label || describe(chosen).detail}?` : undefined}>
         <p className="hint">

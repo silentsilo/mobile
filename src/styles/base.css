@@ -650,3 +650,20 @@ a {
   padding: 24px;
   text-align: center;
 }
+
+/* Waiting for a security key: a slow breath, still when motion is reduced. */
+.key-pulse {
+  animation: key-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes key-pulse {
+  50% {
+    box-shadow: 0 0 0 16px rgba(139, 92, 246, 0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .key-pulse {
+    animation: none;
+  }
+}

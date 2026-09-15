@@ -5,6 +5,7 @@ import { formatAppError } from "../shared/errors";
 import { isComplete } from "../shared/recoveryCode";
 import { Sheet } from "../ui/chrome";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
+import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 
 export function Unlock({
   siloName,
@@ -23,7 +24,26 @@ export function Unlock({
   const [error, setError] = useState<string | null>(null);
   const [recovering, setRecovering] = useState(false);
   const [code, setCode] = useState("");
+  const [keyCount, setKeyCount] = useState(0);
+  const [waitingForKey, setWaitingForKey] = useState(false);
   const asked = useRef(false);
+
+  useEffect(() => {
+    api.securityKeyCount().then(setKeyCount, () => setKeyCount(0));
+  }, []);
+
+  const unlockWithKey = async () => {
+    setError(null);
+    setWaitingForKey(true);
+    try {
+      await api.unlockWithSecurityKey();
+      setWaitingForKey(false);
+      onUnlocked();
+    } catch (e) {
+      setWaitingForKey(false);
+      if (e !== "Cancelled") setError(formatAppError(e));
+    }
+  };
 
   const unlock = useCallback(async () => {
     setBusy(true);
@@ -130,6 +150,11 @@ export function Unlock({
           <button className="btn" disabled={busy} onClick={unlock}>
             Unlock
           </button>
+          {keyCount > 0 && (
+            <button className="btn secondary" disabled={busy} onClick={() => void unlockWithKey()}>
+              Use security key
+            </button>
+          )}
           {shared.length > 0 && (
             <button className="btn secondary" disabled={busy} onClick={() => void sendShared()}>
               Send without unlocking
@@ -140,6 +165,13 @@ export function Unlock({
           </button>
         </div>
       </div>
+
+      <Sheet open={waitingForKey} onClose={() => void api.cancelSecurityKey()} title="Unlock with your security key">
+        <SecurityKeyWait />
+        <button className="btn secondary" onClick={() => void api.cancelSecurityKey()}>
+          Cancel
+        </button>
+      </Sheet>
 
       <Sheet open={recovering} onClose={() => setRecovering(false)} title="Unlock with your recovery code">
         <RecoveryCodeInput value={code} onChange={setCode} disabled={busy} autoFocus />

@@ -18,6 +18,10 @@
 
     <!-- AndroidTV support -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
+    <!-- Security keys, held to the phone or plugged in; neither is required. -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
     <!-- Nothing leaves the phone through Google backup or a device transfer:
          the app's storage holds working copies and this phone's own key

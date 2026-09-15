@@ -9,6 +9,7 @@ mod device_key;
 mod host;
 mod incoming;
 mod manage;
+mod security_key;
 mod viewer;
 
 use tauri::Manager;
@@ -19,6 +20,7 @@ pub fn run() {
         .plugin(device_key::init())
         .plugin(backup::init())
         .plugin(incoming::init())
+        .plugin(security_key::init())
         .manage(silentsilo_app::AppState::default())
         .manage(background::BackgroundLock::default())
         .register_asynchronous_uri_scheme_protocol("silo", |ctx, request, responder| {
@@ -100,6 +102,11 @@ pub fn run() {
             manage::silo_list,
             manage::silo_switch,
             manage::silo_remove,
+            security_key::security_key_status,
+            security_key::security_key_cancel,
+            security_key::security_key_count,
+            security_key::vault_unlock_with_security_key,
+            security_key::security_key_enroll,
         ])
         .run(tauri::generate_context!())
         .expect("error while running SilentSilo");

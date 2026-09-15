@@ -97,6 +97,11 @@ export type BackupSettings = {
 };
 
 /** A file on the phone or offered by another app, not read yet. */
+export type SecurityKeyStatus = { nfc: boolean; nfcOn: boolean; usb: boolean };
+
+/** What a security key command fails with when the key wants its PIN. */
+export const PIN_REQUIRED = "This security key asks for its PIN.";
+
 export type Offered = { uri: string; name: string; size: number; mimeType: string };
 
 export const api = {
@@ -112,6 +117,11 @@ export const api = {
 
   unlock: () => invoke<VaultMeta>("vault_unlock"),
   unlockWithRecovery: (code: string) => invoke<VaultMeta>("vault_unlock_with_recovery", { code }),
+  unlockWithSecurityKey: () => invoke<VaultMeta>("vault_unlock_with_security_key"),
+  securityKeyStatus: () => invoke<SecurityKeyStatus>("security_key_status"),
+  securityKeyCount: () => invoke<number>("security_key_count"),
+  cancelSecurityKey: () => invoke<void>("security_key_cancel"),
+  enrollSecurityKey: (label: string, pin: string | null) => invoke<void>("security_key_enroll", { label, pin }),
   lock: () => invoke<void>("vault_lock", { id: null }),
   lockAfter: () => invoke<number>("lock_after_get"),
   setLockAfter: (seconds: number) => invoke<void>("lock_after_set", { seconds }),

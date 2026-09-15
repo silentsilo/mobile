@@ -69,6 +69,21 @@ let entries: PasswordEntry[] = [
   entry("e7", "Revolut", "+40 7xx xxx xxx", "https://revolut.com"),
 ];
 
+// A security key "arrives" 2 s after it is asked for, unless cancelled.
+let keyWait: ((reason: string) => void) | null = null;
+const keyTouch = () =>
+  new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      keyWait = null;
+      resolve();
+    }, 2000);
+    keyWait = (reason) => {
+      clearTimeout(timer);
+      keyWait = null;
+      reject(reason);
+    };
+  });
+
 let keys: SecurityKeyInfo[] = [
   { kind: "fido2", credential_id: "05c18a6f", public_key: "3059", key_slot: 1, rp_id: "silentsilo.com", label: "YubiKey 5 NFC", wrapped_dek: "ef", platform: false },
   { kind: "fido2", credential_id: "9d02b7e1", public_key: "3059", key_slot: 2, rp_id: "silentsilo.com", label: "Office PC", wrapped_dek: "ef", platform: true },
@@ -153,6 +168,22 @@ const handlers: Record<string, Handler> = {
     if (normalized(args.code).length !== 32) throw "That recovery code does not open this silo.";
     unlocked = true;
     return meta();
+  },
+  security_key_status: () => ({ nfc: true, nfcOn: true, usb: true }),
+  security_key_count: () => keys.filter((k) => (k.kind ?? "fido2") === "fido2" && !k.platform).length,
+  security_key_cancel: () => {
+    keyWait?.("Cancelled");
+  },
+  vault_unlock_with_security_key: async () => {
+    await keyTouch();
+    unlocked = true;
+    return meta();
+  },
+  security_key_enroll: async (args) => {
+    await keyTouch();
+    if (!args.pin) throw "This security key asks for its PIN.";
+    if (args.pin !== "1234") throw "Wrong PIN.";
+    keys = [...keys, { kind: "fido2", credential_id: crypto.randomUUID(), public_key: "3059", key_slot: 4, rp_id: "silentsilo.com", label: String(args.label || "Security key"), wrapped_dek: "ef", platform: false }];
   },
   vault_lock: () => {
     unlocked = false;

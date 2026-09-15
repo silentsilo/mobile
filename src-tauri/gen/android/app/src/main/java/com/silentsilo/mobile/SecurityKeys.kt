@@ -1,0 +1,261 @@
+package com.silentsilo.mobile
+
+import android.app.Activity
+import android.app.PendingIntent
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
+import android.hardware.usb.UsbConstants
+import android.hardware.usb.UsbDevice
+import android.hardware.usb.UsbDeviceConnection
+import android.hardware.usb.UsbEndpoint
+import android.hardware.usb.UsbInterface
+import android.hardware.usb.UsbManager
+import android.nfc.NfcAdapter
+import android.nfc.Tag
+import android.nfc.tech.IsoDep
+import android.os.Build
+import android.os.Handler
+import android.os.Looper
+import app.tauri.annotation.Command
+import app.tauri.annotation.TauriPlugin
+import app.tauri.plugin.Invoke
+import app.tauri.plugin.JSObject
+import app.tauri.plugin.Plugin
+
+// The link to a FIDO2 security key, held while Rust speaks CTAP2 over it.
+// Rust calls these statically from a worker thread; bytes only, no secrets
+// decided here. See core `silentsilo-fido/src/ctap2`.
+object SecurityKeys {
+  @Volatile private var nfc: IsoDep? = null
+  @Volatile private var usb: UsbLink? = null
+
+  class UsbLink(
+    val connection: UsbDeviceConnection,
+    val iface: UsbInterface,
+    val input: UsbEndpoint,
+    val output: UsbEndpoint,
+  )
+
+  fun holdNfc(tag: IsoDep) {
+    close()
+    nfc = tag
+  }
+
+  fun holdUsb(link: UsbLink) {
+    close()
+    usb = link
+  }
+
+  // One APDU to the tag; null when it left the phone.
+  @JvmStatic
+  fun transceive(apdu: ByteArray): ByteArray? =
+    try {
+      nfc?.transceive(apdu)
+    } catch (_: Exception) {
+      null
+    }
+
+  @JvmStatic
+  fun hidWrite(report: ByteArray): Boolean {
+    val link = usb ?: return false
+    return try {
+      link.connection.bulkTransfer(link.output, report, report.size, 1000) == report.size
+    } catch (_: Exception) {
+      false
+    }
+  }
+
+  // One 64-byte report, an empty array when none came in time, null when the
+  // key is gone.
+  @JvmStatic
+  fun hidRead(timeoutMs: Int): ByteArray? {
+    val link = usb ?: return null
+    val buffer = ByteArray(64)
+    return try {
+      val n = link.connection.bulkTransfer(link.input, buffer, buffer.size, timeoutMs)
+      // A timeout and an unplugged key both read -1; Rust's deadline and
+      // `close` end the wait either way.
+      if (n == 64) buffer else ByteArray(0)
+    } catch (_: Exception) {
+      null
+    }
+  }
+
+  @JvmStatic
+  fun close() {
+    nfc?.let { runCatching { it.close() } }
+    nfc = null
+    usb?.let {
+      runCatching { it.connection.releaseInterface(it.iface) }
+      runCatching { it.connection.close() }
+    }
+    usb = null
+  }
+}
+
+@TauriPlugin
+class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
+  private companion object {
+    const val PERMISSION_ACTION = "com.silentsilo.mobile.USB_PERMISSION"
+    const val POLL_MS = 400L
+  }
+
+  private val main = Handler(Looper.getMainLooper())
+  @Volatile private var waiting: Invoke? = null
+  private var asked = mutableSetOf<String>()
+  private var receiver: BroadcastReceiver? = null
+
+  @Command
+  fun status(invoke: Invoke) {
+    val adapter = NfcAdapter.getDefaultAdapter(activity)
+    invoke.resolve(JSObject().apply {
+      put("nfc", adapter != null)
+      put("nfcOn", adapter?.isEnabled == true)
+      put("usb", activity.packageManager.hasSystemFeature(PackageManager.FEATURE_USB_HOST))
+    })
+  }
+
+  // Resolves with {transport} once a key is held over NFC or plugged in and
+  // allowed, and stays waiting otherwise until `cancel`.
+  @Command
+  fun waitForKey(invoke: Invoke) {
+    main.post {
+      stopWaiting("Another security key request started.")
+      SecurityKeys.close()
+      waiting = invoke
+      asked.clear()
+      NfcAdapter.getDefaultAdapter(activity)?.enableReaderMode(
+        activity,
+        { tag -> onTag(tag) },
+        NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+        null,
+      )
+      pollUsb()
+    }
+  }
+
+  @Command
+  fun cancel(invoke: Invoke) {
+    main.post {
+      stopWaiting("Cancelled")
+      SecurityKeys.close()
+      invoke.resolve()
+    }
+  }
+
+  // Done with the key: the reader off so the next tap is Android's again.
+  @Command
+  fun release(invoke: Invoke) {
+    main.post {
+      SecurityKeys.close()
+      invoke.resolve()
+    }
+  }
+
+  private fun stopWaiting(reason: String?) {
+    main.removeCallbacksAndMessages(null)
+    runCatching { NfcAdapter.getDefaultAdapter(activity)?.disableReaderMode(activity) }
+    receiver?.let { runCatching { activity.unregisterReceiver(it) } }
+    receiver = null
+    val pending = waiting
+    waiting = null
+    if (reason != null) pending?.reject(reason)
+  }
+
+  private fun found(transport: String) {
+    val pending = waiting ?: return
+    stopWaiting(null)
+    pending.resolve(JSObject().apply { put("transport", transport) })
+  }
+
+  private fun onTag(tag: Tag) {
+    val iso = IsoDep.get(tag) ?: return
+    try {
+      iso.connect()
+      iso.timeout = 5000
+      SecurityKeys.holdNfc(iso)
+      main.post { found("nfc") }
+    } catch (_: Exception) {
+      runCatching { iso.close() }
+    }
+  }
+
+  private fun pollUsb() {
+    if (waiting == null) return
+    val manager = activity.getSystemService(UsbManager::class.java)
+    for (device in manager.deviceList.values) {
+      val candidate = fidoInterface(device) ?: continue
+      if (!manager.hasPermission(device)) {
+        if (asked.add(device.deviceName)) askPermission(manager, device)
+        continue
+      }
+      if (open(manager, device, candidate)) {
+        found("usb")
+        return
+      }
+    }
+    main.postDelayed({ pollUsb() }, POLL_MS)
+  }
+
+  private fun askPermission(manager: UsbManager, device: UsbDevice) {
+    if (receiver == null) {
+      val r = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+          main.post { pollUsb() }
+        }
+      }
+      val filter = IntentFilter(PERMISSION_ACTION)
+      if (Build.VERSION.SDK_INT >= 33) {
+        activity.registerReceiver(r, filter, Context.RECEIVER_NOT_EXPORTED)
+      } else {
+        @Suppress("UnspecifiedRegisterReceiverFlag")
+        activity.registerReceiver(r, filter)
+      }
+      receiver = r
+    }
+    val intent = Intent(PERMISSION_ACTION).setPackage(activity.packageName)
+    val flags = if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
+    manager.requestPermission(device, PendingIntent.getBroadcast(activity, 0, intent, flags))
+  }
+
+  // A HID interface with an interrupt endpoint each way of 64 bytes: the
+  // FIDO one. A key's keyboard interface has no OUT endpoint.
+  private fun fidoInterface(device: UsbDevice): UsbInterface? {
+    for (i in 0 until device.interfaceCount) {
+      val iface = device.getInterface(i)
+      if (iface.interfaceClass != UsbConstants.USB_CLASS_HID) continue
+      val endpoints = (0 until iface.endpointCount).map { iface.getEndpoint(it) }
+      val hasIn = endpoints.any { it.type == UsbConstants.USB_ENDPOINT_XFER_INT && it.direction == UsbConstants.USB_DIR_IN && it.maxPacketSize == 64 }
+      val hasOut = endpoints.any { it.type == UsbConstants.USB_ENDPOINT_XFER_INT && it.direction == UsbConstants.USB_DIR_OUT && it.maxPacketSize == 64 }
+      if (hasIn && hasOut) return iface
+    }
+    return null
+  }
+
+  private fun open(manager: UsbManager, device: UsbDevice, iface: UsbInterface): Boolean {
+    val connection = manager.openDevice(device) ?: return false
+    if (!connection.claimInterface(iface, true)) {
+      connection.close()
+      return false
+    }
+    // The report descriptor names the FIDO usage page, 0xF1D0.
+    val descriptor = ByteArray(256)
+    val n = connection.controlTransfer(0x81, 0x06, 0x2200, iface.id, descriptor, descriptor.size, 1000)
+    val fido = n > 2 && (0 until n - 2).any {
+      descriptor[it] == 0x06.toByte() && descriptor[it + 1] == 0xD0.toByte() && descriptor[it + 2] == 0xF1.toByte()
+    }
+    if (!fido) {
+      connection.releaseInterface(iface)
+      connection.close()
+      return false
+    }
+    val endpoints = (0 until iface.endpointCount).map { iface.getEndpoint(it) }
+    val input = endpoints.first { it.direction == UsbConstants.USB_DIR_IN }
+    val output = endpoints.first { it.direction == UsbConstants.USB_DIR_OUT }
+    SecurityKeys.holdUsb(SecurityKeys.UsbLink(connection, iface, input, output))
+    return true
+  }
+}

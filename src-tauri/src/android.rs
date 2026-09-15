@@ -15,6 +15,7 @@ struct Bridge {
     secrets: GlobalRef,
     senders: GlobalRef,
     pdf: GlobalRef,
+    keys: GlobalRef,
 }
 
 static BRIDGE: OnceLock<Bridge> = OnceLock::new();
@@ -35,11 +36,13 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_init(
         let secrets = env.find_class("com/silentsilo/mobile/LocalSecrets").ok()?;
         let senders = env.find_class("com/silentsilo/mobile/SenderKeys").ok()?;
         let pdf = env.find_class("com/silentsilo/mobile/PdfPages").ok()?;
+        let keys = env.find_class("com/silentsilo/mobile/SecurityKeys").ok()?;
         Some(Bridge {
             vm: env.get_java_vm().ok()?,
             secrets: env.new_global_ref(secrets).ok()?,
             senders: env.new_global_ref(senders).ok()?,
             pdf: env.new_global_ref(pdf).ok()?,
+            keys: env.new_global_ref(keys).ok()?,
         })
     })();
     let _ = env.exception_clear();
@@ -341,4 +344,70 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_resolveResend(
         |value: &JString| -> String { env.get_string(value).map(String::from).unwrap_or_default() };
     let (data_dir, kind, reference) = (text(&data_dir), text(&kind), text(&reference));
     crate::backup::resolve_resend(std::path::Path::new(&data_dir), &kind, &reference);
+}
+
+/// The security key held to the phone, one APDU at a time.
+pub struct NfcKey;
+
+impl silentsilo_fido::ctap2::nfc::Apdu for NfcKey {
+    fn transmit(&mut self, apdu: &[u8]) -> Result<Vec<u8>, silentsilo_fido::ctap2::CtapError> {
+        call_bytes(|b| &b.keys, "transceive", "([B)[B", None, apdu)
+            .ok_or_else(|| silentsilo_fido::ctap2::CtapError::Transport("tag lost".into()))
+    }
+}
+
+/// The security key plugged in, one HID report at a time.
+pub struct UsbKey;
+
+impl silentsilo_fido::ctap2::hid::Reports for UsbKey {
+    fn write(&mut self, report: &[u8; 64]) -> Result<(), silentsilo_fido::ctap2::CtapError> {
+        let written = (|| {
+            let bridge = BRIDGE.get()?;
+            let mut env = bridge.vm.attach_current_thread().ok()?;
+            let array = env.byte_array_from_slice(report).ok()?;
+            let class: &JClass = bridge.keys.as_obj().into();
+            let ok = env
+                .call_static_method(class, "hidWrite", "([B)Z", &[JValue::Object(&array)])
+                .ok()?
+                .z()
+                .ok();
+            let _ = env.exception_clear();
+            ok
+        })();
+        match written {
+            Some(true) => Ok(()),
+            _ => Err(silentsilo_fido::ctap2::CtapError::Transport("unplugged".into())),
+        }
+    }
+
+    fn read(
+        &mut self,
+        timeout_ms: u32,
+    ) -> Result<Option<[u8; 64]>, silentsilo_fido::ctap2::CtapError> {
+        let read = (|| {
+            let bridge = BRIDGE.get()?;
+            let mut env = bridge.vm.attach_current_thread().ok()?;
+            let class: &JClass = bridge.keys.as_obj().into();
+            let returned = env
+                .call_static_method(class, "hidRead", "(I)[B", &[JValue::Int(timeout_ms as i32)])
+                .ok()?
+                .l()
+                .ok()?;
+            let bytes = if returned.is_null() {
+                None
+            } else {
+                env.convert_byte_array(JByteArray::from(returned)).ok()
+            };
+            let _ = env.exception_clear();
+            bytes
+        })();
+        match read {
+            None => Err(silentsilo_fido::ctap2::CtapError::Transport("unplugged".into())),
+            Some(bytes) if bytes.is_empty() => Ok(None),
+            Some(bytes) => bytes
+                .try_into()
+                .map(Some)
+                .map_err(|_| silentsilo_fido::ctap2::CtapError::Protocol("a short report".into())),
+        }
+    }
 }
