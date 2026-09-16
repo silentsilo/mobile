@@ -111,6 +111,7 @@ pub fn lock_all(app: &AppHandle) {
     for id in open {
         let _ = state.close_session(&host, id);
     }
+    let _ = state.sweep_scratch();
     let _ = app.emit("silos-locked", ());
 }
 

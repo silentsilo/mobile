@@ -375,6 +375,7 @@ pub async fn vault_lock(
     for id in ids {
         state.close_session(&host(&app), id)?;
     }
+    state.sweep_scratch();
     crate::viewer::wipe_opened(&app);
     Ok(())
 }

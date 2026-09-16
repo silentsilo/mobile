@@ -35,6 +35,9 @@ pub fn run() {
             background::remember(app.handle());
             let data = app.path().app_data_dir()?;
             silentsilo_vault::set_work_base(data.join("work"));
+            // Nothing is unlocked yet: any scratch left is from a process
+            // Android killed while a silo was open.
+            let _ = app.state::<silentsilo_app::AppState>().sweep_scratch();
             #[cfg(target_os = "android")]
             android::seal_existing_secrets(&data);
             let handle = app.handle().clone();
