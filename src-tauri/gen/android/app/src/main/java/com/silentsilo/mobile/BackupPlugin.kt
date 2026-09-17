@@ -150,6 +150,9 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     prefs.label = args.getString("label")
     prefs.photos = photos
     prefs.contacts = args.getBoolean("contacts", false)
+    // Contacts turned off here: nothing else would clear the vCard a killed
+    // run left in the cache, because no run is coming.
+    if (!prefs.contacts) BackupRunner.sweepCache(activity)
     prefs.wifiOnly = args.getBoolean("wifiOnly", true)
     prefs.chargingOnly = args.getBoolean("chargingOnly", false)
     prefs.remind = args.getBoolean("remind", true)
@@ -170,6 +173,7 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     BackupScheduler.cancel(activity)
     if (prefs.vaultId.isNotEmpty()) SenderKeys.remove(prefs.vaultId)
     prefs.clear()
+    BackupRunner.sweepCache(activity)
     invoke.resolve(statusObject())
   }
 

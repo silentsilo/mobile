@@ -191,6 +191,21 @@ class BackupRunner(private val context: Context) {
     fun videoPermission(): String =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_VIDEO
       else Manifest.permission.READ_EXTERNAL_STORAGE
+
+    fun contactsFile(context: Context) = File(context.cacheDir, "contacts.vcf")
+
+    // The vCard holds every contact in the clear. It is written for the
+    // upload and deleted as soon as that returns, so this only finds what a
+    // killed process left behind: swept when the app starts, when a run
+    // starts, and when backup is turned off. A run going on in this process
+    // owns the file and is left alone.
+    fun sweepCache(context: Context) {
+      if (running.get()) return
+      try {
+        contactsFile(context).delete()
+      } catch (_: Exception) {
+      }
+    }
   }
 
   fun backUp(stopped: () -> Boolean): Boolean {
@@ -206,6 +221,8 @@ class BackupRunner(private val context: Context) {
 
   private fun backUpAlone(stopped: () -> Boolean): Boolean {
     Native.start(context)
+    // This run owns the file from here on, so it deletes it itself rather
+    // than going through the sweep.
     contactsFile().delete()
     prefs.lastRun = System.currentTimeMillis() / 1000
     try {
@@ -401,7 +418,7 @@ class BackupRunner(private val context: Context) {
 
   // Every contact as one vCard file, sent when it differs from the last one
   // sent and at most once a day. The plaintext file lives in the app's cache
-  // only for the upload, and is removed at the start of every run too.
+  // for the upload and no longer: it goes as soon as the silo has read it.
   private fun sendContacts(): Boolean {
     val now = System.currentTimeMillis() / 1000
     if (now - prefs.contactsSentAt < TimeUnit.DAYS.toSeconds(1)) return false
@@ -444,6 +461,9 @@ class BackupRunner(private val context: Context) {
       val outcome = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
         Native.sendItem(dataDir, fd.fd, itemId, "Contacts $day.vcf", "text/vcard", now, folder, "contacts")
       }
+      // Ingested, or failed and to be built again next time: either way the
+      // plaintext has no reason to outlive this line.
+      file.delete()
       if (outcome.startsWith("retry")) {
         prefs.lastError = outcome.removePrefix("retry: ")
         return true
@@ -462,7 +482,7 @@ class BackupRunner(private val context: Context) {
     }
   }
 
-  private fun contactsFile() = File(context.cacheDir, "contacts.vcf")
+  private fun contactsFile() = contactsFile(context)
 
   private fun granted(permission: String) =
     context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED

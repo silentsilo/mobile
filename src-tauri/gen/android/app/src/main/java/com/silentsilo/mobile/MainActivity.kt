@@ -25,6 +25,9 @@ class MainActivity : TauriActivity() {
     window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
     // Before the app reads its first secret.
     Native.start(applicationContext)
+    // A backup run that was killed may have left the contacts vCard in the
+    // cache in the clear.
+    BackupRunner.sweepCache(applicationContext)
     super.onCreate(savedInstanceState)
     registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
   }
