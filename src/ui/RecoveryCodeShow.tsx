@@ -1,9 +1,7 @@
-import { Copy } from "lucide-react";
 import { useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { toGroups } from "../shared/recoveryCode";
-import { useToast } from "./chrome";
 
 /**
  * Makes the silo's recovery code and shows it, once. `replacing` warns that
@@ -23,7 +21,6 @@ export function RecoveryCodeShow({
   const [kept, setKept] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const toast = useToast();
 
   const make = async () => {
     setBusy(true);
@@ -63,13 +60,9 @@ export function RecoveryCodeShow({
           <span key={i}>{group}</span>
         ))}
       </div>
-      <button
-        className="btn secondary"
-        onClick={() => api.copySecret(code).then(() => toast("Copied. It clears from the clipboard after 45 seconds."), (e) => toast(formatAppError(e)))}
-      >
-        <Copy size={18} />
-        Copy
-      </button>
+      <p className="hint small">
+        There is no copy button on purpose: the clipboard is read by other apps, and this code opens the silo.
+      </p>
       <label className="row" style={{ minHeight: 56, gap: 12 }}>
         <input type="checkbox" checked={kept} onChange={(e) => setKept(e.target.checked)} style={{ width: 22, height: 22 }} />
         <span style={{ fontSize: "0.95rem" }}>I wrote the code down and keep it apart from this phone</span>
