@@ -210,6 +210,9 @@ export function Silo({
         <button className="text-btn" style={{ alignSelf: "center", color: "var(--danger)" }} onClick={() => setRemoving(true)}>
           Remove this silo from the phone
         </button>
+        <p className="hint" style={{ alignSelf: "center", margin: 0 }}>
+          SilentSilo {__APP_VERSION__}
+        </p>
       </div>
 
       <Sheet open={choosingLock} onClose={() => setChoosingLock(false)} title="Lock in the background">
