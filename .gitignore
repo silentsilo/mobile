@@ -12,6 +12,7 @@ dist-release
 local.properties
 src-tauri/gen/android/app/build
 src-tauri/gen/android/build
+src-tauri/gen/android/buildSrc/.kotlin
 
 # Signing material never enters the repository
 *.jks

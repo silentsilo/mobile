@@ -8,6 +8,15 @@ edition = "2024"
 rust-version = "1.94"
 license = "AGPL-3.0-or-later"
 
+# The shipped library. Gradle only strips the `.so` when it can find the
+# NDK's strip tool, and on a release build it silently did not, so the APK
+# carried 43 MB of symbols. Cargo strips before Gradle ever sees the file.
+# The build machine's paths that survive stripping (panic locations from the
+# registry) are remapped in `gen/android/buildSrc/.../BuildTask.kt`, because
+# `trim-paths` is still unstable on the pinned toolchain.
+[profile.release]
+strip = "symbols"
+
 # Pinned to a core tag, never a branch; the lockfile pins the commit.
 [workspace.dependencies]
 silentsilo-core = { git = "https://github.com/silentsilo/core", tag = "v1.5.0" }

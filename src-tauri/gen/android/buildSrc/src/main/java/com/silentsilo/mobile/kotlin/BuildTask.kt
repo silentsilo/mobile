@@ -53,6 +53,7 @@ open class BuildTask : DefaultTask() {
         project.exec {
             workingDir(File(project.projectDir, rootDirRel))
             executable(executable)
+            environment("CARGO_ENCODED_RUSTFLAGS", rustFlags())
             args(args)
             if (project.logger.isEnabled(LogLevel.DEBUG)) {
                 args("-vv")
@@ -64,5 +65,19 @@ open class BuildTask : DefaultTask() {
             }
             args(listOf("--target", target))
         }.assertNormalExitValue()
+    }
+
+    // Panic locations and `file!()` keep the full path of every crate the
+    // compiler read, so a release library carries the build machine's home
+    // directory. Cargo's own `trim-paths` is still unstable on the pinned
+    // toolchain, so the same thing is done with the flag behind it. Whatever
+    // RUSTFLAGS the environment already sets is kept: the encoded form wins
+    // over the plain one, so dropping it would be silent.
+    private fun rustFlags(): String {
+        val cargoHome = System.getenv("CARGO_HOME")
+            ?: File(System.getProperty("user.home"), ".cargo").path
+        val existing = (System.getenv("RUSTFLAGS") ?: "").split(' ').filter { it.isNotBlank() }
+        val flags = existing + listOf("--remap-path-prefix=$cargoHome=/cargo")
+        return flags.joinToString("")
     }
 }
