@@ -87,13 +87,15 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           key: android
-      # The runner image ships the SDK and an NDK.
+      # The runner image ships the SDK and an NDK. OpenSSL, which SQLCipher
+      # vendors, also runs ranlib, which the NDK has only as llvm-ranlib.
       - name: Android NDK
         run: |
           echo "NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> "$GITHUB_ENV"
           bin="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
           echo "CC_aarch64_linux_android=$bin/aarch64-linux-android31-clang" >> "$GITHUB_ENV"
           echo "AR_aarch64_linux_android=$bin/llvm-ar" >> "$GITHUB_ENV"
+          echo "RANLIB_aarch64_linux_android=$bin/llvm-ranlib" >> "$GITHUB_ENV"
           echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$bin/aarch64-linux-android31-clang" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm run build
