@@ -137,7 +137,9 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:noHistory="true"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.silentsilo_mobile.Autofill" />
 
         <!-- Passkeys kept in the silo (Android 14+). -->
         <service

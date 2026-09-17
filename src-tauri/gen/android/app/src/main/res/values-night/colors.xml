@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="silo_background">#FF0A0E1A</color>
+    <color name="autofill_text">#FFE2E8F0</color>
+    <color name="autofill_sub">#FF94A3B8</color>
 </resources>

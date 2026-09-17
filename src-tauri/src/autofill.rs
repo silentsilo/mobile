@@ -170,11 +170,16 @@ fn logins(
         .collect())
 }
 
-/// The host of a URL as entries store it, without `www.`.
+/// The host of a URL as entries store it, without `www.`. An entry saved
+/// from an app holds `android://<certificate>@<package>`, so whatever sits
+/// before the `@` is dropped and the package is the host.
 pub(crate) fn host_of(url: &str) -> Option<String> {
     let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
-    let host = rest
-        .split(['/', '?', '#', ':'])
+    let authority = rest.split(['/', '?', '#']).next()?;
+    let host = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_, host)| host)
+        .split(':')
         .next()?
         .trim()
         .to_lowercase();
@@ -277,4 +282,30 @@ fn save(
         vfs.upsert_password(id, &entry.to_string())?;
         Ok(outcome)
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::host_of;
+
+    #[test]
+    fn hosts() {
+        assert_eq!(
+            host_of("https://www.example.com/in"),
+            Some("example.com".into())
+        );
+        assert_eq!(
+            host_of("https://example.com:8443"),
+            Some("example.com".into())
+        );
+        assert_eq!(
+            host_of("android://com.example.app"),
+            Some("com.example.app".into())
+        );
+        assert_eq!(
+            host_of("android://KZ0h6Q@com.example.app"),
+            Some("com.example.app".into())
+        );
+        assert_eq!(host_of(""), None);
+    }
 }

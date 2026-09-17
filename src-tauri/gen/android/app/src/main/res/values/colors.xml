@@ -9,4 +9,7 @@
     <color name="white">#FFFFFFFF</color>
     <!-- The page background, painted before the web view loads. -->
     <color name="silo_background">#FFF8FAFC</color>
+    <!-- The autofill search list, which has no web view to theme it. -->
+    <color name="autofill_text">#FF0F172A</color>
+    <color name="autofill_sub">#FF64748B</color>
 </resources>

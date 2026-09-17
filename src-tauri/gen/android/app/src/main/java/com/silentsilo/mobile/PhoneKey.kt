@@ -35,6 +35,7 @@ object PhoneKey {
     vaultId: String,
     credentialIds: List<String>,
     title: String,
+    subtitle: String? = null,
     onUnlocked: (credentialId: String, wrapKeyHex: String) -> Unit,
     onFailed: (Failure) -> Unit,
   ) {
@@ -61,7 +62,7 @@ object PhoneKey {
         return
       }
 
-      prompt(activity, cipher, title, onFailed) { authed ->
+      prompt(activity, cipher, title, subtitle, onFailed) { authed ->
         try {
           authed.updateAAD(associatedData(vaultId))
           val wrapKey = authed.doFinal(sealed)
@@ -116,12 +117,14 @@ object PhoneKey {
     activity: Activity,
     cipher: Cipher,
     title: String,
+    subtitle: String? = null,
     onFailed: (Failure) -> Unit,
     onSuccess: (Cipher) -> Unit,
   ) {
     activity.runOnUiThread {
       val prompt = BiometricPrompt.Builder(activity)
         .setTitle(title)
+        .apply { if (subtitle != null) setSubtitle(subtitle) }
         .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
         .setNegativeButton("Cancel", activity.mainExecutor) { _, _ ->
           onFailed(Failure("Cancelled.", "cancelled"))

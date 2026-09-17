@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Choosing a login by hand, when nothing in the silo is saved for the app
+     or site that asked. Shown inside SilentSilo, after the fingerprint. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/silo_background"
+    android:importantForAutofill="noExcludeDescendants"
+    android:padding="20dp">
+
+    <TextView
+        android:id="@+id/autofill_pick_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="@color/autofill_text"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="6dp"
+        android:text="Choose a login only if you meant to fill it here."
+        android:textColor="@color/autofill_sub"
+        android:textSize="14sp" />
+
+    <EditText
+        android:id="@+id/autofill_pick_search"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="Search the silo"
+        android:importantForAutofill="no"
+        android:inputType="text"
+        android:maxLines="1"
+        android:textColor="@color/autofill_text"
+        android:textColorHint="@color/autofill_sub"
+        android:textSize="16sp" />
+
+    <ListView
+        android:id="@+id/autofill_pick_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="8dp"
+        android:layout_weight="1"
+        android:divider="@null"
+        android:dividerHeight="0dp" />
+
+    <Button
+        android:id="@+id/autofill_pick_cancel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Cancel" />
+</LinearLayout>

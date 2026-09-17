@@ -4,4 +4,14 @@
         <item name="android:windowBackground">@color/silo_background</item>
         <item name="android:windowSplashScreenBackground">@color/silo_background</item>
     </style>
+
+    <!-- The autofill prompt: nothing on screen while the fingerprint is
+         asked for, and the app's own light or dark colours if it goes on to
+         show the search list. -->
+    <style name="Theme.silentsilo_mobile.Autofill" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
 </resources>
