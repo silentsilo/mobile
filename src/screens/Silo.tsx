@@ -70,11 +70,11 @@ export function Silo({
       api.passkeysStatus().then(setPasskeys, () => setPasskeys(null));
     };
     void readAutofill();
+    api.backupStatus().then((s) => setBackupOn(s.photos || s.contacts), () => setBackupOn(null));
     // Coming back from Android's settings screen.
     const onVisible = () => document.visibilityState === "visible" && void readAutofill();
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-    api.backupStatus().then((s) => setBackupOn(s.photos || s.contacts), () => setBackupOn(null));
   }, []);
 
   const syncNow = async () => {

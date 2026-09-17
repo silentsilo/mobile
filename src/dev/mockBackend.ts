@@ -13,8 +13,11 @@ const scenario = new URLSearchParams(location.search).get("mock") ?? import.meta
 
 let joined = scenario === "locked" || scenario === "unlocked";
 let unlocked = scenario === "unlocked";
-let lockAfter = 30;
-let screenOff = true;
+// Per silo, so the second one does not answer with the first one's settings.
+const settings: Record<string, { lockAfter: number; screenOff: boolean }> = {
+  "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0": { lockAfter: 30, screenOff: true },
+  "5a5a5a5a-0000-4000-8000-000000000002": { lockAfter: 300, screenOff: false },
+};
 let backup = {
   vaultId: "",
   photos: false,
@@ -34,14 +37,27 @@ let backup = {
 };
 let phoneKey = joined;
 
-const silo = {
-  id: "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0",
-  name: "Personal",
-  path: "",
-  last_opened: Math.floor(Date.now() / 1000),
-  present: true,
-  unlocked: true,
-};
+// Two silos, so switching between them can be tried: each carries its own
+// settings, which is what the switch has to bring along.
+const silos = [
+  {
+    id: "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0",
+    name: "Personal",
+    path: "",
+    last_opened: Math.floor(Date.now() / 1000),
+    present: true,
+    unlocked: true,
+  },
+  {
+    id: "5a5a5a5a-0000-4000-8000-000000000002",
+    name: "Work",
+    path: "",
+    last_opened: Math.floor(Date.now() / 1000),
+    present: true,
+    unlocked: true,
+  },
+];
+let silo = silos[0];
 const meta = () => ({ revision: 42, vault_id: silo.id });
 const ROOT = "00000000-0000-0000-0000-0000000000ff";
 
@@ -285,11 +301,10 @@ const handlers: Record<string, Handler> = {
   vault_restore_file: () => ({}),
   vault_restore_folder: () => ({}),
   vault_purge_trash: () => 0,
-  silo_list: () => [
-    { id: silo.id, name: silo.name, active: true, unlocked },
-    { id: "5a5a5a5a-0000-4000-8000-000000000002", name: "Work", active: false, unlocked: false },
-  ],
-  silo_switch: () => undefined,
+  silo_list: () => silos.map((s) => ({ id: s.id, name: s.name, active: s.id === silo.id, unlocked: s.id === silo.id && unlocked })),
+  silo_switch: (args) => {
+    silo = silos.find((s) => s.id === args.siloId) ?? silo;
+  },
   silo_remove: () => undefined,
   device_name: () => "Pixel 10 Pro",
   autofill_status: () => ({ supported: true, enabled: false }),
@@ -305,13 +320,13 @@ const handlers: Record<string, Handler> = {
   backup_run_now: () => {
     backup = { ...backup, lastRun: Math.floor(Date.now() / 1000) };
   },
-  lock_after_get: () => lockAfter,
-  lock_on_screen_off_get: () => screenOff,
+  lock_after_get: () => settings[silo.id].lockAfter,
+  lock_on_screen_off_get: () => settings[silo.id].screenOff,
   lock_on_screen_off_set: (args) => {
-    screenOff = Boolean(args.on);
+    settings[silo.id].screenOff = Boolean(args.on);
   },
   lock_after_set: (args) => {
-    lockAfter = Number(args.seconds);
+    settings[silo.id].lockAfter = Number(args.seconds);
   },
   "plugin:event|listen": () => 1,
   "plugin:event|unlisten": () => undefined,

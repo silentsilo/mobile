@@ -42,14 +42,16 @@ type Phase =
   | { at: "create-recovery"; made: boolean }
   | { at: "create-storage" }
   | { at: "locked"; siloName: string; autoPrompt: boolean }
-  | { at: "open"; siloName: string };
+  | { at: "open"; siloId: string; siloName: string };
 
 // Where a silo in this state belongs. A joined silo without this phone's key
 // goes back to the last join step rather than to the unlock screen.
 function phaseFor(boot: Bootstrap, autoPrompt = true): Phase {
   if (!boot.silo) return { at: "welcome" };
   if (!boot.platform_enrolled && !boot.locked) return { at: "join-key" };
-  return boot.locked ? { at: "locked", siloName: boot.silo.name, autoPrompt } : { at: "open", siloName: boot.silo.name };
+  return boot.locked
+    ? { at: "locked", siloName: boot.silo.name, autoPrompt }
+    : { at: "open", siloId: boot.silo.id, siloName: boot.silo.name };
 }
 
 export default function App() {
@@ -200,7 +202,9 @@ export default function App() {
         return shared.length ? (
           <SaveShared files={shared} siloName={phase.siloName} onDone={() => setShared([])} />
         ) : (
-          <OpenSilo siloName={phase.siloName} onLocked={() => void refresh(false)} />
+          // Keyed by the silo: switching to another one starts its screens
+          // fresh, instead of showing the last silo's keys and settings.
+          <OpenSilo key={phase.siloId} siloName={phase.siloName} onLocked={() => void refresh(false)} />
         );
     }
   }
