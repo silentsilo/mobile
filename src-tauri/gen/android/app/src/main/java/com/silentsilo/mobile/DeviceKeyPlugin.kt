@@ -279,6 +279,16 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     )
   }
 
+  // Whether this phone's key still works, without asking for a fingerprint.
+  // A key the silo lists but this phone can no longer use is why unlocking
+  // stopped working, and the app offers to make a new one.
+  @Command
+  fun keyState(invoke: Invoke) {
+    val result = JSObject()
+    result.put("state", PhoneKey.stateOf(invoke.getArgs().getString("credentialId")))
+    invoke.resolve(result)
+  }
+
   @Command
   fun remove(invoke: Invoke) {
     val id = unhex(invoke.getArgs().getString("credentialId"))

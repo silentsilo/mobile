@@ -22,6 +22,10 @@ export function Unlock({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The phone's key was retired by a fingerprint change. Nothing this screen
+  // does will open the silo; the recovery code will, and the app then offers
+  // to make a new key.
+  const [invalidated, setInvalidated] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const [code, setCode] = useState("");
   const [keyCount, setKeyCount] = useState(0);
@@ -52,6 +56,7 @@ export function Unlock({
       await api.unlock();
       onUnlocked();
     } catch (e) {
+      if (String(e).includes("[invalidated]")) setInvalidated(true);
       setError(formatAppError(e));
     } finally {
       setBusy(false);
@@ -132,24 +137,40 @@ export function Unlock({
           <h1 className="title" style={{ fontSize: "1.5rem" }}>
             Locked
           </h1>
-          <p className="hint">{busy ? "Waiting for your fingerprint or face" : "Unlock with your fingerprint or face"}</p>
+          <p className="hint">
+            {invalidated
+              ? "This phone's key stopped working"
+              : busy
+                ? "Waiting for your fingerprint or face"
+                : "Unlock with your fingerprint or face"}
+          </p>
         </div>
+        {invalidated && (
+          <div className="notice warning" style={{ alignSelf: "stretch" }}>
+            <p className="hint" style={{ fontSize: "0.88rem" }}>
+              The fingerprints or faces on this phone changed, so its silo key was retired. Use your recovery code below, and
+              the app will offer to set this phone up again.
+            </p>
+          </div>
+        )}
         {shared.length > 0 && (
           <div className="notice" style={{ alignSelf: "stretch" }}>
             Unlock to choose where {shared.length === 1 ? "the shared file goes" : `the ${shared.length} shared files go`}, or send{" "}
             {shared.length === 1 ? "it" : "them"} to Phone backup without unlocking.
           </div>
         )}
-        {error && !recovering && (
+        {error && !recovering && !invalidated && (
           <div className="notice error" style={{ alignSelf: "stretch" }}>
             {error}
           </div>
         )}
         <div style={{ flex: 1.3 }} />
         <div style={{ display: "flex", flexDirection: "column", gap: 10, alignSelf: "stretch" }}>
-          <button className="btn" disabled={busy} onClick={unlock}>
-            Unlock
-          </button>
+          {!invalidated && (
+            <button className="btn" disabled={busy} onClick={unlock}>
+              Unlock
+            </button>
+          )}
           {keyCount > 0 && (
             <button className="btn secondary" disabled={busy} onClick={() => void unlockWithKey()}>
               Use security key
@@ -160,7 +181,7 @@ export function Unlock({
               Send without unlocking
             </button>
           )}
-          <button className="btn secondary" disabled={busy} onClick={() => { setError(null); setRecovering(true); }}>
+          <button className={invalidated ? "btn" : "btn secondary"} disabled={busy} onClick={() => { setError(null); setRecovering(true); }}>
             Use recovery code
           </button>
         </div>

@@ -70,6 +70,9 @@ impl<R: Runtime> DeviceKey<R> {
     pub async fn remove(&self, _credential_id: &str) -> Result<(), String> {
         Err(Self::ABSENT.into())
     }
+    pub async fn key_state(&self, _credential_id: &str) -> Result<String, String> {
+        Err(Self::ABSENT.into())
+    }
     pub async fn autofill_status(&self) -> Result<AutofillStatus, String> {
         Err(Self::ABSENT.into())
     }
@@ -124,6 +127,21 @@ impl<R: Runtime> DeviceKey<R> {
         )
         .await
         .map(|_| ())
+    }
+
+    /// `ok`, `invalidated` or `missing` for a credential this phone
+    /// published, asked without a fingerprint prompt.
+    pub async fn key_state(&self, credential_id: &str) -> Result<String, String> {
+        #[derive(Deserialize)]
+        struct State {
+            state: String,
+        }
+        self.call::<State>(
+            "keyState",
+            serde_json::json!({ "credentialId": credential_id }),
+        )
+        .await
+        .map(|s| s.state)
     }
 
     pub async fn autofill_status(&self) -> Result<AutofillStatus, String> {

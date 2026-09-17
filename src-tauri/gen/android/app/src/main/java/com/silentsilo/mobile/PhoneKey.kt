@@ -38,6 +38,7 @@ object PhoneKey {
     onUnlocked: (credentialId: String, wrapKeyHex: String) -> Unit,
     onFailed: (Failure) -> Unit,
   ) {
+    var invalidated = false
     for (raw in credentialIds) {
       val id = unhex(raw) ?: continue
       if (id.size != ID_LEN) continue
@@ -49,13 +50,12 @@ object PhoneKey {
       val cipher = try {
         Cipher.getInstance(TRANSFORM).apply { init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, nonce)) }
       } catch (_: KeyPermanentlyInvalidatedException) {
-        onFailed(
-          Failure(
-            "The fingerprints or faces on this phone changed, so its silo key no longer works. Unlock with the recovery code and add the phone again.",
-            "invalidated",
-          )
-        )
-        return
+        // The fingerprints changed and this key can never open anything
+        // again, so it goes, and a newer key for the same silo gets its
+        // turn instead of being shut out by the dead one.
+        deleteAlias(ALIAS_PREFIX + hex(tag))
+        invalidated = true
+        continue
       } catch (e: Exception) {
         onFailed(Failure("Could not start the key: ${e.message}", "key"))
         return
@@ -74,7 +74,42 @@ object PhoneKey {
       }
       return
     }
-    onFailed(Failure("This phone holds no key for this silo.", "absent"))
+    if (invalidated) {
+      onFailed(
+        Failure(
+          "The fingerprints or faces on this phone changed, so its silo key stopped working. Open the silo with your recovery code, then add this phone again.",
+          "invalidated",
+        )
+      )
+    } else {
+      onFailed(Failure("This phone holds no key for this silo.", "absent"))
+    }
+  }
+
+  // Whether a credential this phone published can still open the silo:
+  // `ok`, `invalidated` when the fingerprints changed under it, `missing`
+  // when the key is not in this phone's key storage at all.
+  fun stateOf(credentialId: String): String {
+    val id = unhex(credentialId) ?: return "missing"
+    if (id.size != ID_LEN) return "missing"
+    val nonce = id.copyOfRange(TAG_LEN, TAG_LEN + NONCE_LEN)
+    val key = try { loadKey(ALIAS_PREFIX + hex(id.copyOfRange(0, TAG_LEN))) } catch (_: Exception) { null }
+      ?: return "missing"
+    return try {
+      Cipher.getInstance(TRANSFORM).init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(128, nonce))
+      "ok"
+    } catch (_: KeyPermanentlyInvalidatedException) {
+      "invalidated"
+    } catch (_: Exception) {
+      "missing"
+    }
+  }
+
+  fun deleteAlias(alias: String) {
+    try {
+      KeyStore.getInstance(KEYSTORE).apply { load(null) }.deleteEntry(alias)
+    } catch (_: Exception) {
+    }
   }
 
   fun prompt(

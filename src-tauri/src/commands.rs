@@ -314,6 +314,40 @@ pub async fn device_key_enroll(
     save_device_key(&app, silo.id, &enrolled.credential_id)
 }
 
+/// What this phone's own key can still do. Changing the fingerprints on the
+/// phone retires the key without telling anyone, and the only sign used to
+/// be that every unlock failed, so the app asks outright.
+#[derive(serde::Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct PhoneKeyState {
+    /// The silo lists a key this phone published.
+    enrolled: bool,
+    /// And this phone can still use it.
+    usable: bool,
+    /// It was retired by a change to the fingerprints or faces.
+    invalidated: bool,
+}
+
+#[tauri::command]
+pub async fn phone_key_state(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<PhoneKeyState, String> {
+    let silo = active_silo(&state)?;
+    let Some(credential_id) = this_phone_key(&app, &silo) else {
+        return Ok(PhoneKeyState::default());
+    };
+    let state = app
+        .state::<crate::device_key::DeviceKey<tauri::Wry>>()
+        .key_state(&credential_id)
+        .await?;
+    Ok(PhoneKeyState {
+        enrolled: true,
+        usable: state == "ok",
+        invalidated: state == "invalidated",
+    })
+}
+
 #[tauri::command]
 pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<VaultMeta, String> {
     let silo = active_silo(&state)?;

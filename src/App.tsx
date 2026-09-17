@@ -1,6 +1,6 @@
 import { Folder, KeyRound, ShieldCheck } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { api, type DeviceCheck as Check, type JoinPreview, type Offered, type StoreConfigInput, type SyncStatus } from "./api";
 import { blockingFailures, DeviceCheck } from "./screens/DeviceCheck";
 import { Entry } from "./screens/Entry";
@@ -42,6 +42,7 @@ type Phase =
   | { at: "create-recovery"; made: boolean }
   | { at: "create-storage" }
   | { at: "locked"; siloName: string; autoPrompt: boolean }
+  | { at: "rekey" }
   | { at: "open"; siloId: string; siloName: string };
 
 // Where a silo in this state belongs. A joined silo without this phone's key
@@ -58,6 +59,10 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>({ at: "loading" });
   // Files another app shared, waiting for the silo to be open.
   const [shared, setShared] = useState<Offered[]>([]);
+  // The offer to make a new phone key is made once per run of the app: a
+  // "Not now" means not now, and an enrolment that did not take should not
+  // put the same screen back.
+  const rekeyAsked = useRef(false);
 
   const takeShared = useCallback(() => {
     api.takeShared().then((files) => files.length && setShared(files), () => {});
@@ -79,6 +84,17 @@ export default function App() {
         if (boot.locked) await api.resumeNewSilo();
         setPhase({ at: "create-key" });
         return;
+      }
+      // A key the silo lists but the phone can no longer use: the fingerprints
+      // changed under it. The silo is open, so this is the moment to offer a
+      // new one, and autofill and passkeys start answering again with it.
+      if (!boot.locked && boot.platform_enrolled && !rekeyAsked.current) {
+        const key = await api.phoneKeyState().catch(() => null);
+        if (key?.enrolled && !key.usable) {
+          rekeyAsked.current = true;
+          setPhase({ at: "rekey" });
+          return;
+        }
       }
       setPhase(phaseFor(boot, autoPrompt));
     } catch (e) {
@@ -187,6 +203,8 @@ export default function App() {
         );
       case "join-key":
         return <JoinKey onBack={() => void refresh()} onDone={() => void refresh()} />;
+      case "rekey":
+        return <JoinKey rekey onBack={() => void refresh()} onDone={() => void refresh()} />;
       case "locked":
         return (
           <Unlock

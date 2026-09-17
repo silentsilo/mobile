@@ -2,9 +2,24 @@ import { LockKeyhole, ScanFace } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
-import { Field, StepBar } from "../ui/chrome";
+import { Field, StepBar, TopBar } from "../ui/chrome";
 
-export function JoinKey({ onBack, onDone, step = 3 }: { onBack: () => void; onDone: () => void; step?: 1 | 2 | 3 }) {
+/**
+ * Making this phone's key. `rekey` is the same thing after a fingerprint
+ * change retired the old one: the silo is already open, through the
+ * recovery code, and a new key brings back unlocking, autofill and passkeys.
+ */
+export function JoinKey({
+  onBack,
+  onDone,
+  step = 3,
+  rekey = false,
+}: {
+  onBack: () => void;
+  onDone: () => void;
+  step?: 1 | 2 | 3;
+  rekey?: boolean;
+}) {
   const [label, setLabel] = useState("");
   const [edited, setEdited] = useState(false);
 
@@ -33,7 +48,7 @@ export function JoinKey({ onBack, onDone, step = 3 }: { onBack: () => void; onDo
 
   return (
     <div className="screen">
-      <StepBar step={step} onBack={onBack} />
+      {rekey ? <TopBar /> : <StepBar step={step} onBack={onBack} />}
       <div className="screen-body">
         <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
           <div
@@ -53,10 +68,11 @@ export function JoinKey({ onBack, onDone, step = 3 }: { onBack: () => void; onDo
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h1 className="title">Let this phone unlock the silo</h1>
+          <h1 className="title">{rekey ? "Set this phone up again" : "Let this phone unlock the silo"}</h1>
           <p className="hint">
-            SilentSilo makes a key inside this phone's secure hardware. The key never leaves the phone and opens the silo
-            only after your fingerprint or face.
+            {rekey
+              ? "The fingerprints or faces on this phone changed, so its old key was retired. A new one brings back unlocking with your fingerprint, autofill and passkeys."
+              : "SilentSilo makes a key inside this phone's secure hardware. The key never leaves the phone and opens the silo only after your fingerprint or face."}
           </p>
         </div>
         <div className="notice warning">
@@ -81,8 +97,13 @@ export function JoinKey({ onBack, onDone, step = 3 }: { onBack: () => void; onDo
         {error && <div className="notice error">{error}</div>}
         <div className="spacer" />
         <button className="btn" disabled={busy} onClick={create}>
-          {busy ? "Waiting for your fingerprint or face" : "Create key"}
+          {busy ? "Waiting for your fingerprint or face" : rekey ? "Create new key" : "Create key"}
         </button>
+        {rekey && (
+          <button className="btn secondary" disabled={busy} onClick={onBack}>
+            Not now
+          </button>
+        )}
       </div>
     </div>
   );

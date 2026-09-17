@@ -65,11 +65,14 @@ export function formatAppError(err: unknown): string {
     return "Keep at least one security key on the silo.";
   }
 
-  // Strip common Rust/Tauri wrappers
+  // Strip common Rust/Tauri wrappers. The "[code] - " prefix is how Tauri
+  // prints a rejection from the Kotlin plugins, and is not in the desktop
+  // copy of this file: the code is for the app, the sentence for the reader.
   const cleaned = msg
     .replace(/^error:\s*/i, "")
     .replace(/^Error:\s*/i, "")
     .replace(/^invoke\([^)]+\):\s*/i, "")
+    .replace(/^\[[a-z0-9_-]+\]\s*-\s*/i, "")
     .trim();
 
   return cleaned || "Something went wrong.";

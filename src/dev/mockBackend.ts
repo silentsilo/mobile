@@ -120,6 +120,8 @@ const normalized = (code: unknown) => String(code ?? "").replace(/[^0-9a-z]/gi, 
 // Failure scenarios for the device check: ?mock&nobio, &nolock, &oldandroid,
 // &nokeystore, &oldwebview, &lowspace, &tee.
 const flag = (name: string) => new URLSearchParams(location.search).has(name);
+// &invalidated: the phone's key was retired by a fingerprint change.
+let keyInvalidated = flag("invalidated");
 
 const handlers: Record<string, Handler> = {
   device_check: async () => {
@@ -196,11 +198,17 @@ const handlers: Record<string, Handler> = {
   device_key_enroll: async (args) => {
     await wait(900);
     phoneKey = true;
+    keyInvalidated = false;
     keys = [{ kind: "android-keystore", credential_id: "a1b2c3d4", public_key: "04", key_slot: 3, rp_id: "silentsilo.com", label: String(args.label), wrapped_dek: "ef", platform: true }, ...keys];
   },
 
+  // ?mock=locked&invalidated acts like a phone whose fingerprints changed.
+  phone_key_state: () => ({ enrolled: phoneKey, usable: phoneKey && !keyInvalidated, invalidated: keyInvalidated }),
   vault_unlock: async () => {
     await wait(700);
+    if (keyInvalidated) {
+      throw "[invalidated] - The fingerprints or faces on this phone changed, so its silo key stopped working. Open the silo with your recovery code, then add this phone again.";
+    }
     unlocked = true;
     return meta();
   },

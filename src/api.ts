@@ -53,6 +53,9 @@ export type DeviceCheck = {
   free_bytes: number;
 };
 
+/** This phone's own key: a fingerprint change retires it without a word. */
+export type PhoneKeyState = { enrolled: boolean; usable: boolean; invalidated: boolean };
+
 export type SyncStatus = { configured: boolean; pending_ops: number; archive_targets: number };
 
 export type SyncReport = {
@@ -143,6 +146,7 @@ export const api = {
   storageView: () => invoke<StorageView>("storage_view"),
   saveStorage: (config: StoreConfigInput) => invoke<void>("storage_save", { config }),
 
+  phoneKeyState: () => invoke<PhoneKeyState>("phone_key_state"),
   unlock: () => invoke<VaultMeta>("vault_unlock"),
   unlockWithRecovery: (code: string) => invoke<VaultMeta>("vault_unlock_with_recovery", { code }),
   /** The key's PIN, when it has one, is asked in Android's own dialog. */
