@@ -52,6 +52,15 @@ a {
   padding-top: var(--safe-top);
 }
 
+/* A list kept under a detail screen: laid out, so its scroll survives, but
+   invisible and out of reach until the detail closes. */
+.screen-parked {
+  position: fixed;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .screen-body {
   flex: 1;
   min-height: 0;

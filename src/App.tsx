@@ -315,7 +315,12 @@ function OpenSiloScreens({
     }
   };
 
-  if (detail && !wide) return detailScreen();
+  // A file or an entry opened from a list comes back to that list as it was:
+  // the folder, the search and the scroll stay, so the list is kept mounted
+  // under the detail. Screens reached from Silo still start fresh, since they
+  // change what Silo shows.
+  const parksList = detail !== null && (detail.at === "preview" || detail.at === "entry" || detail.at === "edit");
+  if (detail && !wide && !parksList) return detailScreen();
 
   const tabs: { id: Tab; label: string; Icon: typeof KeyRound }[] = [
     { id: "passwords", label: "Passwords", Icon: KeyRound },
@@ -381,12 +386,16 @@ function OpenSiloScreens({
     );
   }
 
+  const parked = detail !== null && parksList;
   return (
-    <div className="screen">
-      {tabScreen}
-      <nav className="tabbar" role="tablist">
-        {tabButtons}
-      </nav>
-    </div>
+    <>
+      <div className={parked ? "screen screen-parked" : "screen"} aria-hidden={parked || undefined} inert={parked || undefined}>
+        {tabScreen}
+        <nav className="tabbar" role="tablist">
+          {tabButtons}
+        </nav>
+      </div>
+      {parked && detailScreen()}
+    </>
   );
 }
