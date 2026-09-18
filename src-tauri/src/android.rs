@@ -27,7 +27,12 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_init(
     mut env: JNIEnv,
     _class: JClass,
     data_dir: JString,
+    context: JObject,
 ) {
+    // HTTPS to S3 and WebDAV checks certificates through Android; before any sync.
+    let _ = unsafe {
+        silentsilo_store::init_android_tls(env.get_raw().cast(), context.as_raw().cast())
+    };
     let Ok(data_dir) = env.get_string(&data_dir).map(String::from) else {
         return;
     };

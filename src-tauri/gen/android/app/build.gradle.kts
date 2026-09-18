@@ -57,6 +57,30 @@ rust {
     rootDirRel = "../../../"
 }
 
+// The Kotlin half of rustls-platform-verifier ships inside its crate as a
+// local Maven repository; cargo says where that crate sits on this machine.
+repositories {
+    maven {
+        url = uri(rustlsPlatformVerifierMaven())
+        metadataSources.artifact()
+    }
+}
+
+fun rustlsPlatformVerifierMaven(): File {
+    val json = providers.exec {
+        workingDir = file("../../../")
+        commandLine(
+            "cargo", "metadata", "--format-version", "1",
+            "--filter-platform", "aarch64-linux-android",
+            "--manifest-path", file("../../../Cargo.toml").absolutePath,
+        )
+    }.standardOutput.asText.get()
+    @Suppress("UNCHECKED_CAST")
+    val packages = (groovy.json.JsonSlurper().parseText(json) as Map<String, Any>)["packages"] as List<Map<String, Any>>
+    val manifest = packages.first { it["name"] == "rustls-platform-verifier-android" }["manifest_path"] as String
+    return File(File(manifest).parentFile, "maven")
+}
+
 dependencies {
     implementation("androidx.webkit:webkit:1.14.0")
     implementation("androidx.appcompat:appcompat:1.7.1")
@@ -65,6 +89,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-process:2.10.0")
     // The passkey provider API (Android 14+).
     implementation("androidx.credentials:credentials:1.5.0")
+    // Certificate checks for S3 and WebDAV, called from Rust.
+    implementation("rustls:rustls-platform-verifier:latest.release")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")

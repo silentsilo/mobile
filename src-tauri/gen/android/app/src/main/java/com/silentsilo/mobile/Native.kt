@@ -18,11 +18,12 @@ object Native {
     listOf("camera", "open").forEach { java.io.File(context.cacheDir, it).deleteRecursively() }
     Os.setenv("TMPDIR", context.cacheDir.absolutePath, true)
     System.loadLibrary("silentsilo_mobile_lib")
-    init(context.dataDir.absolutePath)
+    init(context.dataDir.absolutePath, context.applicationContext)
     started = true
   }
 
-  @JvmStatic private external fun init(dataDir: String)
+  // The context is for certificate checks, which ask Android.
+  @JvmStatic private external fun init(dataDir: String, context: Context)
 
   // Seals and uploads one item to the silo's inbox. Returns "ok", or
   // "retry: why" when trying again later may work, or "skip: why" when it

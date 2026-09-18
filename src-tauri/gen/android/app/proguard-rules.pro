@@ -30,3 +30,5 @@
 -keep class com.silentsilo.mobile.PdfPages { *; }
 -keep class com.silentsilo.mobile.Native { *; }
 -keep class com.silentsilo.mobile.SecurityKeys { *; }
+# rustls-platform-verifier reaches its Kotlin half over JNI.
+-keep, includedescriptorclasses class org.rustls.platformverifier.** { *; }
