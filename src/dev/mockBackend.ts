@@ -9,7 +9,71 @@ import type { PasswordEntry, SecurityKeyInfo } from "../shared/types";
 type Handler = (args: Record<string, unknown>) => unknown;
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const scenario = new URLSearchParams(location.search).get("mock") ?? import.meta.env.VITE_MOCK_SCENARIO ?? "";
+const params = new URLSearchParams(location.search);
+const scenario = params.get("mock") ?? import.meta.env.VITE_MOCK_SCENARIO ?? "";
+/** `?sync=` `replaced`, `rejoin`, `skipped` or `failed`: how a pass ends. */
+const syncOutcome = params.get("sync") ?? "";
+/** `?syncStep=` milliseconds between progress reports, to watch one go by. */
+const syncStepMs = Number(params.get("syncStep") ?? 250);
+
+// Listeners the front end registered, so a mocked pass can report itself the
+// way the Rust side does. Without these the status line never moves here.
+const listeners = new Map<string, Set<number>>();
+
+function emit(event: string, payload: unknown) {
+  const w = window as unknown as Record<string, unknown>;
+  for (const id of listeners.get(event) ?? []) {
+    const cb = w[`_${id}`];
+    if (typeof cb === "function") (cb as (e: unknown) => void)({ event, id, payload });
+  }
+}
+
+/** One blob of a scripted pass: its size, and the bytes reported as it goes. */
+const MOCK_UPLOADS = [
+  { name: "VID_20260917_holiday.mp4", bytes: 210_000_000, steps: [0, 18_000_000, 61_000_000, 124_000_000, 187_000_000, 210_000_000] },
+  { name: "notes.txt", bytes: 4_200, steps: [0, 4_200] },
+];
+
+/**
+ * A sync pass as the phone sees one: changes out, then blobs, then the
+ * report. The large file reports its bytes several times while `done` stands
+ * still, which is the case the status line had nothing to say about.
+ */
+async function runMockSyncPass() {
+  const progress = (phase: string, done: number, total: number, bytesDone: number, bytesTotal: number, name: string | null) =>
+    emit("sync-progress", {
+      silo_id: silo.id,
+      phase,
+      done,
+      total,
+      bytes_done: bytesDone,
+      bytes_total: bytesTotal,
+      file_id: name ? "g1" : null,
+      name,
+    });
+
+  progress("sending-changes", 0, 3, 0, 0, null);
+  await wait(syncStepMs);
+  for (const [index, blob] of MOCK_UPLOADS.entries()) {
+    for (const moved of blob.steps) {
+      progress("uploading", index, MOCK_UPLOADS.length, moved, blob.bytes, blob.name);
+      await wait(syncStepMs);
+    }
+  }
+  const report = {
+    configured: true,
+    ops_pushed: 3,
+    ops_fetched: 0,
+    blobs_uploaded: MOCK_UPLOADS.length,
+    blobs_failed: syncOutcome === "failed" ? 2 : 0,
+    needs_rebuild: false,
+    needs_rejoin: syncOutcome === "rejoin",
+    key_material_replaced: syncOutcome === "replaced",
+    skipped: syncOutcome === "skipped",
+  };
+  emit("sync-report", report);
+  return report;
+}
 
 let joined = scenario === "locked" || scenario === "unlocked";
 let unlocked = scenario === "unlocked";
@@ -260,10 +324,7 @@ const handlers: Record<string, Handler> = {
       : [],
 
   sync_status: () => ({ configured: true, pending_ops: 0, archive_targets: 0 }),
-  sync_now: async () => {
-    await wait(800);
-    return { configured: true, ops_pushed: 0, ops_fetched: 0, blobs_uploaded: 0, blobs_failed: 0, needs_rebuild: false, needs_rejoin: false, skipped: false };
-  },
+  sync_now: () => runMockSyncPass(),
 
   fido_list_keys: () => keys,
   fido_remove_key: (args) => {
@@ -336,13 +397,30 @@ const handlers: Record<string, Handler> = {
   lock_after_set: (args) => {
     settings[silo.id].lockAfter = Number(args.seconds);
   },
-  "plugin:event|listen": () => 1,
-  "plugin:event|unlisten": () => undefined,
+  "plugin:event|listen": (args) => {
+    const event = String(args.event);
+    const handler = Number(args.handler);
+    const ids = listeners.get(event) ?? new Set<number>();
+    ids.add(handler);
+    listeners.set(event, ids);
+    return handler;
+  },
+  "plugin:event|unlisten": (args) => {
+    listeners.get(String(args.event))?.delete(Number(args.eventId));
+  },
 };
 
 export function installMockBackend() {
   const w = window as unknown as Record<string, unknown>;
   let nextListener = 1;
+  // The event API calls this before `plugin:event|unlisten`, so without it
+  // every unmount threw where the real app has a plugin.
+  w.__TAURI_EVENT_PLUGIN_INTERNALS__ = {
+    unregisterListener: (event: string, eventId: number) => {
+      listeners.get(event)?.delete(eventId);
+      delete w[`_${eventId}`];
+    },
+  };
   w.__TAURI_INTERNALS__ = {
     // A 2x2 PNG for every file, so the preview has something real to decode.
     convertFileSrc: () =>

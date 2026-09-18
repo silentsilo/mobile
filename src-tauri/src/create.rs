@@ -120,8 +120,9 @@ pub async fn silo_resume_new(
 pub fn recovery_create(state: State<'_, AppState>) -> Result<String, String> {
     let silo = active_silo(&state)?;
     state.with_session_id(silo.id, |session, _vfs| {
-        let (code, envelope) = silentsilo_vault::create_recovery_envelope(&session.dek)
-            .map_err(|e| silentsilo_core::CoreError::Invalid(e.to_string()))?;
+        let (code, envelope) =
+            silentsilo_vault::create_recovery_envelope(&session.dek, &session.kek)
+                .map_err(|e| silentsilo_core::CoreError::Invalid(e.to_string()))?;
         silentsilo_vault::save_recovery_envelope(&session.paths.root, &envelope)
             .map_err(|e| silentsilo_core::CoreError::Invalid(e.to_string()))?;
         Ok(code)

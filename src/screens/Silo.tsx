@@ -82,6 +82,7 @@ export function Silo({
     try {
       const report = await api.syncNow();
       if (report.needs_rejoin) toast("This phone was left out of a key change. Set it up again with the current recovery code.");
+      else if (report.key_material_replaced) toast("The silo's key in your backup storage was replaced. Nothing was sent. Check the storage from a computer.");
       else if (report.skipped) toast("A sync is already running.");
       else if (report.blobs_failed > 0) toast(`${report.blobs_failed} files could not be backed up. They will be retried.`);
       else toast(report.ops_pushed + report.ops_fetched > 0 ? "Synced." : "Already up to date.");

@@ -66,6 +66,12 @@ export type SyncReport = {
   blobs_failed: number;
   needs_rebuild: boolean;
   needs_rejoin: boolean;
+  /**
+   * The content key in storage does not open with this phone's key while the
+   * records beside it do, so the object was replaced or put back. Rejoining
+   * reads the same object, so it is not the answer: the storage is.
+   */
+  key_material_replaced: boolean;
   skipped: boolean;
 };
 
