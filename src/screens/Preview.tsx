@@ -61,12 +61,18 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
     };
   }, [kind, file.id]);
 
+  // A large file may have to come down from storage and be decrypted first,
+  // which takes a while; without this the tap looked like it did nothing.
+  const [opening, setOpening] = useState(false);
   const openWith = async () => {
     setConfirmOpen(false);
+    setOpening(true);
     try {
       await api.openWith(file.id);
     } catch (e) {
       toast(formatAppError(e));
+    } finally {
+      setOpening(false);
     }
   };
 
@@ -115,7 +121,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
         onBack={onBack}
         title={file.name}
         right={
-          <button className="icon-btn" aria-label="Open with another app" onClick={() => setConfirmOpen(true)}>
+          <button className="icon-btn" aria-label="Open with another app" disabled={opening} onClick={() => setConfirmOpen(true)}>
             <ExternalLink size={22} />
           </button>
         }
@@ -159,6 +165,11 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
           {kind !== "other" && shown.at === "loading" && placeholder("Decrypting…")}
           {shown.at === "failed" && placeholder(shown.message)}
         </div>
+        {opening && (
+          <div className="notice" role="status">
+            Getting {file.name} ready for the other app ({formatBytes(file.size_bytes)}). A large file can take a minute.
+          </div>
+        )}
         <div className="muted" style={{ fontSize: "0.88rem", textAlign: "center" }}>
           {formatBytes(file.size_bytes)} · modified {fileDate(file.updated_at)}
         </div>
