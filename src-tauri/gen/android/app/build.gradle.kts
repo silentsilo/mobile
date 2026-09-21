@@ -13,8 +13,28 @@ val tauriProperties = Properties().apply {
     }
 }
 
+// Upload key for Play: path and alias in keystore.properties (gitignored),
+// passwords only from the environment, never on disk.
+val keystoreProperties = Properties().apply {
+    val propFile = rootProject.file("keystore.properties")
+    if (propFile.exists()) {
+        propFile.inputStream().use { load(it) }
+    }
+}
+
 android {
     compileSdk = 36
+    val uploadPassword = System.getenv("SILENTSILO_UPLOAD_STORE_PASSWORD")
+    if (keystoreProperties.containsKey("storeFile") && uploadPassword != null) {
+        signingConfigs {
+            create("upload") {
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                keyAlias = keystoreProperties.getProperty("keyAlias", "upload")
+                storePassword = uploadPassword
+                keyPassword = System.getenv("SILENTSILO_UPLOAD_KEY_PASSWORD") ?: uploadPassword
+            }
+        }
+    }
     namespace = "com.silentsilo.mobile"
     defaultConfig {
         manifestPlaceholders["usesCleartextTraffic"] = "false"
@@ -37,6 +57,7 @@ android {
             }
         }
         getByName("release") {
+            signingConfigs.findByName("upload")?.let { signingConfig = it }
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
