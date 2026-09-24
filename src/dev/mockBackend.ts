@@ -61,6 +61,7 @@ async function runMockSyncPass() {
     }
   }
   const report = {
+    silo_id: silo.id,
     configured: true,
     ops_pushed: 3,
     ops_fetched: 0,
@@ -268,6 +269,7 @@ const handlers: Record<string, Handler> = {
 
   // ?mock=locked&invalidated acts like a phone whose fingerprints changed.
   phone_key_state: () => ({ enrolled: phoneKey, usable: phoneKey && !keyInvalidated, invalidated: keyInvalidated }),
+  vault_reverify: async () => null,
   vault_unlock: async () => {
     await wait(700);
     if (keyInvalidated) {

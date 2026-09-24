@@ -6,6 +6,7 @@ import { hashColor, inkOn, searchTextFor, serviceInitials, subtitleFor } from ".
 import type { PasswordEntry } from "../shared/types";
 import { useToast } from "../ui/chrome";
 import { describeProgress, useSyncProgress } from "../ui/syncActivity";
+import { ensureVerified } from "../ui/reverify";
 import { SiloSwitcher } from "./SiloSwitcher";
 
 export function SiloHeader({ siloName, sync, action }: { siloName: string; sync: SyncStatus | null; action?: React.ReactNode }) {
@@ -36,8 +37,8 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
               {progress
                 ? describeProgress(progress)
                 : waiting
-                  ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to back up`
-                  : "Everything is backed up"}
+                  ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to sync`
+                  : "Synced"}
             </span>
           </div>
         )}
@@ -79,6 +80,7 @@ export function Passwords({
 
   const copyPassword = async (entry: PasswordEntry) => {
     try {
+      await ensureVerified(entry);
       await api.copySecret(entry.password);
       toast("Password copied. It clears from the clipboard after 45 seconds.");
     } catch (e) {

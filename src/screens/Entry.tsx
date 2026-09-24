@@ -2,10 +2,12 @@ import { Copy, Eye, EyeOff } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
-import { cardDigits, groupCardNumber, hashColor, inkOn, serviceInitials, typeOf } from "../shared/passwordUtil";
+import { formatDay } from "../shared/format";
+import { cardDigits, groupCardNumber, hashColor, inkOn, notesAreSecret, serviceInitials, typeOf } from "../shared/passwordUtil";
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, generateTotp, totpSecondsRemaining } from "../shared/totp";
 import type { PasswordEntry } from "../shared/types";
 import { TopBar, useToast } from "../ui/chrome";
+import { ensureVerified, recentlyVerified } from "../ui/reverify";
 
 type FieldRow = { label: string; value: string; secret?: boolean; mono?: boolean };
 
@@ -46,7 +48,8 @@ function fieldsFor(entry: PasswordEntry): FieldRow[] {
     case "note":
       break;
   }
-  if (entry.notes) rows.push({ label: "Notes", value: entry.notes, secret: typeOf(entry) === "note" });
+  // A protected entry's notes are one of its secrets, as on desktop.
+  if (entry.notes) rows.push({ label: "Notes", value: entry.notes, secret: typeOf(entry) === "note" || notesAreSecret(entry) });
   return rows.filter((r) => r.value);
 }
 
@@ -94,7 +97,23 @@ export function Entry({ entry, onBack, onEdit }: { entry: PasswordEntry; onBack:
   const bg = hashColor(entry.service);
   const editable = typeOf(entry) === "login";
 
+  // An entry marked to ask again shows and copies nothing until the
+  // fingerprint confirms it; one confirmation covers a few minutes.
+  const [verified, setVerified] = useState(() => recentlyVerified(entry));
+  const confirm = async (): Promise<boolean> => {
+    if (verified) return true;
+    try {
+      await ensureVerified(entry);
+      setVerified(true);
+      return true;
+    } catch (e) {
+      toast(formatAppError(e));
+      return false;
+    }
+  };
+
   const copy = async (label: string, value: string) => {
+    if (!(await confirm())) return;
     try {
       await api.copySecret(value);
       toast(`${label} copied. It clears from the clipboard after 45 seconds.`);
@@ -103,7 +122,8 @@ export function Entry({ entry, onBack, onEdit }: { entry: PasswordEntry; onBack:
     }
   };
 
-  const toggle = (label: string) => {
+  const toggle = async (label: string) => {
+    if (!revealed.has(label) && !(await confirm())) return;
     const next = new Set(revealed);
     if (next.has(label)) next.delete(label);
     else next.add(label);
@@ -119,7 +139,7 @@ export function Entry({ entry, onBack, onEdit }: { entry: PasswordEntry; onBack:
         backLabel="Passwords"
         right={
           editable ? (
-            <button className="text-btn" onClick={onEdit}>
+            <button className="text-btn" onClick={() => void confirm().then((ok) => ok && onEdit())}>
               Edit
             </button>
           ) : undefined
@@ -155,7 +175,7 @@ export function Entry({ entry, onBack, onEdit }: { entry: PasswordEntry; onBack:
                   </span>
                 </div>
                 {row.secret && (
-                  <button className="icon-btn" aria-label={shown ? `Hide ${row.label}` : `Show ${row.label}`} onClick={() => toggle(row.label)}>
+                  <button className="icon-btn" aria-label={shown ? `Hide ${row.label}` : `Show ${row.label}`} onClick={() => void toggle(row.label)}>
                     {shown ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 )}
@@ -172,7 +192,7 @@ export function Entry({ entry, onBack, onEdit }: { entry: PasswordEntry; onBack:
                   One-time code
                 </span>
                 <span className="mono" style={{ fontSize: "1.4rem", fontWeight: 700, letterSpacing: "0.14em" }}>
-                  {spaced(totp.code)}
+                  {verified ? spaced(totp.code) : "••• •••"}
                 </span>
               </div>
               <svg width="30" height="30" viewBox="0 0 30 30" aria-label={`${totp.left} seconds left`} style={{ flex: "none" }}>
@@ -193,7 +213,7 @@ export function Entry({ entry, onBack, onEdit }: { entry: PasswordEntry; onBack:
                   {totp.left}
                 </text>
               </svg>
-              <button className="icon-btn" aria-label="Copy one-time code" onClick={() => copy("Code", totp.code)} disabled={!totp.code}>
+              <button className="icon-btn" aria-label="Copy one-time code" onClick={() => copy("One-time code", totp.code)} disabled={!totp.code}>
                 <Copy size={20} />
               </button>
             </div>
@@ -211,7 +231,7 @@ export function Entry({ entry, onBack, onEdit }: { entry: PasswordEntry; onBack:
                   {entry.passkey.user_name || entry.passkey.user_display_name || "Account"} on {entry.passkey.rp_id}
                 </span>
                 <span className="muted" style={{ fontSize: "0.85rem" }}>
-                  Added {new Date(entry.passkey.created_at).toLocaleDateString()}
+                  Added {formatDay(entry.passkey.created_at)}
                 </span>
               </div>
             </div>

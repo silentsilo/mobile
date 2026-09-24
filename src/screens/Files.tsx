@@ -2,7 +2,7 @@ import { Camera, Check, EllipsisVertical, File, FilePlus, FileText, Folder, Fold
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
-import { formatBytes } from "../shared/format";
+import { formatBytes, formatDate } from "../shared/format";
 import type { FileEntry, FolderEntry, VaultEntry } from "../shared/types";
 import { addAll, photoName } from "../shared/importing";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
@@ -15,10 +15,6 @@ type Hit = VaultEntry & { folder_path: string };
 
 /** Held for this long, a row starts a selection instead of opening. */
 const LONG_PRESS_MS = 450;
-
-export function fileDate(seconds: number) {
-  return new Date(seconds * 1000).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-}
 
 export function fileIcon(file: FileEntry, size = 20) {
   const mime = file.mime_type ?? "";
@@ -64,13 +60,18 @@ export function Files({
   const pressed = useRef(false);
   const toast = useToast();
 
+  // The folder asked for last. A slower answer for one left a moment ago
+  // would otherwise fill this one with its files.
+  const asked = useRef<string | null>(null);
   const load = useCallback(async (folderId: string) => {
+    asked.current = folderId;
     setItems(null);
     setError(null);
     try {
-      setItems(await api.listFolder(folderId));
+      const listed = await api.listFolder(folderId);
+      if (asked.current === folderId) setItems(listed);
     } catch (e) {
-      setError(formatAppError(e));
+      if (asked.current === folderId) setError(formatAppError(e));
     }
   }, []);
 
@@ -445,7 +446,7 @@ export function Files({
                     ? syncing.phase === "uploading"
                       ? "Uploading…"
                       : "Downloading…"
-                    : `${formatBytes(item.size_bytes)} · ${fileDate(item.updated_at)}`}
+                    : `${formatBytes(item.size_bytes)} · ${formatDate(item.updated_at)}`}
                 </span>
               </span>
               <span role="button" className="icon-btn" aria-label={`More for ${item.name}`} onClick={(e) => { e.stopPropagation(); setActing(item); }}>

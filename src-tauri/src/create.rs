@@ -223,7 +223,7 @@ pub async fn storage_save(
     store
         .check()
         .await
-        .map_err(|e| format!("The storage did not accept a test write: {e}"))?;
+        .map_err(|e| format!("The backup storage did not accept a test write: {e}"))?;
 
     match targets.first_mut() {
         Some(first) => first.config = config,

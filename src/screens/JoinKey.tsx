@@ -72,7 +72,7 @@ export function JoinKey({
           <p className="hint">
             {rekey
               ? "The fingerprints or faces on this phone changed, so its old key was retired. A new one brings back unlocking with your fingerprint, autofill and passkeys."
-              : "SilentSilo makes a key inside this phone's secure hardware. The key never leaves the phone and opens the silo only after your fingerprint or face."}
+              : "SilentSilo makes a key in this phone's secure hardware, which does not let it be copied off the phone. It opens the silo after your fingerprint or face."}
           </p>
         </div>
         <div className="notice warning">

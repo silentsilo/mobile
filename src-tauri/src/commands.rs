@@ -26,7 +26,7 @@ pub(crate) fn active_silo(state: &AppState) -> Result<SiloEntry, String> {
         .lock()
         .map_err(|e| e.to_string())?
         .clone()
-        .ok_or_else(|| "No silo is open".to_string())
+        .ok_or_else(|| "No silo is open.".to_string())
 }
 
 pub(crate) fn host(app: &AppHandle) -> MobileHost {
@@ -376,6 +376,49 @@ pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<
     Ok(meta)
 }
 
+/// Asks for this phone's fingerprint or face again, for an entry marked to
+/// ask before its secrets show. The check only counts if the key it releases
+/// opens this silo's key, as on desktop, so any unlocked phone prompt is not
+/// enough.
+#[tauri::command]
+pub async fn vault_reverify(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
+    let silo = active_silo(&state)?;
+    if !state
+        .sessions
+        .lock()
+        .map_err(|e| e.to_string())?
+        .contains_key(&silo.id)
+    {
+        return Err("Unlock the silo first.".into());
+    }
+    let ids = flows::device_key_ids(&silo.path, KIND_ANDROID_KEYSTORE);
+    if ids.is_empty() {
+        return Err(
+            "This phone has no key for this silo, so it cannot confirm it is you. Add one under Keys."
+                .into(),
+        );
+    }
+    app.state::<crate::background::BackgroundLock>()
+        .on_screen()
+        .await;
+    let unlocked = app
+        .state::<crate::device_key::DeviceKey<tauri::Wry>>()
+        .unlock(&silo.id.to_string(), &ids)
+        .await?;
+    let wrap_key: [u8; 32] = hex::decode(&unlocked.wrap_key)
+        .ok()
+        .and_then(|b| b.try_into().ok())
+        .ok_or_else(|| "The phone returned an unreadable key.".to_string())?;
+    let keys = silentsilo_vault::load_fido_keys(&silo.path).map_err(|e| e.to_string())?;
+    let stored = keys
+        .active()
+        .find(|k| k.credential_id == unlocked.credential_id)
+        .ok_or_else(|| "That key is not enrolled on this silo.".to_string())?;
+    silentsilo_vault::unwrap_dek_hex(&stored.wrapped_dek, &wrap_key)
+        .map(|_| ())
+        .map_err(|_| "That key could not confirm it is you.".to_string())
+}
+
 #[tauri::command]
 pub async fn vault_unlock_with_recovery(
     app: AppHandle,
@@ -411,6 +454,7 @@ pub async fn vault_lock(
     }
     state.sweep_scratch();
     crate::viewer::wipe_opened(&app);
+    crate::background::clear_clipboard(&app);
     Ok(())
 }
 
@@ -426,20 +470,20 @@ pub fn vault_upsert_password(
     json: String,
     state: State<AppState>,
 ) -> Result<(), String> {
-    let id = Uuid::parse_str(&id).map_err(|e| format!("invalid entry id: {e}"))?;
+    let id = Uuid::parse_str(&id).map_err(|e| format!("This entry's id is not valid ({e})."))?;
     let parsed: serde_json::Value =
-        serde_json::from_str(&json).map_err(|e| format!("invalid JSON: {e}"))?;
+        serde_json::from_str(&json).map_err(|e| format!("This entry could not be read ({e})."))?;
     match parsed.get("id").and_then(|v| v.as_str()) {
         Some(inner) if inner == id.to_string() => {}
-        Some(_) => return Err("entry id does not match the record".into()),
-        None => return Err("entry has no id".into()),
+        Some(_) => return Err("This entry's id does not match the one being saved.".into()),
+        None => return Err("This entry has no id.".into()),
     }
     state.with_vfs(|_session, vfs| vfs.upsert_password(id, &json))
 }
 
 #[tauri::command]
 pub fn vault_delete_password(id: String, state: State<AppState>) -> Result<(), String> {
-    let id = Uuid::parse_str(&id).map_err(|e| format!("invalid entry id: {e}"))?;
+    let id = Uuid::parse_str(&id).map_err(|e| format!("This entry's id is not valid ({e})."))?;
     state.with_vfs(|_session, vfs| vfs.delete_password(id))
 }
 
@@ -582,11 +626,15 @@ pub struct ListedKey {
     #[serde(flatten)]
     key: StoredFidoCredential,
     usable: bool,
+    /// This phone's own key, the one removing which leaves the phone without
+    /// its fingerprint unlock.
+    this_phone: bool,
 }
 
 #[tauri::command]
-pub fn fido_list_keys(state: State<AppState>) -> Result<Vec<ListedKey>, String> {
+pub fn fido_list_keys(app: AppHandle, state: State<AppState>) -> Result<Vec<ListedKey>, String> {
     let silo = active_silo(&state)?;
+    let own = this_phone_key(&app, &silo);
     if !silentsilo_vault::is_fido_enrolled(&silo.path) {
         return Ok(Vec::new());
     }
@@ -597,6 +645,7 @@ pub fn fido_list_keys(state: State<AppState>) -> Result<Vec<ListedKey>, String> 
         .active()
         .map(|k| ListedKey {
             usable: usable.contains(k.credential_id.as_str()),
+            this_phone: own.as_deref() == Some(k.credential_id.as_str()),
             key: k.clone(),
         })
         .collect())
@@ -623,7 +672,7 @@ pub async fn fido_remove_key(
         .iter_mut()
         .find(|k| k.credential_id == credential_id && !k.revoked)
     else {
-        return Err("Security key not found".into());
+        return Err("That key is no longer on this silo.".into());
     };
     if key.managed() {
         return Err("An organisation administers this key, so it cannot be removed here.".into());

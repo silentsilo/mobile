@@ -1,6 +1,6 @@
 import { EllipsisVertical, KeyRound, ScanFace, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api";
+import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { SecurityKeyInfo } from "../shared/types";
 import { Field, Sheet, TopBar } from "../ui/chrome";
@@ -11,13 +11,13 @@ function describe(key: SecurityKeyInfo) {
     case "android-keystore":
       return { Icon: Smartphone, detail: "Android phone" };
     case "secure-enclave":
-      return { Icon: ScanFace, detail: "Mac with Touch ID" };
+      return { Icon: ScanFace, detail: "Touch ID" };
     default:
-      return key.platform ? { Icon: ScanFace, detail: "Computer's built-in sign-in" } : { Icon: KeyRound, detail: "Security key" };
+      return key.platform ? { Icon: ScanFace, detail: "Windows Hello or Touch ID" } : { Icon: KeyRound, detail: "Security key" };
   }
 }
 
-export function Keys({ onBack }: { onBack: () => void }) {
+export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => void }) {
   const [keys, setKeys] = useState<SecurityKeyInfo[] | null>(null);
   const [chosen, setChosen] = useState<SecurityKeyInfo | null>(null);
   const [busy, setBusy] = useState(false);
@@ -77,10 +77,7 @@ export function Keys({ onBack }: { onBack: () => void }) {
       <div className="screen-body tight" style={{ gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
           <h1 className="title">Keys</h1>
-          <p className="hint">
-            Each key opens this silo on its own. Removing one stops it opening the silo; on storage that keeps deleted files,
-            finish with a key change from SilentSilo on your computer.
-          </p>
+          <p className="hint">Each key opens this silo on its own.</p>
         </div>
         {error && !chosen && <div className="notice error">{error}</div>}
         {keys && (
@@ -120,8 +117,8 @@ export function Keys({ onBack }: { onBack: () => void }) {
         {adding === "name" && (
           <>
             <p className="hint">
-              A YubiKey or another FIDO2 key with NFC or USB-C. It opens this silo on this phone and on your computers, and
-              it is worth keeping somewhere apart from the phone.
+              A YubiKey or another security key with NFC or USB-C. It opens this silo here and on your computers. Keep it
+              apart from the phone.
             </p>
             <Field label="Name this key">
               <div className="input">
@@ -145,16 +142,24 @@ export function Keys({ onBack }: { onBack: () => void }) {
       </Sheet>
 
       <Sheet open={chosen !== null} onClose={() => setChosen(null)} title={chosen ? `Remove ${chosen.label || describe(chosen).detail}?` : undefined}>
+        {chosen?.this_phone && (
+          <div className="notice error">
+            This is this phone&apos;s own key. Once it is removed, this phone opens the silo only with the recovery code or
+            another key, and asks you to add a key again.
+          </div>
+        )}
         <p className="hint">
-          It stops opening this silo. If it was lost or stolen, change the silo's key from SilentSilo on your computer as
-          well, so a copy kept by the storage cannot be used.
+          It stops opening this silo.
+          {(sync?.archive_targets ?? 0) > 0 && " A never-delete copy keeps the old key, and it still opens what is stored there."}{" "}
+          If the key was lost or stolen, also replace the encryption key from SilentSilo on your computer, so it cannot open
+          anything saved from then on.
         </p>
         {error && <div className="notice error">{error}</div>}
         <button className="btn danger" onClick={remove} disabled={busy}>
           {busy ? "Removing" : "Remove key"}
         </button>
         <button className="btn secondary" onClick={() => setChosen(null)} disabled={busy}>
-          Keep it
+          Cancel
         </button>
       </Sheet>
     </div>

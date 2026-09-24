@@ -107,7 +107,7 @@ class PasskeyService : CredentialProviderService() {
     callback: OutcomeReceiver<BeginCreateCredentialResponse, CreateCredentialException>,
   ) {
     if (request !is BeginCreatePublicKeyCredentialRequest) {
-      callback.onError(CreateCredentialUnknownException("SilentSilo keeps passkeys only"))
+      callback.onError(CreateCredentialUnknownException("SilentSilo keeps passkeys only."))
       return
     }
     val info = request.callingAppInfo
@@ -119,7 +119,7 @@ class PasskeyService : CredentialProviderService() {
       Native.start(applicationContext)
       val silo = JSONObject(Native.autofillSilo(applicationContext.dataDir.absolutePath))
       if (silo.optString("vaultId").isEmpty()) {
-        callback.onError(CreateCredentialUnknownException("There is no silo on this phone"))
+        callback.onError(CreateCredentialUnknownException("There is no silo on this phone."))
         return@Thread
       }
       val entry = CreateEntry.Builder(silo.optString("name", "SilentSilo"), intent(PasskeyCreateActivity::class.java) {})

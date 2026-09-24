@@ -197,11 +197,11 @@ export function StorageForm({
       </div>
       {plainHttp && (
         <div className="notice warning">
-          Plain HTTP. The files stay encrypted, but the key or password used to reach this storage travels readable on
-          every network the phone joins, including public Wi-Fi. Use https://.
+          Plain HTTP. Your files are still encrypted, but the password or access key for this storage travels readable on the
+          network, public Wi-Fi included. Use https://.
         </div>
       )}
-      <p className="hint small">Only encrypted data is kept there. These details stay on this phone.</p>
+      <p className="hint small">The silo is encrypted on this phone before it is sent. These details stay on this phone.</p>
       {error && <div className="notice error">{error}</div>}
       <div className="spacer" />
       <button className="btn" disabled={!ready || busy} onClick={onContinue}>

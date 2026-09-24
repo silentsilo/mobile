@@ -1,11 +1,11 @@
 import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { formatBytes } from "../shared/format";
+import { formatBytes, formatDate } from "../shared/format";
 import type { FileEntry } from "../shared/types";
 import { formatAppError } from "../shared/errors";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
-import { fileDate, fileIcon } from "./Files";
+import { fileIcon } from "./Files";
 
 type Kind = "image" | "text" | "pdf" | "other";
 
@@ -161,7 +161,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
               ))}
             </div>
           )}
-          {kind === "other" && placeholder("This kind of file can't be shown here. Open it with another app from the top right.")}
+          {kind === "other" && placeholder("This kind of file cannot be shown here. Open it with another app from the top right.")}
           {kind !== "other" && shown.at === "loading" && placeholder("Decrypting…")}
           {shown.at === "failed" && placeholder(shown.message)}
         </div>
@@ -171,7 +171,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
           </div>
         )}
         <div className="muted" style={{ fontSize: "0.88rem", textAlign: "center" }}>
-          {formatBytes(file.size_bytes)} · modified {fileDate(file.updated_at)}
+          {formatBytes(file.size_bytes)} · modified {formatDate(file.updated_at)}
         </div>
       </div>
 

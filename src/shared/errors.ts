@@ -1,4 +1,6 @@
-// Copied from silentsilo/desktop src/lib/errors.ts at 3cc4a09; keep in step.
+// Copied from silentsilo/desktop src/lib/errors.ts (audit 1.2); keep in step.
+// Differs in three places: the phone wording, the biometric key prompts,
+// and the Kotlin "[code] - " prefix.
 /**
  * Whether this is a command that failed only because the silo locked.
  *
@@ -19,22 +21,34 @@ export function formatAppError(err: unknown): string {
   const lower = msg.toLowerCase();
 
   if (msg.includes("CloudNotConfigured") || lower.includes("no backup storage is connected")) {
-    return "No backup storage is connected. This silo is on this computer only.";
+    return "Not backed up. This silo is only on this phone.";
   }
-  // "Unlock the silo first", "enroll a key before unlocking" and friends
+  // "Unlock the silo first", "enrol a key before unlocking" and friends
   // already say the right thing, so they go back unchanged. Checked before
-  // the rules below, several of which would otherwise claim them.
+  // the rules below, several of which would otherwise claim them. "enrol"
+  // also matches the US spelling core may still send.
   if (
     (lower.includes("vaultlocked") || lower.includes("vault locked") || lower.includes("unlock")) &&
-    (lower.includes("first") || lower.includes("enroll"))
+    (lower.includes("first") || lower.includes("enrol"))
   ) {
     return msg;
   }
-  if (lower.includes("cancelled") || lower.includes("canceled") || lower.includes("user_cancelled")) {
-    return "Security key prompt was cancelled.";
+  // Cancelled and timed out are only about a key when the error came from a
+  // key prompt. Mapped on the word alone, a storage timeout was reported as
+  // the security key's, and a stopped upload as a cancelled key prompt.
+  const fromKey =
+    /security key|passkey|biometric|fingerprint|fido|ceremony|user_cancelled/.test(lower);
+  const cancelled =
+    lower.includes("cancelled") || lower.includes("canceled") || lower.includes("user_cancelled");
+  const timedOut = lower.includes("timeout") || lower.includes("timed out");
+  if (fromKey && cancelled) {
+    return "The key prompt was cancelled.";
   }
-  if (lower.includes("timeout") || lower.includes("timed out")) {
-    return "Timed out waiting for the security key. Try again.";
+  if (fromKey && timedOut) {
+    return "The key prompt timed out. Try again.";
+  }
+  if (timedOut) {
+    return "Your backup storage did not answer in time. Check your connection and try again.";
   }
   if (
     lower.includes("connection refused") ||
@@ -42,27 +56,31 @@ export function formatAppError(err: unknown): string {
     lower.includes("error sending request") ||
     lower.includes("tcp connect error")
   ) {
-    return "Can’t reach your storage bucket. Check your connection and the endpoint in Settings.";
+    return "Cannot reach your backup storage. Check your connection and the address.";
   }
   // The bare numbers are matched as whole words. "401" as a substring
   // appears in file names, key ids and byte counts, and any of those turned
   // an unrelated failure into advice about storage credentials.
   if (lower.includes("unauthorized") || /\b(401|403)\b/.test(lower)) {
-    return "Your storage provider rejected the access key. Check the credentials in Settings.";
+    return "Your backup storage refused the sign-in. Check the username and password, or the access key.";
   }
   if (lower.includes("nosuchbucket") || lower.includes("bucket does not exist")) {
-    return "That bucket doesn’t exist. Check the name and region in Settings.";
+    return "That bucket does not exist. Check its name and region.";
   }
   if (lower.includes("not enrolled") || lower.includes("no security key")) {
-    return "No security key enrolled yet.";
+    return "No key enrolled yet.";
   }
   if (lower.includes("already enrolled")) {
-    return "That credential is already enrolled.";
+    return "That key is already enrolled.";
   }
-  // Narrowed to the phrase this app actually writes. "at least one" alone
-  // matched sentences about anything.
-  if (lower.includes("keep at least one security key")) {
-    return "Keep at least one security key on the silo.";
+  // Narrowed to the phrases this app writes, the current one and the older
+  // "security key" wording. "at least one" alone matched sentences about
+  // anything.
+  if (
+    lower.includes("keep at least one key") ||
+    lower.includes("keep at least one security key")
+  ) {
+    return "Keep at least one key on the silo.";
   }
 
   // Strip common Rust/Tauri wrappers. The "[code] - " prefix is how Tauri

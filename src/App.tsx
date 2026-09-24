@@ -26,7 +26,9 @@ import { Welcome } from "./screens/Welcome";
 import { formatAppError } from "./shared/errors";
 import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
 import { ToastProvider, useToast } from "./ui/chrome";
+import { RecoveryCodeKeeper } from "./ui/RecoveryCodeShow";
 import { SyncActivityProvider } from "./ui/syncActivity";
+import { forgetVerified } from "./ui/reverify";
 import { useWide } from "./ui/useWide";
 
 type Phase =
@@ -149,7 +151,11 @@ export default function App() {
     };
   }, [open, refresh]);
 
-  return <ToastProvider>{render()}</ToastProvider>;
+  return (
+    <ToastProvider>
+      <RecoveryCodeKeeper>{render()}</RecoveryCodeKeeper>
+    </ToastProvider>
+  );
 
   function render() {
     switch (phase.at) {
@@ -160,6 +166,16 @@ export default function App() {
           <div className="screen">
             <div className="screen-body">
               <div className="notice error">{phase.message}</div>
+              <div className="spacer" />
+              <button
+                className="btn"
+                onClick={() => {
+                  setPhase({ at: "loading" });
+                  void start();
+                }}
+              >
+                Try again
+              </button>
             </div>
           </div>
         );
@@ -222,7 +238,16 @@ export default function App() {
         ) : (
           // Keyed by the silo: switching to another one starts its screens
           // fresh, instead of showing the last silo's keys and settings.
-          <OpenSilo key={phase.siloId} siloName={phase.siloName} onLocked={() => void refresh(false)} />
+          <OpenSilo
+            key={phase.siloId}
+            siloId={phase.siloId}
+            siloName={phase.siloName}
+            onLocked={() => {
+              // A lock ends every confirmation of a protected entry.
+              forgetVerified();
+              void refresh(false);
+            }}
+          />
         );
     }
   }
@@ -240,7 +265,7 @@ type Detail =
   | { at: "health" }
   | { at: "storage" };
 
-function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => void }) {
+function OpenSilo({ siloId, siloName, onLocked }: { siloId: string; siloName: string; onLocked: () => void }) {
   const [sync, setSync] = useState<SyncStatus | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -256,13 +281,14 @@ function OpenSilo({ siloName, onLocked }: { siloName: string; onLocked: () => vo
   }, [refreshSync]);
 
   return (
-    <SyncActivityProvider onReport={refreshSync} onChanged={changed}>
-      <OpenSiloScreens siloName={siloName} onLocked={onLocked} sync={sync} reloadKey={reloadKey} refreshSync={refreshSync} changed={changed} />
+    <SyncActivityProvider siloId={siloId} onReport={refreshSync} onChanged={changed}>
+      <OpenSiloScreens siloId={siloId} siloName={siloName} onLocked={onLocked} sync={sync} reloadKey={reloadKey} refreshSync={refreshSync} changed={changed} />
     </SyncActivityProvider>
   );
 }
 
 function OpenSiloScreens({
+  siloId,
   siloName,
   onLocked,
   sync,
@@ -270,6 +296,7 @@ function OpenSiloScreens({
   refreshSync,
   changed,
 }: {
+  siloId: string;
   siloName: string;
   onLocked: () => void;
   sync: SyncStatus | null;
@@ -303,6 +330,7 @@ function OpenSiloScreens({
         return (
           <EntryEdit
             entry={detail.entry}
+            sync={sync}
             onCancel={() => setDetail(detail.entry ? { at: "entry", entry: detail.entry } : null)}
             onSaved={(saved) => {
               changed();
@@ -311,18 +339,18 @@ function OpenSiloScreens({
             onDeleted={() => {
               changed();
               setDetail(null);
-              toast("Entry deleted.");
+              toast("Entry deleted for good.");
             }}
           />
         );
       case "preview":
         return <Preview file={detail.file} onBack={() => setDetail(null)} />;
       case "keys":
-        return <Keys onBack={() => setDetail(null)} />;
+        return <Keys sync={sync} onBack={() => setDetail(null)} />;
       case "backup":
         return <PhoneBackup onBack={() => setDetail(null)} />;
       case "trash":
-        return <Trash onBack={() => setDetail(null)} />;
+        return <Trash sync={sync} onBack={() => setDetail(null)} />;
       case "storage":
         return (
           <Storage
@@ -362,7 +390,7 @@ function OpenSiloScreens({
         />
       )}
       {tab === "files" && <Files siloName={siloName} sync={sync} reloadKey={reloadKey} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
-      {tab === "silo" && <Silo siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onStorage={() => setDetail({ at: "storage" })} onLocked={onLocked} />}
+      {tab === "silo" && <Silo siloId={siloId} siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onStorage={() => setDetail({ at: "storage" })} onLocked={onLocked} />}
     </>
   );
 

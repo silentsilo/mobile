@@ -106,6 +106,8 @@ export type SecurityKeyInfo = {
   /** Built-in authenticator (Windows Hello, Touch ID) rather than a
    * removable key. Same strength, but it does not survive the machine. */
   platform: boolean;
+  /** The phone's own key, on the phone. Absent on desktop. */
+  this_phone?: boolean;
 };
 
 export type Authenticator = "security-key" | "this-device";

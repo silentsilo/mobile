@@ -440,7 +440,7 @@ pub async fn security_key_enroll(
             .wrap_keys
             .into_iter()
             .find(|(shape, _)| *shape == ctap2::SaltShape::Raw)
-            .ok_or_else(|| CtapError::Protocol("no raw hmac-secret output".into()))?;
+            .ok_or_else(|| CtapError::Protocol("the key returned no usable secret".into()))?;
         Ok((key, verified))
     })
     .await
@@ -493,9 +493,7 @@ pub async fn vault_join_with_security_key(
         .filter_map(|k| hex::decode(&k.credential_id).ok())
         .collect();
     if ids.is_empty() {
-        return Err(
-            "None of this silo's keys is a security key. Join with the recovery code.".into(),
-        );
+        return Err("None of this silo's keys is a security key. Use the recovery code.".into());
     }
     let envelopes: std::collections::HashMap<String, String> = offer
         .keys

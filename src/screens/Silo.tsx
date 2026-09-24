@@ -21,6 +21,7 @@ function shortLock(seconds: number) {
 }
 
 export function Silo({
+  siloId,
   siloName,
   sync,
   onSynced,
@@ -31,6 +32,7 @@ export function Silo({
   onStorage,
   onLocked,
 }: {
+  siloId: string;
   siloName: string;
   sync: SyncStatus | null;
   onSynced: () => void;
@@ -70,7 +72,7 @@ export function Silo({
       api.passkeysStatus().then(setPasskeys, () => setPasskeys(null));
     };
     void readAutofill();
-    api.backupStatus().then((s) => setBackupOn(s.photos || s.contacts), () => setBackupOn(null));
+    api.backupStatus().then((s) => setBackupOn(s.photos || s.videos || s.contacts), () => setBackupOn(null));
     // Coming back from Android's settings screen.
     const onVisible = () => document.visibilityState === "visible" && void readAutofill();
     document.addEventListener("visibilitychange", onVisible);
@@ -81,10 +83,15 @@ export function Silo({
     setSyncing(true);
     try {
       const report = await api.syncNow();
-      if (report.needs_rejoin) toast("This phone was left out of a key change. Set it up again with the current recovery code.");
-      else if (report.key_material_replaced) toast("The silo's key in your backup storage was replaced. Nothing was sent. Check the storage from a computer.");
+      if (report.needs_rejoin) toast("This phone was left out when the encryption key was replaced. Set it up again with the current recovery code.");
+      else if (report.key_material_replaced) toast("The silo's key in your backup storage was replaced. Nothing was sent. Check the backup storage from a computer.");
       else if (report.skipped) toast("A sync is already running.");
-      else if (report.blobs_failed > 0) toast(`${report.blobs_failed} files could not be backed up. They will be retried.`);
+      else if (report.blobs_failed > 0)
+        toast(
+          report.blobs_failed === 1
+            ? "1 file could not be backed up. It is tried again on the next sync."
+            : `${report.blobs_failed} files could not be backed up. They are tried again on the next sync.`,
+        );
       else toast(report.ops_pushed + report.ops_fetched > 0 ? "Synced." : "Already up to date.");
       onSynced();
     } catch (e) {
@@ -133,7 +140,7 @@ export function Silo({
             <div className="panel" style={{ gap: 12, padding: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <Cloud size={20} color={waiting ? "var(--warning)" : "var(--success)"} />
-                <span style={{ flex: 1 }}>{waiting ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting` : "Everything is backed up"}</span>
+                <span style={{ flex: 1 }}>{waiting ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to sync` : "Synced"}</span>
               </div>
               <button className="btn secondary" onClick={syncNow} disabled={syncing}>
                 <RefreshCw size={18} />
@@ -146,7 +153,7 @@ export function Silo({
           <div className="panel">{navRow(Images, "Phone backup", backupOn === null ? "" : backupOn ? "On" : "Off", onBackup, true)}</div>
         )}
         <div className="panel">
-          {navRow(HardDrive, "Storage", sync?.configured ? "" : "Not set", onStorage, true)}
+          {navRow(HardDrive, "Backup storage", sync?.configured ? "" : "Not set", onStorage, true)}
           {navRow(Trash2, "Trash", "", onTrash)}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -266,19 +273,30 @@ export function Silo({
       </Sheet>
 
       <Sheet open={removing} onClose={() => setRemoving(false)} title={`Remove ${siloName} from this phone?`}>
-        <p className="hint">
-          The copy on this phone, this phone's key for it and its backup settings are deleted. The silo itself stays in its storage
-          and on your other devices. To have it here again, you need the recovery code. To stop other devices listing this
-          phone's key, remove it under Keys first.
-        </p>
+        {!sync || sync.configured ? (
+          <p className="hint">
+            The copy on this phone, this phone's key for it and its backup settings are deleted. The silo stays in its backup
+            storage and on your other devices, and setting it up here again takes the recovery code or one of its security keys.
+            To stop other devices listing this phone's key, remove it under Keys first.
+          </p>
+        ) : (
+          <div className="notice error">
+            This silo has no backup storage, so this phone holds its only copy. Removing it deletes the silo for good.
+          </div>
+        )}
+        {sync?.configured && waiting > 0 && (
+          <div className="notice warning">
+            {waiting === 1 ? "1 change has" : `${waiting} changes have`} not reached backup storage yet and would be lost. Sync
+            first.
+          </div>
+        )}
         <button
           className="btn danger"
           onClick={async () => {
             setRemoving(false);
             try {
-              const silos = await api.listSilos();
-              const current = silos.find((s) => s.active);
-              if (current) await api.removeSilo(current.id);
+              // The silo this screen shows, not whichever is in front by now.
+              await api.removeSilo(siloId);
               announceSilo("switched");
             } catch (e) {
               toast(formatAppError(e));
@@ -295,12 +313,13 @@ export function Silo({
       <Sheet open={aboutRecovery} onClose={() => { if (codeShown) return; setAboutRecovery(false); setMakingCode(false); }} title="Recovery code">
         <p className="hint">
           {recovery?.enabled
-            ? "This silo has a recovery code. It was shown once, when it was made, and is not stored anywhere it could be read back. Keep the paper copy safe: it opens the silo when every key is gone."
+            ? "This silo has a recovery code. It was shown once and cannot be shown again. Keep the paper safe: it opens the silo when every key is gone."
             : "This silo has no recovery code. Without one, losing every key means losing the silo."}
         </p>
         {makingCode ? (
           <RecoveryCodeShow
             replacing={!!recovery?.enabled}
+            archiveTargets={sync?.archive_targets ?? 0}
             onShown={() => setCodeShown(true)}
             onDone={() => {
               setCodeShown(false);

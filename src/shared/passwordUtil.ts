@@ -1,4 +1,4 @@
-// Copied from silentsilo/desktop src/views/passwords/util.ts at 3cc4a09; keep in step.
+// Copied from silentsilo/desktop src/views/passwords/util.ts (audit 1.2); keep in step.
 /**
  * Pure helpers for the passwords view. No React in here: everything is a
  * function of its inputs, which is what lets the panel split into components
@@ -53,8 +53,10 @@ export function subtitleFor(entry: PasswordEntry): string {
     case "ssh_key":
       return entry.ssh_fingerprint ?? "";
     case "note":
-      // The first line is the note's own summary of itself.
-      return entry.notes.split("\n", 1)[0] ?? "";
+      // The first line is the note's own summary of itself, unless the note
+      // is protected: then it is the secret, and the list, Favourites and
+      // Health would show it without the key touch the detail pane asks for.
+      return notesAreSecret(entry) ? "Protected note" : (entry.notes.split("\n", 1)[0] ?? "");
   }
 }
 
@@ -64,7 +66,9 @@ export function searchTextFor(entry: PasswordEntry): string {
     entry.service,
     entry.username,
     entry.url,
-    entry.notes,
+    // A protected entry's notes are a secret, and matching on them would let
+    // search answer questions about text the user has not unlocked.
+    notesAreSecret(entry) ? "" : entry.notes,
     entry.card_holder,
     entry.card_brand,
     entry.id_full_name,
@@ -217,7 +221,7 @@ export function generatePassword(opts: PasswordGenOptions): string {
 export type PasswordStrength = { score: 0 | 1 | 2 | 3 | 4; label: string; color: string };
 
 /** Quick heuristic (length + character variety), not a real entropy
- * estimate, but good enough to steer users away from short/simple passwords. */
+ * estimate, good enough to steer users away from short/simple passwords. */
 export function passwordStrength(pw: string): PasswordStrength {
   if (!pw) return { score: 0, label: "", color: "var(--text-dim)" };
   let score = 0;
@@ -260,7 +264,7 @@ export function normalizeUrl(url: string): string | null {
  * Rejects hostnames that are literally loopback/private/link-local, so the
  * favicon fetch below can't be used to probe the user's own LAN or local
  * services (e.g. a stored URL of "http://192.168.1.1" or "http://localhost:9200").
- * This is a literal-address check, not DNS-aware: it doesn't stop rebinding
+ * This is a literal-address check, not DNS-aware, it doesn't stop rebinding
  * a public hostname to a private IP after the fact, but it blocks the
  * straightforward case a crafted "url" field could otherwise reach.
  */

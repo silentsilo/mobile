@@ -59,6 +59,7 @@ export type PhoneKeyState = { enrolled: boolean; usable: boolean; invalidated: b
 export type SyncStatus = { configured: boolean; pending_ops: number; archive_targets: number };
 
 export type SyncReport = {
+  silo_id: string;
   configured: boolean;
   ops_pushed: number;
   ops_fetched: number;
@@ -154,6 +155,8 @@ export const api = {
 
   phoneKeyState: () => invoke<PhoneKeyState>("phone_key_state"),
   unlock: () => invoke<VaultMeta>("vault_unlock"),
+  /** Asks for the fingerprint again, for an entry marked to ask first. */
+  reverify: () => invoke<void>("vault_reverify"),
   unlockWithRecovery: (code: string) => invoke<VaultMeta>("vault_unlock_with_recovery", { code }),
   /** The key's PIN, when it has one, is asked in Android's own dialog. */
   unlockWithSecurityKey: () => invoke<VaultMeta>("vault_unlock_with_security_key"),

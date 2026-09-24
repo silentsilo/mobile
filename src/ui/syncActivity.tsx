@@ -52,10 +52,14 @@ export function describeProgress(p: SyncProgress): string {
  */
 export function SyncActivityProvider({
   children,
+  siloId,
   onReport,
   onChanged,
 }: {
   children: ReactNode;
+  /** The silo on screen. Other open silos sync in the background too, and
+   * their passes are not this one's. */
+  siloId: string;
   onReport: () => void;
   onChanged: () => void;
 }) {
@@ -63,8 +67,12 @@ export function SyncActivityProvider({
 
   useEffect(() => {
     const stops = [
-      listen<SyncProgress>("sync-progress", (event) => setProgress(event.payload)),
-      listen("sync-report", () => {
+      listen<SyncProgress>("sync-progress", (event) => {
+        if (event.payload.silo_id === siloId) setProgress(event.payload);
+      }),
+      listen<{ silo_id?: string } | null>("sync-report", (event) => {
+        const from = event.payload?.silo_id;
+        if (from && from !== siloId) return;
         setProgress(null);
         onReport();
       }),
@@ -73,7 +81,7 @@ export function SyncActivityProvider({
     return () => {
       for (const stop of stops) void stop.then((unlisten) => unlisten());
     };
-  }, [onReport, onChanged]);
+  }, [siloId, onReport, onChanged]);
 
   return <SyncActivity.Provider value={progress}>{children}</SyncActivity.Provider>;
 }

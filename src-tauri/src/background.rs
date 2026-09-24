@@ -112,7 +112,19 @@ pub fn lock_all(app: &AppHandle) {
         let _ = state.close_session(&host, id);
     }
     let _ = state.sweep_scratch();
+    clear_clipboard(app);
     let _ = app.emit("silos-locked", ());
+}
+
+/// A copied secret goes with the lock instead of waiting out its 45 s.
+pub fn clear_clipboard(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let _ = app
+            .state::<crate::device_key::DeviceKey<tauri::Wry>>()
+            .clear_secret()
+            .await;
+    });
 }
 
 #[cfg_attr(not(mobile), allow(dead_code))]

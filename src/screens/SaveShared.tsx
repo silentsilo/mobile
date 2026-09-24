@@ -1,5 +1,5 @@
 import { ChevronRight, Folder } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Offered } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
@@ -17,12 +17,17 @@ export function SaveShared({ files, siloName, onDone }: { files: Offered[]; silo
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
 
+  // Only the folder asked for last fills the list.
+  const asked = useRef<string | null>(null);
   const load = useCallback(async (id: string) => {
+    asked.current = id;
     setFolders(null);
+    setError(null);
     try {
-      setFolders((await api.listFolder(id)).filter((e) => e.kind === "folder"));
+      const listed = await api.listFolder(id);
+      if (asked.current === id) setFolders(listed.filter((e) => e.kind === "folder"));
     } catch (e) {
-      setError(formatAppError(e));
+      if (asked.current === id) setError(formatAppError(e));
     }
   }, []);
 

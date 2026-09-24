@@ -1,4 +1,4 @@
-// Copied from silentsilo/desktop src/views/health/analysis.ts at 53b3ede; keep in step.
+// Copied from silentsilo/desktop src/views/health/analysis.ts (audit 1.2); keep in step.
 /**
  * What is wrong with what this silo holds.
  *
@@ -35,7 +35,7 @@ function entryFingerprint(entry: PasswordEntry): string {
 export type HealthSeverity = "high" | "medium" | "info";
 
 /** Where the fix lives, for findings about the silo rather than an entry. */
-export type HealthFix = "backup" | "keys" | "recovery";
+export type HealthFix = "backup" | "keys" | "recovery" | "verify";
 
 export type HealthFinding = {
   /** Stable key: the React key, and what the panel remembers as expanded. */
@@ -55,6 +55,12 @@ export type HealthFinding = {
 /** The parts of the silo's state that can be wrong on their own. */
 export type SiloHealth = {
   backupConfigured: boolean;
+  /** The last sync pass failed, with its reason when there is one. */
+  backupFailing: boolean;
+  backupError: string | null;
+  /** Unix ms of the last backup test on this computer, or null for never.
+   * Left out by an app that cannot test a backup, which skips the finding. */
+  lastTestedAt?: number | null;
   securityKeyCount: number;
   recoveryCodeSet: boolean;
   /** Room left where the silo lives, or null when the disk cannot be asked:
@@ -65,6 +71,9 @@ export type SiloHealth = {
   /** What the app insists on leaving free beyond whatever it writes. */
   headroomBytes: number;
 };
+
+/** How long a backup test counts as recent. */
+const TEST_DUE_MS = 90 * 24 * 60 * 60 * 1000;
 
 /** Old enough that the account has probably outlived the password. */
 const STALE_MS = 2 * 365 * 24 * 60 * 60 * 1000;
@@ -117,7 +126,7 @@ export function analyseHealth(
       severity: "high",
       title: `${plural(reused.length, "password is", "passwords are")} used more than once`,
       detail:
-        "One leaked site hands over every account sharing that password. These are the entries to change first.",
+        "If one site leaks it, every account with the same password is exposed. Change these first.",
       entries: affected,
       groups: reused,
     });
@@ -144,7 +153,7 @@ export function analyseHealth(
       id: "weak",
       severity: "high",
       title: `${plural(weak.length, "password is", "passwords are")} weak`,
-      detail: "Short, or built from one kind of character. The generator replaces these in a click.",
+      detail: "Short, or made of one kind of character. Use the generator in the editor to replace them.",
       entries: weak,
     });
   }
@@ -158,7 +167,7 @@ export function analyseHealth(
       severity: "medium",
       title: `${plural(stale.length, "password has", "passwords have")} not changed in two years`,
       detail:
-        "Not wrong by itself, but a password that old has usually sat through a breach somewhere.",
+        "Not wrong by itself, but an old password is more likely to have leaked somewhere.",
       entries: stale,
     });
   }
@@ -172,7 +181,7 @@ export function analyseHealth(
       severity: "info",
       title: `${plural(noTotp.length, "login has", "logins have")} no two-factor code`,
       detail:
-        "Where the site offers it, a code here means a stolen password alone is not enough to get in.",
+        "Where the site offers it, a code here means a stolen password alone does not get anyone in.",
       entries: noTotp,
     });
   }
@@ -183,7 +192,7 @@ export function analyseHealth(
       severity: "high",
       title: "This silo has no recovery code",
       detail:
-        "Lose the security key and there is no way back in. Nothing anywhere can reconstruct the contents.",
+        "If you lose every key, nothing can open this silo again.",
       entries: [],
       fix: "recovery",
     });
@@ -195,10 +204,10 @@ export function analyseHealth(
       severity: "medium",
       title:
         silo.securityKeyCount === 1
-          ? "Only one security key can open this silo"
-          : "No security key is enrolled",
+          ? "Only one key can open this silo"
+          : "No key is enrolled",
       detail:
-        "A second key kept somewhere else turns a lost or broken key from a recovery-code emergency into an inconvenience.",
+        "Keep a second key somewhere else, so a lost or broken key does not leave the recovery code as the only way in.",
       entries: [],
       fix: "keys",
     });
@@ -207,11 +216,42 @@ export function analyseHealth(
   if (!silo.backupConfigured) {
     findings.push({
       id: "no-backup",
-      severity: "medium",
-      title: "This silo exists on this disk only",
-      detail: "A failed drive takes it with it. Backup copies encrypted objects to storage you control.",
+      severity: "high",
+      title: "Not backed up. This silo is only on this phone.",
+      detail:
+        "If the phone is lost, the silo goes with it. Backup keeps an encrypted copy in backup storage you control.",
       entries: [],
       fix: "backup",
+    });
+  } else if (silo.backupFailing) {
+    findings.push({
+      id: "backup-failing",
+      severity: "high",
+      title: "Backup is failing",
+      detail: silo.backupError
+        ? `The last sync did not reach backup storage: ${silo.backupError}`
+        : "The last sync did not reach backup storage, so recent changes are only on this phone.",
+      entries: [],
+      fix: "backup",
+    });
+  }
+
+  if (
+    silo.backupConfigured &&
+    silo.lastTestedAt !== undefined &&
+    (silo.lastTestedAt === null || now - silo.lastTestedAt > TEST_DUE_MS)
+  ) {
+    findings.push({
+      id: "backup-untested",
+      severity: "info",
+      title:
+        silo.lastTestedAt === null
+          ? "The backup has never been tested from this computer"
+          : "The backup has not been tested for three months",
+      detail:
+        "A test reads the backup and compares it with this silo, so a backup that stopped working is found before you need it.",
+      entries: [],
+      fix: "verify",
     });
   }
 
@@ -224,11 +264,10 @@ export function analyseHealth(
     findings.push({
       id: "low-disk-space",
       severity: critical ? "high" : "medium",
-      title: critical ? "This disk is nearly full" : "Not much room left on this disk",
+      title: critical ? "This phone is nearly full" : "Not much room left on this phone",
       detail:
-        `${formatBytes(silo.freeBytes)} free where this silo lives. Adding files writes an ` +
-        "encrypted second copy here, and so does fetching what another device stored, so both " +
-        "stop partway through once the disk fills.",
+        `${formatBytes(silo.freeBytes)} free where this silo lives. Adding or downloading ` +
+        "files stops partway once the disk is full.",
       entries: [],
     });
   }

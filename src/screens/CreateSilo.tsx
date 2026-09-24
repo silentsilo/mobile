@@ -30,7 +30,7 @@ export function CreateSilo({ onBack, onCreated }: { onBack: () => void; onCreate
           <h1 className="title">Make a new silo</h1>
           <p className="hint">
             Passwords and files, encrypted on this phone before they go anywhere. Next come this phone's key, a recovery code
-            and the storage it backs up to.
+            and the backup storage it syncs to.
           </p>
         </div>
         <Field label="Name">

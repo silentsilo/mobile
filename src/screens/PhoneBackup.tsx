@@ -5,13 +5,16 @@ import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
 
+/** How long ago, in the words desktop's status lines use. */
 function ago(seconds: number) {
   if (!seconds) return "Not yet";
   const minutes = Math.round((Date.now() / 1000 - seconds) / 60);
   if (minutes < 1) return "Just now";
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
-  return hours < 24 ? `${hours} h ago` : `${Math.round(hours / 24)} days ago`;
+  if (hours < 24) return hours === 1 ? "An hour ago" : `${hours} hours ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? "Yesterday" : `${days} days ago`;
 }
 
 export function PhoneBackup({ onBack }: { onBack: () => void }) {
@@ -136,9 +139,9 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
           <h1 className="title">Phone backup</h1>
           <p className="hint">
-            New photos, videos and your contacts are encrypted on this phone and sent to the silo's storage on their own, even while the
-            silo is locked. They join the silo, under Files, Phone backup, the next time it is opened on this phone or on a computer
-            running SilentSilo 1.1 or later. Until then they wait in storage, still encrypted, and the originals stay on the phone.
+            New photos, videos and contacts are encrypted on this phone and sent to backup storage, even while the silo is
+            locked. They show up under Files, Phone backup, the next time the silo is opened here or on a computer with
+            SilentSilo 1.1 or later. The originals stay on the phone.
           </p>
         </div>
         {error && <div className="notice error">{error}</div>}
@@ -212,8 +215,8 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
             : `SilentSilo reads the ${disclosing === "videos" ? "videos" : "photos"} in the gallery folders you choose, with the place they were taken when the file records it, including ones added later while the app is closed.`}
         </p>
         <p className="hint">
-          Each copy is encrypted on this phone, then sent to this silo's storage, which sees only the encrypted copy. SilentSilo
-          itself receives nothing. Turning this off stops it.
+          Each copy is encrypted on this phone before it is sent to this silo's backup storage. Nothing is sent to SilentSilo.
+          Turning this off stops it.
         </p>
         <p className="hint small">Android asks for access next.</p>
         <button
@@ -228,7 +231,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
           Continue
         </button>
         <button className="btn secondary" onClick={() => setDisclosing(null)}>
-          Not now
+          Cancel
         </button>
       </Sheet>
 
@@ -237,7 +240,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
         {offer && (
           <p className="hint">
             {offer.count.toLocaleString()} {askExisting} in the folders backed up, about {formatBytes(offer.bytes)}. Check that the
-            silo's storage has room before choosing all.
+            silo's backup storage has room before choosing all.
           </p>
         )}
         <button

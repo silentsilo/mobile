@@ -19,9 +19,9 @@ export function CreateStorage({ onBack, onDone }: { onBack: () => void; onDone: 
       <div className="screen-body">
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <h1 className="title">Where should it back up?</h1>
-          <p className="hint">An empty bucket or folder of your own. Your computers join the silo from there.</p>
+          <p className="hint">Empty backup storage of your own. Your computers set up the silo from there.</p>
         </div>
-        <StorageForm submitLabel="Save and back up" busyLabel="Checking the storage" onSubmit={save} />
+        <StorageForm submitLabel="Save and back up" busyLabel="Checking the backup storage" onSubmit={save} />
         <button className="text-btn" style={{ alignSelf: "center" }} onClick={() => setLater(true)}>
           Set up later
         </button>
@@ -29,14 +29,14 @@ export function CreateStorage({ onBack, onDone }: { onBack: () => void; onDone: 
 
       <Sheet open={later} onClose={() => setLater(false)} title="No backup yet?">
         <p className="hint">
-          Until it has storage, the silo lives only on this phone: lose the phone and it is gone, recovery code or not. Add
-          storage from Silo, Storage.
+          Until it has backup storage, this silo is only on this phone. Lose the phone and it is gone, recovery code or
+          not. Add backup storage later from Silo, Backup storage.
         </p>
         <button className="btn secondary" onClick={onDone}>
           Continue without a backup
         </button>
         <button className="btn" onClick={() => setLater(false)}>
-          Set up storage now
+          Set up backup storage now
         </button>
       </Sheet>
     </div>

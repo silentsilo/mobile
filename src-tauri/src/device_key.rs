@@ -67,6 +67,9 @@ impl<R: Runtime> DeviceKey<R> {
     pub async fn copy_secret(&self, _text: &str) -> Result<(), String> {
         Err(Self::ABSENT.into())
     }
+    pub async fn clear_secret(&self) -> Result<(), String> {
+        Ok(())
+    }
     pub async fn remove(&self, _credential_id: &str) -> Result<(), String> {
         Err(Self::ABSENT.into())
     }
@@ -116,6 +119,13 @@ impl<R: Runtime> DeviceKey<R> {
     /// Puts a secret on the clipboard marked sensitive, cleared after 45 s.
     pub async fn copy_secret(&self, text: &str) -> Result<(), String> {
         self.call::<serde_json::Value>("copySecret", serde_json::json!({ "text": text }))
+            .await
+            .map(|_| ())
+    }
+
+    /// Takes a secret this app copied off the clipboard now, for a lock.
+    pub async fn clear_secret(&self) -> Result<(), String> {
+        self.call::<serde_json::Value>("clearSecret", serde_json::json!({}))
             .await
             .map(|_| ())
     }

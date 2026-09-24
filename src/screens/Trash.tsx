@@ -1,13 +1,21 @@
 import { Folder, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api";
+import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import type { TrashItem } from "../shared/types";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
 import { fileIcon } from "./Files";
 
-export function Trash({ onBack }: { onBack: () => void }) {
+/** Said before a purge: the app never deletes from a never-delete copy. */
+function archiveNote(archiveTargets: number): string {
+  if (archiveTargets === 0) return "";
+  return archiveTargets === 1
+    ? " One of your copies is a never-delete copy, so the content stays there until that storage's own rules remove it."
+    : ` ${archiveTargets} of your copies are never-delete copies, so the content stays there until that storage's own rules remove it.`;
+}
+
+export function Trash({ sync, onBack }: { sync: SyncStatus | null; onBack: () => void }) {
   const [items, setItems] = useState<TrashItem[] | null>(null);
   const [chosen, setChosen] = useState<TrashItem | null>(null);
   const [emptying, setEmptying] = useState(false);
@@ -70,6 +78,7 @@ export function Trash({ onBack }: { onBack: () => void }) {
       <Sheet open={chosen !== null} onClose={() => setChosen(null)} title={chosen?.name}>
         {chosen && (
           <>
+            <p className="hint">Delete for good cannot be undone.{archiveNote(sync?.archive_targets ?? 0)}</p>
             <button
               className="btn secondary"
               onClick={() =>
@@ -86,8 +95,11 @@ export function Trash({ onBack }: { onBack: () => void }) {
         )}
       </Sheet>
 
-      <Sheet open={emptying} onClose={() => setEmptying(false)} title="Empty the trash?">
-        <p className="hint">Everything in the trash is deleted for good, on every device, once they sync. This cannot be undone.</p>
+      <Sheet open={emptying} onClose={() => setEmptying(false)} title="Empty trash?">
+        <p className="hint">
+          Everything in the trash is deleted for good, on every device, once they sync. This cannot be undone.
+          {archiveNote(sync?.archive_targets ?? 0)}
+        </p>
         <button className="btn danger" onClick={() => void act(() => api.purgeTrash([]), "Trash emptied.")}>
           Empty trash
         </button>

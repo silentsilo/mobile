@@ -31,7 +31,7 @@ export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Silos on this phone">
+    <Sheet open={open} onClose={onClose} title="Switch silo">
       <div className="panel">
         {silos?.map((silo, i) => (
           <button key={silo.id} className={`row${i ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void choose(silo)}>
@@ -49,7 +49,7 @@ export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => 
         }}
       >
         <Plus size={18} />
-        Join another silo
+        Set up from backup storage
       </button>
       <button
         className="btn secondary"

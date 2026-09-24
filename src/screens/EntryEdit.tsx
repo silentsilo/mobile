@@ -1,6 +1,6 @@
 import { Eye, EyeOff, Trash2, WandSparkles } from "lucide-react";
 import { useState } from "react";
-import { api } from "../api";
+import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { withEdits } from "../shared/passwordEntry";
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, parseTotpInput } from "../shared/totp";
@@ -15,11 +15,13 @@ function blankEntry(): PasswordEntry {
 
 export function EntryEdit({
   entry,
+  sync,
   onCancel,
   onSaved,
   onDeleted,
 }: {
   entry: PasswordEntry | null;
+  sync: SyncStatus | null;
   onCancel: () => void;
   onSaved: (entry: PasswordEntry) => void;
   onDeleted: () => void;
@@ -147,13 +149,17 @@ export function EntryEdit({
         }}
       />
 
-      <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title={`Delete ${original.service}?`}>
-        <p className="hint">This removes the entry from the silo on every device that syncs with it.</p>
+      <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title={`Delete ${original.service} for good?`}>
+        <p className="hint">
+          {sync?.configured ? "It is removed from every device on the next sync." : "It is removed from this silo."} Entries
+          deleted here do not go to the trash.
+          {sync?.configured && sync.archive_targets > 0 && " A never-delete copy keeps the entry until that storage's own rules remove it."}
+        </p>
         <button className="btn danger" onClick={remove} disabled={busy}>
-          Delete entry
+          Delete for good
         </button>
         <button className="btn secondary" onClick={() => setConfirmDelete(false)} disabled={busy}>
-          Keep it
+          Cancel
         </button>
       </Sheet>
     </div>

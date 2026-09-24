@@ -102,11 +102,15 @@ pub fn vault_restore_folder(
 }
 
 /// Deletes trashed entries for good: every one when `ids` is empty. The
-/// local copies of their content go too; storage copies are left to the
+/// local copies of their content go once a copy holds them; storage copies are left to the
 /// orphan sweep, which removes only what stays unreferenced across passes,
 /// so a restore made meanwhile on another device loses nothing.
 #[tauri::command]
-pub fn vault_purge_trash(state: State<'_, AppState>, ids: Vec<String>) -> Result<u64, String> {
+pub fn vault_purge_trash(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+) -> Result<u64, String> {
     let ids: Vec<Uuid> = ids.iter().map(|raw| id(raw)).collect::<Result<_, _>>()?;
     let silo = active_silo(&state)?;
     let (removed, blobs) = state.with_vfs(|_session, vfs| {
@@ -116,9 +120,12 @@ pub fn vault_purge_trash(state: State<'_, AppState>, ids: Vec<String>) -> Result
             vfs.purge_items(&ids)
         }
     })?;
-    for blob_id in blobs {
-        let _ = silentsilo_vault::remove_blob_from_cache(&silo.path, blob_id);
-    }
+    silentsilo_app::files::release_purged_blobs(
+        &crate::commands::host(&app),
+        silo.id,
+        &silo.path,
+        &blobs,
+    );
     Ok(removed)
 }
 

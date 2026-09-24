@@ -267,8 +267,8 @@ pub async fn backup_configure(
                 serde_json::json!({ "vaultId": silo.id.to_string() }),
             )
             .await?;
-        let target =
-            send_target(silo.id).ok_or_else(|| "This silo has no storage set up.".to_string())?;
+        let target = send_target(silo.id)
+            .ok_or_else(|| "This silo has no backup storage set up.".to_string())?;
         let store = target.config.open().map_err(|e| e.to_string())?;
         let (key_id, inbox_public) = inbox::ensure_inbox_key(&*store, &kek)
             .await
@@ -687,13 +687,13 @@ fn send_one(
     folder: Vec<String>,
     kind: String,
 ) -> Result<(), String> {
-    let sender = read_sender(data_dir).ok_or("backup is not set up on this phone")?;
+    let sender = read_sender(data_dir).ok_or("Phone backup is not set up on this phone.")?;
     let inbox_public = hex::decode(&sender.inbox_public)
         .ok()
         .and_then(|b| b.try_into().ok())
-        .ok_or("the saved inbox key is unreadable")?;
-    let target =
-        send_target(sender.vault_id).ok_or("this silo's storage settings could not be read")?;
+        .ok_or("The key phone backup sends with could not be read. Turn Phone backup off and on again.")?;
+    let target = send_target(sender.vault_id)
+        .ok_or("This silo's backup storage settings could not be read.")?;
     let store = target.config.open().map_err(|e| e.to_string())?;
     let identity = inbox::SenderIdentity {
         vault_id: sender.vault_id,
@@ -713,7 +713,7 @@ fn send_one(
     let vault = sender.vault_id.to_string();
     let sign = move |message: &[u8]| {
         let der = crate::android::sign(&vault, message)
-            .ok_or_else(|| "this phone's signing key refused".to_string())?;
+            .ok_or_else(|| "This phone's signing key did not sign the item.".to_string())?;
         silentsilo_crypto::inbox::signature_from_der(&der).map_err(|e| e.to_string())
     };
     tauri::async_runtime::block_on(async {

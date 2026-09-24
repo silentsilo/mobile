@@ -26,19 +26,19 @@ export function Storage({ onBack }: { onBack: () => void }) {
       <TopBar onBack={onBack} backLabel="Silo" />
       <div className="screen-body tight" style={{ gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
-          <h1 className="title">Storage</h1>
+          <h1 className="title">Backup storage</h1>
           <p className="hint">
             {current?.configured
               ? "Change the details when a password or address changed. A new place must be empty or hold this same silo."
-              : "This silo has no backup yet. Until it does, it lives only on this phone."}
+              : "Not backed up. This silo is only on this phone."}
           </p>
           {current && current.copies > 1 && (
-            <p className="hint small">This silo has {current.copies} copies. The phone changes the first; manage the others on your computer.</p>
+            <p className="hint small">This silo has {current.copies} copies. The phone changes the first. Manage the others in SilentSilo on your computer.</p>
           )}
           {current?.kind === "folder" && <p className="hint small">This silo backs up to a folder on a computer, which the phone cannot reach.</p>}
         </div>
         {error && <div className="notice error">{error}</div>}
-        {current && <StorageForm current={current} submitLabel="Save" busyLabel="Checking the storage" onSubmit={save} />}
+        {current && <StorageForm current={current} submitLabel="Save" busyLabel="Checking the backup storage" onSubmit={save} />}
       </div>
     </div>
   );

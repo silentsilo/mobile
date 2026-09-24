@@ -26,6 +26,10 @@ export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry:
         setFindings(
           analyseHealth(entries, {
             backupConfigured: sync.configured,
+            // The phone keeps no record of a failed pass yet, and has no
+            // backup test, so neither finding applies here.
+            backupFailing: false,
+            backupError: null,
             securityKeyCount: keys.length,
             recoveryCodeSet: recovery.enabled,
             // A phone's free space is not the silo's problem worth a finding.

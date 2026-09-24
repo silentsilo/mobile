@@ -19,8 +19,8 @@ export function Welcome({ onStart, onCreate }: { onStart: () => void; onCreate: 
             Open your silo on this phone
           </h1>
           <p className="hint">
-            Join a silo you already have, from the storage it backs up to, or make a new one here.
-            Everything stays encrypted, and the phone unlocks it with your fingerprint or face.
+            Set up a silo you already have from its backup storage, or make a new one here.
+            The silo is encrypted on this phone, and your fingerprint or face unlocks it.
           </p>
         </div>
         <div className="panel">

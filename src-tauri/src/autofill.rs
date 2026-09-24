@@ -143,6 +143,15 @@ fn is_login(entry: &serde_json::Value) -> bool {
         == "login"
 }
 
+/// Whether the entry is marked to ask for the fingerprint before its secrets
+/// are used.
+fn asks_again(entry: &serde_json::Value) -> bool {
+    entry
+        .get("require_reauth")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
 fn field<'a>(entry: &'a serde_json::Value, name: &str) -> &'a str {
     entry.get(name).and_then(|v| v.as_str()).unwrap_or("")
 }
@@ -155,10 +164,15 @@ fn logins(
     let rows = with_front_silo(data_dir, credential_id, wrap_hex, |vfs| {
         vfs.list_passwords()
     })?;
+    // No key means the silo was already open and the prompt asked for no
+    // fingerprint, so a login marked to ask again is left out, as the app
+    // itself would ask before showing it.
+    let confirmed = !wrap_hex.is_empty();
     Ok(rows
         .iter()
         .filter_map(|row| serde_json::from_str::<serde_json::Value>(row).ok())
         .filter(|entry| is_login(entry) && !field(entry, "password").is_empty())
+        .filter(|entry| confirmed || !asks_again(entry))
         .map(|entry| {
             serde_json::json!({
                 "service": field(&entry, "service"),

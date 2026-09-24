@@ -53,6 +53,8 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
   }
 
   private var clipSerial = 0
+  // Whether a secret copied here may still be on the clipboard.
+  private var clipPending = false
 
   // A secret on the clipboard: marked sensitive so the keyboard and the
   // clipboard preview do not show it, and cleared after 45 s if still ours.
@@ -67,6 +69,7 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
         putBoolean("android.content.extra.IS_SENSITIVE", true)
       }
       clipboard.setPrimaryClip(clip)
+      clipPending = true
       val serial = ++clipSerial
       Handler(Looper.getMainLooper()).postDelayed({
         // The description is readable only while the app has focus. From the
@@ -75,8 +78,26 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
         val label = clipboard.primaryClipDescription?.label
         if (serial == clipSerial && (label == null || label == CLIP_LABEL)) {
           clipboard.clearPrimaryClip()
+          clipPending = false
         }
       }, CLIP_TTL_MS)
+      invoke.resolve()
+    }
+  }
+
+  // A lock takes the secret off the clipboard at once rather than after the
+  // 45 s wait, and only a secret this app put there: anything copied since
+  // carries another label and is left alone.
+  @Command
+  fun clearSecret(invoke: Invoke) {
+    activity.runOnUiThread {
+      if (clipPending) {
+        val clipboard = activity.getSystemService(ClipboardManager::class.java)
+        val label = clipboard.primaryClipDescription?.label
+        if (label == null || label == CLIP_LABEL) clipboard.clearPrimaryClip()
+        clipPending = false
+        clipSerial++
+      }
       invoke.resolve()
     }
   }
@@ -253,7 +274,7 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(result)
       } catch (e: Exception) {
         deleteAlias(alias)
-        invoke.reject("Could not seal the key: ${e.message}")
+        invoke.reject("Could not protect the key: ${e.message}")
       } finally {
         wrapKey.fill(0)
       }

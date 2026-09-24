@@ -69,6 +69,7 @@ pub fn run() {
             commands::device_key_enroll,
             commands::phone_key_state,
             commands::vault_unlock,
+            commands::vault_reverify,
             commands::vault_unlock_with_recovery,
             commands::vault_lock,
             commands::vault_read_passwords,
