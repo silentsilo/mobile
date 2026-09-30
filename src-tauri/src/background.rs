@@ -22,8 +22,11 @@ const PROMPT_LIMIT: u64 = 120;
 
 pub struct BackgroundLock {
     suspended_at: Mutex<Option<Instant>>,
-    /// Suspended while a prompt was up, which may be the prompt itself.
-    prompt_suspended_at: Mutex<Option<Instant>>,
+    /// Suspended while a prompt was up, which may be the prompt itself, and
+    /// how long that prompt may keep a silo open.
+    prompt_suspended_at: Mutex<Option<(Instant, u64)>>,
+    /// The longest any prompt up now may keep a silo open with the app away.
+    prompt_limit: AtomicU64,
     /// Android cancels a fingerprint prompt started while the app is away.
     foreground: AtomicBool,
     /// Bumped on every suspend and resume, so a timer from an earlier trip to
@@ -39,6 +42,7 @@ impl Default for BackgroundLock {
         Self {
             suspended_at: Mutex::new(None),
             prompt_suspended_at: Mutex::new(None),
+            prompt_limit: AtomicU64::new(PROMPT_LIMIT),
             foreground: AtomicBool::new(true),
             generation: AtomicU64::new(0),
             prompts: AtomicUsize::new(0),
@@ -51,7 +55,9 @@ pub struct PromptGuard<'a>(&'a BackgroundLock);
 
 impl Drop for PromptGuard<'_> {
     fn drop(&mut self) {
-        self.0.prompts.fetch_sub(1, Ordering::SeqCst);
+        if self.0.prompts.fetch_sub(1, Ordering::SeqCst) == 1 {
+            self.0.prompt_limit.store(PROMPT_LIMIT, Ordering::SeqCst);
+        }
     }
 }
 
@@ -59,6 +65,13 @@ impl BackgroundLock {
     pub fn prompt(&self) -> PromptGuard<'_> {
         self.prompts.fetch_add(1, Ordering::SeqCst);
         PromptGuard(self)
+    }
+
+    /// A prompt that runs longer than a system one: a sign-in in the browser,
+    /// with a password and a second factor to type, gets its own time out.
+    pub fn prompt_for(&self, seconds: u64) -> PromptGuard<'_> {
+        self.prompt_limit.fetch_max(seconds, Ordering::SeqCst);
+        self.prompt()
     }
 
     /// Returns once the app is on screen, so a prompt started now is shown
@@ -134,10 +147,11 @@ pub fn suspended(app: &AppHandle) {
         // Most likely the prompt covering the app, which is not leaving. It
         // may also be Home pressed from a picker or a key wait, so a longer
         // timer still runs; coming back cancels it.
+        let limit = lock.prompt_limit.load(Ordering::SeqCst).max(PROMPT_LIMIT);
         if let Ok(mut at) = lock.prompt_suspended_at.lock() {
-            at.get_or_insert_with(Instant::now);
+            at.get_or_insert_with(|| (Instant::now(), limit));
         }
-        arm(app, lock_after(app).max(PROMPT_LIMIT));
+        arm(app, lock_after(app).max(limit));
         return;
     }
     lock.foreground.store(false, Ordering::SeqCst);
@@ -196,11 +210,11 @@ pub fn resumed(app: &AppHandle) {
         .prompt_suspended_at
         .lock()
         .ok()
-        .and_then(|mut at| at.take())
-        .map(|at| at.elapsed());
+        .and_then(|mut at| at.take());
     if away.is_some_and(|away| away >= Duration::from_secs(lock_after(app)))
-        || away_prompting
-            .is_some_and(|away| away >= Duration::from_secs(lock_after(app).max(PROMPT_LIMIT)))
+        || away_prompting.is_some_and(|(at, limit)| {
+            at.elapsed() >= Duration::from_secs(lock_after(app).max(limit))
+        })
     {
         lock_soon(app);
     }

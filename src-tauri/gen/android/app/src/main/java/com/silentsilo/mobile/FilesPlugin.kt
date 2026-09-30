@@ -159,7 +159,7 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
   // only. Its answer comes back to 127.0.0.1 in this app.
   @Command
   fun openBrowser(invoke: Invoke) {
-    val uri = Uri.parse(invoke.getArgs().getString("url") ?: "")
+    val uri = Uri.parse(invoke.getArgs().getString("url"))
     if (uri.scheme != "https") {
       invoke.reject("Not a sign-in page.")
       return

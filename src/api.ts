@@ -43,6 +43,22 @@ export type StoreConfigInput =
 
 export type CloudKind = "onedrive" | "dropbox" | "google-drive";
 
+/** One place the silo backs up to, as `backup_targets_list` gives it. */
+export type CopyView = {
+  id: string;
+  label: string;
+  config:
+    | { kind: "s3"; endpoint: string; bucket: string; prefix: string }
+    | { kind: "web-dav"; url: string; username: string }
+    | { kind: "sftp"; host: string; username: string; path: string }
+    | { kind: "folder"; path: string }
+    | { kind: CloudKind; account: string; folder: string };
+  primary: boolean;
+  /** Unix seconds; 0 for never, or not known while locked. */
+  lastSuccess: number;
+  archive: boolean;
+};
+
 /** What a sign-in reached, as `cloud_sign_in` returns it. */
 export type CloudSignIn = {
   id: string;
@@ -162,6 +178,9 @@ export const api = {
   createRecovery: () => invoke<string>("recovery_create"),
   storageView: () => invoke<StorageView>("storage_view"),
   saveStorage: (config: StoreConfigInput) => invoke<void>("storage_save", { config }),
+  copies: () => invoke<CopyView[]>("backup_targets_list"),
+  addCopy: (config: StoreConfigInput) => invoke<void>("backup_target_add", { config }),
+  removeCopy: (id: string) => invoke<void>("backup_target_remove", { id }),
   cloudProviders: () => invoke<string[]>("cloud_providers"),
   cloudSignIn: (kind: CloudKind) => invoke<CloudSignIn>("cloud_sign_in", { kind }),
   cloudCancelSignIn: () => invoke<void>("cloud_cancel_sign_in"),

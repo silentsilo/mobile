@@ -262,6 +262,30 @@ const handlers: Record<string, Handler> = {
   },
   // A sign-in "in the browser" after a short wait.
   cloud_providers: () => ["onedrive", "dropbox", "google-drive"],
+  backup_targets_list: () => [
+    {
+      id: "11111111-1111-1111-1111-111111111111",
+      label: "",
+      config: { kind: "sftp", host: "nas.example.com", port: 22, username: "alex", path: "/backups/silo" },
+      primary: true,
+      lastSuccess: Math.floor(Date.now() / 1000) - 600,
+      archive: false,
+    },
+    {
+      id: "22222222-2222-2222-2222-222222222222",
+      label: "",
+      config: { kind: "google-drive", account: "alex@gmail.com", folder: "Silo" },
+      primary: false,
+      lastSuccess: Math.floor(Date.now() / 1000) - 3600,
+      archive: false,
+    },
+  ],
+  backup_target_add: async () => {
+    await wait(700);
+  },
+  backup_target_remove: async () => {
+    await wait(300);
+  },
   cloud_sign_in: async (args) => {
     await wait(900);
     return {

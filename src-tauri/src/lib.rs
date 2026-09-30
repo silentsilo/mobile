@@ -6,6 +6,7 @@ mod background;
 mod backup;
 mod cloud;
 mod commands;
+mod copies;
 mod create;
 mod device_key;
 mod host;
@@ -130,6 +131,9 @@ pub fn run() {
             cloud::cloud_sign_in,
             cloud::cloud_cancel_sign_in,
             cloud::cloud_list_silos,
+            copies::backup_targets_list,
+            copies::backup_target_add,
+            copies::backup_target_remove,
             security_key::security_key_status,
             security_key::security_key_cancel,
             security_key::security_key_count,

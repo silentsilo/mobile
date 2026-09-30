@@ -11,6 +11,9 @@ use silentsilo_app::StoreConfigInput;
 use silentsilo_vault::{CloudProvider, CloudSignIn};
 use tauri::{AppHandle, Manager};
 
+/// Core's `SIGN_IN_TIMEOUT`: past it the sign-in has failed anyway.
+const SIGN_IN_SECONDS: u64 = 5 * 60;
+
 /// The sign-in in progress, so Cancel can stop it and free its port.
 #[derive(Default)]
 pub struct SignInSlot(Mutex<Option<tokio::sync::oneshot::Sender<()>>>);
@@ -82,10 +85,10 @@ pub async fn cloud_sign_in(app: AppHandle, kind: String) -> Result<CloudSignIn, 
             let _ = previous.send(());
         }
     }
-    // The browser covers the app: an open silo waits for it as for a
-    // system prompt, not the usual few seconds.
+    // The browser covers the app: an open silo waits for it as long as the
+    // sign-in itself may take (five minutes in core), not the usual seconds.
     let lock = app.state::<crate::background::BackgroundLock>();
-    let _prompt = lock.prompt();
+    let _prompt = lock.prompt_for(SIGN_IN_SECONDS);
     let opener = app.clone();
     let signing_in = silentsilo_vault::cloud_sign_in(provider, move |url| {
         opener
