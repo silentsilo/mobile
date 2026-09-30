@@ -14,8 +14,8 @@ use tauri::{AppHandle, Emitter, Manager};
 use crate::host::MobileHost;
 
 /// Seconds a silo stays open after the app leaves the screen.
-const DEFAULT_LOCK_AFTER: u64 = 30;
-const CHOICES: [u64; 4] = [0, 30, 60, 300];
+const DEFAULT_LOCK_AFTER: u64 = 15 * 60;
+const CHOICES: [u64; 7] = [0, 30, 60, 300, 900, 1800, 3600];
 /// The longest a system prompt, picker or key wait may keep a silo open
 /// with the app away: someone who pressed Home there has left.
 const PROMPT_LIMIT: u64 = 120;
@@ -89,6 +89,10 @@ impl BackgroundLock {
         }
         // The activity reports resumed a moment before a prompt can attach.
         tokio::time::sleep(Duration::from_millis(300)).await;
+    }
+
+    pub fn is_visible(&self) -> bool {
+        self.visible.load(Ordering::SeqCst)
     }
 
     /// Returns once the app is on screen again, prompt or not.

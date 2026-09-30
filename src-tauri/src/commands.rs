@@ -762,6 +762,16 @@ pub fn spawn_auto_sync(app: AppHandle) {
                 if waiting == 0 && now - last_pull.get(&id).copied().unwrap_or(0) < 120 {
                     continue;
                 }
+                // Away from the screen Android keeps the app off the network,
+                // and a pass only to look for news would fail at every
+                // provider. Changes still waiting are tried all the same.
+                if waiting == 0
+                    && !app
+                        .state::<crate::background::BackgroundLock>()
+                        .is_visible()
+                {
+                    continue;
+                }
                 match silentsilo_app::run_sync_pass(&state, &host(&app), &silo).await {
                     Ok(report) if report.skipped => {}
                     Ok(_) => {

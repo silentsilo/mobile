@@ -14,10 +14,15 @@ const LOCK_CHOICES = [
   { seconds: 30, label: "After 30 seconds" },
   { seconds: 60, label: "After 1 minute" },
   { seconds: 300, label: "After 5 minutes" },
+  { seconds: 900, label: "After 15 minutes" },
+  { seconds: 1800, label: "After 30 minutes" },
+  { seconds: 3600, label: "After 1 hour" },
 ];
 
 function shortLock(seconds: number) {
-  return seconds === 0 ? "Now" : seconds < 60 ? `${seconds} s` : `${seconds / 60} min`;
+  if (seconds === 0) return "Now";
+  if (seconds < 60) return `${seconds} s`;
+  return seconds === 3600 ? "1 h" : `${seconds / 60} min`;
 }
 
 export function Silo({
