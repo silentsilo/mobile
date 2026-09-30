@@ -35,6 +35,8 @@ pub fn run() {
         .setup(|app| {
             // A phone has no per-user local directory for working copies and
             // fallback secrets: they live in the app's own private storage.
+            #[cfg(all(target_os = "android", debug_assertions))]
+            android::stderr_to_logcat();
             background::remember(app.handle());
             let data = app.path().app_data_dir()?;
             silentsilo_vault::set_work_base(data.join("work"));

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { api, type CopyView, type StorageView, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatAge } from "../shared/format";
@@ -50,6 +51,15 @@ export function Storage({ onBack }: { onBack: () => void }) {
     api.copies().then(setCopies, (e) => setError(formatAppError(e)));
   }, []);
   useEffect(load, [load]);
+  // Each finished pass changes when a copy was last written.
+  useEffect(() => {
+    const stop = listen("sync-report", () => {
+      api.copies().then(setCopies, () => undefined);
+    });
+    return () => {
+      void stop.then((unlisten) => unlisten());
+    };
+  }, []);
 
   const save = async (config: StoreConfigInput) => {
     await api.saveStorage(config);

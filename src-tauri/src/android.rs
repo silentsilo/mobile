@@ -420,3 +420,46 @@ impl silentsilo_fido::ctap2::hid::Reports for UsbKey {
         }
     }
 }
+
+/// Debug builds only: what Rust writes to stderr goes to logcat under
+/// `SilentSilo`, and cloud requests are traced there. Android drops stderr
+/// otherwise, which left a slow sign-in on a phone with nothing to read.
+#[cfg(debug_assertions)]
+pub fn stderr_to_logcat() {
+    use std::io::BufRead;
+    use std::os::fd::FromRawFd;
+    use std::os::raw::{c_char, c_int};
+
+    #[link(name = "log")]
+    unsafe extern "C" {
+        fn __android_log_write(prio: c_int, tag: *const c_char, text: *const c_char) -> c_int;
+    }
+    unsafe extern "C" {
+        fn pipe(fds: *mut c_int) -> c_int;
+        fn dup2(old: c_int, new: c_int) -> c_int;
+    }
+
+    let mut fds: [c_int; 2] = [0; 2];
+    // Safety: plain descriptor calls on descriptors this function owns.
+    unsafe {
+        if pipe(fds.as_mut_ptr()) != 0 || dup2(fds[1], 2) < 0 {
+            return;
+        }
+        std::env::set_var("SILENTSILO_TRACE_CLOUD", "1");
+    }
+    // Safety: the read end is ours alone from here.
+    let reader = unsafe { std::fs::File::from_raw_fd(fds[0]) };
+    std::thread::spawn(move || {
+        for line in std::io::BufReader::new(reader)
+            .lines()
+            .map_while(Result::ok)
+        {
+            if let Ok(text) = std::ffi::CString::new(line) {
+                // Safety: both strings are NUL-terminated and outlive the call.
+                unsafe {
+                    __android_log_write(4, c"SilentSilo".as_ptr(), text.as_ptr());
+                }
+            }
+        }
+    });
+}

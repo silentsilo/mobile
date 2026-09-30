@@ -139,12 +139,14 @@ export function StorageForm({
       const done = await api.cloudSignIn(kind);
       const folders = joining ? await api.cloudListSilos(done.id) : null;
       setFound(folders);
-      setCloud({
+      // From the state as it is now: a name typed while the sign-in was
+      // finishing stays.
+      setCloud((prev) => ({
         signIn: done.id,
         account: done.account.label,
         freeBytes: done.account.freeBytes,
-        folder: folders && folders.length > 0 ? folders[0]! : cloud.folder,
-      });
+        folder: folders && folders.length > 0 ? folders[0]! : prev.folder,
+      }));
     } catch (e) {
       setError(formatAppError(e));
     } finally {
