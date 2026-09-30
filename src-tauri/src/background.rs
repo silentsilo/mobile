@@ -29,6 +29,9 @@ pub struct BackgroundLock {
     prompt_limit: AtomicU64,
     /// Android cancels a fingerprint prompt started while the app is away.
     foreground: AtomicBool,
+    /// On screen right now, prompts or not: a sign-in in the browser also
+    /// counts as a prompt, and its next request must wait for this.
+    visible: AtomicBool,
     /// Bumped on every suspend and resume, so a timer from an earlier trip to
     /// the background cannot lock a silo the user came back to.
     generation: AtomicU64,
@@ -44,6 +47,7 @@ impl Default for BackgroundLock {
             prompt_suspended_at: Mutex::new(None),
             prompt_limit: AtomicU64::new(PROMPT_LIMIT),
             foreground: AtomicBool::new(true),
+            visible: AtomicBool::new(true),
             generation: AtomicU64::new(0),
             prompts: AtomicUsize::new(0),
         }
@@ -85,6 +89,13 @@ impl BackgroundLock {
         }
         // The activity reports resumed a moment before a prompt can attach.
         tokio::time::sleep(Duration::from_millis(300)).await;
+    }
+
+    /// Returns once the app is on screen again, prompt or not.
+    pub async fn visible_again(&self) {
+        while !self.visible.load(Ordering::SeqCst) {
+            tokio::time::sleep(Duration::from_millis(150)).await;
+        }
     }
 }
 
@@ -143,6 +154,7 @@ pub fn clear_clipboard(app: &AppHandle) {
 #[cfg_attr(not(mobile), allow(dead_code))]
 pub fn suspended(app: &AppHandle) {
     let lock = app.state::<BackgroundLock>();
+    lock.visible.store(false, Ordering::SeqCst);
     if lock.prompts.load(Ordering::SeqCst) > 0 {
         // Most likely the prompt covering the app, which is not leaving. It
         // may also be Home pressed from a picker or a key wait, so a longer
@@ -199,6 +211,7 @@ pub fn resumed(app: &AppHandle) {
     let lock = app.state::<BackgroundLock>();
     lock.generation.fetch_add(1, Ordering::SeqCst);
     lock.foreground.store(true, Ordering::SeqCst);
+    lock.visible.store(true, Ordering::SeqCst);
     crate::viewer::wipe_opened(app);
     let away = lock
         .suspended_at

@@ -90,11 +90,26 @@ pub async fn cloud_sign_in(app: AppHandle, kind: String) -> Result<CloudSignIn, 
     let lock = app.state::<crate::background::BackgroundLock>();
     let _prompt = lock.prompt_for(SIGN_IN_SECONDS);
     let opener = app.clone();
-    let signing_in = silentsilo_vault::cloud_sign_in(provider, move |url| {
-        opener
-            .state::<crate::incoming::Files<tauri::Wry>>()
-            .open_browser(url)
-    });
+    let watcher = app.clone();
+    // The code arrives while the browser is in front and Android keeps the
+    // app off the network; a request then would fail its certificate check,
+    // and Android keeps answering "revoked" for half a minute. So the code
+    // is traded once the app is back on screen.
+    let back = async move {
+        watcher
+            .state::<crate::background::BackgroundLock>()
+            .visible_again()
+            .await
+    };
+    let signing_in = silentsilo_vault::cloud_sign_in_when(
+        provider,
+        move |url| {
+            opener
+                .state::<crate::incoming::Files<tauri::Wry>>()
+                .open_browser(url)
+        },
+        back,
+    );
     // Dropping the sign-in closes its listener.
     tokio::select! {
         result = signing_in => result.map_err(|e| e.to_string()),
