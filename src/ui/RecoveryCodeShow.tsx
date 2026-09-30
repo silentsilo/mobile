@@ -11,10 +11,11 @@ const CodeKeeper = createContext<Keeper | null>(null);
  * Holds a new recovery code until it is written down. The code made before
  * stops working as soon as this one exists, and the silo can lock while the
  * code is on screen (the screen turning off does it), which took the sheet
- * showing it away. The code then comes back on its own screen, in front of
- * whatever is up, until the person says it is kept.
+ * showing it away. The code then comes back on its own screen once the silo
+ * is open again, never on a locked phone: whoever picked it up would read a
+ * code that opens the silo without the fingerprint.
  */
-export function RecoveryCodeKeeper({ children }: { children: ReactNode }) {
+export function RecoveryCodeKeeper({ open, children }: { open: boolean; children: ReactNode }) {
   const [held, setHeld] = useState<{ code: string; onScreen: boolean } | null>(null);
   const keeper = useMemo<Keeper>(
     () => ({
@@ -26,13 +27,13 @@ export function RecoveryCodeKeeper({ children }: { children: ReactNode }) {
   );
   return (
     <CodeKeeper.Provider value={keeper}>
-      {held && !held.onScreen ? (
+      {held && !held.onScreen && open ? (
         <div className="screen">
           <div className="screen-body">
             <h1 className="title">Your new recovery code</h1>
             <p className="hint">
               The silo locked while this code was on screen. Write it down now: it is not shown again, and the code made
-              before stops working.
+              before no longer works.
             </p>
             <CodeOnPaper code={held.code} onKept={keeper.kept} />
           </div>

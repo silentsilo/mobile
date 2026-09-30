@@ -37,6 +37,9 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_init(
         return;
     };
     silentsilo_vault::set_work_base(PathBuf::from(&data_dir).join("work"));
+    // Here too: the backup job starts the process without the app, and then
+    // OneDrive, Dropbox and Google Drive refused to open.
+    silentsilo_vault::install_cloud();
     let bridge = (|| {
         let secrets = env.find_class("com/silentsilo/mobile/LocalSecrets").ok()?;
         let senders = env.find_class("com/silentsilo/mobile/SenderKeys").ok()?;

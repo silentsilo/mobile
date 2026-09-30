@@ -6,7 +6,7 @@
 use std::path::PathBuf;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use silentsilo_app::AppState;
 use tauri::{AppHandle, Emitter, Manager};
@@ -20,11 +20,44 @@ const CHOICES: [u64; 7] = [0, 30, 60, 300, 900, 1800, 3600];
 /// with the app away: someone who pressed Home there has left.
 const PROMPT_LIMIT: u64 = 120;
 
+/// Time since boot, the time the phone slept included. `Instant` and tokio's
+/// timers stop in deep sleep on Android, so a phone that slept all night came
+/// back counting minutes, with its silo still open.
+#[cfg(target_os = "android")]
+fn since_boot() -> Duration {
+    let mut now = libc::timespec {
+        tv_sec: 0,
+        tv_nsec: 0,
+    };
+    // SAFETY: `now` is a valid place for the answer.
+    if unsafe { libc::clock_gettime(libc::CLOCK_BOOTTIME, &mut now) } == 0 {
+        Duration::new(now.tv_sec as u64, now.tv_nsec as u32)
+    } else {
+        Duration::ZERO
+    }
+}
+
+/// Elsewhere, only for building and testing on a computer.
+#[cfg(not(target_os = "android"))]
+fn since_boot() -> Duration {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    START.get_or_init(std::time::Instant::now).elapsed()
+}
+
+/// How long ago `at`, a reading of [`since_boot`], was.
+fn since(at: Duration) -> Duration {
+    since_boot().saturating_sub(at)
+}
+
+/// The longest a lock timer sleeps before it looks at the clock again: a
+/// sleep of its own stops while the phone does.
+const TIMER_STEP: Duration = Duration::from_secs(30);
+
 pub struct BackgroundLock {
-    suspended_at: Mutex<Option<Instant>>,
+    suspended_at: Mutex<Option<Duration>>,
     /// Suspended while a prompt was up, which may be the prompt itself, and
     /// how long that prompt may keep a silo open.
-    prompt_suspended_at: Mutex<Option<(Instant, u64)>>,
+    prompt_suspended_at: Mutex<Option<(Duration, u64)>>,
     /// The longest any prompt up now may keep a silo open with the app away.
     prompt_limit: AtomicU64,
     /// Android cancels a fingerprint prompt started while the app is away.
@@ -165,14 +198,14 @@ pub fn suspended(app: &AppHandle) {
         // timer still runs; coming back cancels it.
         let limit = lock.prompt_limit.load(Ordering::SeqCst).max(PROMPT_LIMIT);
         if let Ok(mut at) = lock.prompt_suspended_at.lock() {
-            at.get_or_insert_with(|| (Instant::now(), limit));
+            at.get_or_insert_with(|| (since_boot(), limit));
         }
         arm(app, lock_after(app).max(limit));
         return;
     }
     lock.foreground.store(false, Ordering::SeqCst);
     if let Ok(mut at) = lock.suspended_at.lock() {
-        *at = Some(Instant::now());
+        *at = Some(since_boot());
     }
     arm(app, lock_after(app));
 }
@@ -186,8 +219,26 @@ fn arm(app: &AppHandle, delay: u64) {
         return;
     }
     let app = app.clone();
+    let armed = since_boot();
+    let delay = Duration::from_secs(delay);
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(delay)).await;
+        // In steps, reading the clock that counts sleep each time, so a
+        // phone that slept past the deadline locks soon after it wakes.
+        loop {
+            let left = delay.saturating_sub(since(armed));
+            if left.is_zero() {
+                break;
+            }
+            tokio::time::sleep(left.min(TIMER_STEP)).await;
+            if app
+                .state::<BackgroundLock>()
+                .generation
+                .load(Ordering::SeqCst)
+                != generation
+            {
+                return;
+            }
+        }
         let lock = app.state::<BackgroundLock>();
         if lock.generation.load(Ordering::SeqCst) == generation {
             lock_soon(&app);
@@ -222,16 +273,15 @@ pub fn resumed(app: &AppHandle) {
         .lock()
         .ok()
         .and_then(|mut at| at.take())
-        .map(|at| at.elapsed());
+        .map(since);
     let away_prompting = lock
         .prompt_suspended_at
         .lock()
         .ok()
         .and_then(|mut at| at.take());
     if away.is_some_and(|away| away >= Duration::from_secs(lock_after(app)))
-        || away_prompting.is_some_and(|(at, limit)| {
-            at.elapsed() >= Duration::from_secs(lock_after(app).max(limit))
-        })
+        || away_prompting
+            .is_some_and(|(at, limit)| since(at) >= Duration::from_secs(lock_after(app).max(limit)))
     {
         lock_soon(app);
     }
@@ -270,8 +320,26 @@ pub fn app() -> Option<&'static AppHandle> {
 pub fn remember(app: &AppHandle) {
     let _ = APP.set(app.clone());
     if let (Ok(data), Ok(cache)) = (app.path().app_data_dir(), app.path().app_cache_dir()) {
+        keep_the_old_default(&data);
         let _ = DIRS.set((data, cache));
     }
+}
+
+/// A phone that had silos before this release and never chose a time keeps
+/// the 30 seconds it had: an update should not keep a silo open longer
+/// without asking. Written on the first start of this release, so a new
+/// install gets the new default and keeps it.
+fn keep_the_old_default(data: &std::path::Path) {
+    let path = data.join("lock-after");
+    if path.exists() {
+        return;
+    }
+    let had_silos = silentsilo_vault::registry_path(data).exists();
+    let seconds = if had_silos { 30 } else { DEFAULT_LOCK_AFTER };
+    // The folder may not exist yet on a first start, and a write lost then
+    // would read a later start, with silos, as an update.
+    let _ = std::fs::create_dir_all(data);
+    let _ = std::fs::write(path, seconds.to_string());
 }
 
 /// Locks everything now, from outside the window. Nothing is open when the

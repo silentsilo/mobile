@@ -153,7 +153,7 @@ export default function App() {
 
   return (
     <ToastProvider>
-      <RecoveryCodeKeeper>{render()}</RecoveryCodeKeeper>
+      <RecoveryCodeKeeper open={open}>{render()}</RecoveryCodeKeeper>
     </ToastProvider>
   );
 
