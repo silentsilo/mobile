@@ -87,6 +87,20 @@ export function StorageForm({
   });
   const [found, setFound] = useState<string[] | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  // Back from the browser while the sign-in still finishes: the token is
+  // fetched once the phone lets the app on the network again.
+  const [back, setBack] = useState(false);
+  useEffect(() => {
+    if (!signingIn) {
+      setBack(false);
+      return;
+    }
+    const seen = () => {
+      if (document.visibilityState === "visible") setBack(true);
+    };
+    document.addEventListener("visibilitychange", seen);
+    return () => document.removeEventListener("visibilitychange", seen);
+  }, [signingIn]);
   const [clouds, setClouds] = useState<CloudKind[]>([]);
   useEffect(() => {
     let live = true;
@@ -268,7 +282,11 @@ export function StorageForm({
           <>
             {signingIn ? (
               <>
-                <p className="hint">Finish signing in to {CLOUD[kind].name} in your browser, then come back here.</p>
+                <p className="hint">
+                  {back
+                    ? `Finishing the sign-in with ${CLOUD[kind].name}…`
+                    : `Finish signing in to ${CLOUD[kind].name} in your browser, then come back here.`}
+                </p>
                 <button className="btn secondary" onClick={() => void api.cloudCancelSignIn().catch(() => undefined)}>
                   Cancel
                 </button>
