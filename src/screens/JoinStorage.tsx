@@ -25,7 +25,7 @@ export function JoinStorage({
           <h1 className="title">Where is the backup?</h1>
           <p className="hint">The same backup storage your silo syncs to from your computer.</p>
         </div>
-        <StorageForm submitLabel="Continue" busyLabel="Looking for your silo" onSubmit={look} />
+        <StorageForm submitLabel="Continue" busyLabel="Looking for your silo" onSubmit={look} joining />
       </div>
     </div>
   );

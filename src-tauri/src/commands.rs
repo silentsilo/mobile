@@ -147,10 +147,7 @@ pub struct JoinPreview {
 
 #[tauri::command]
 pub async fn vault_preview_join(config: StoreConfigInput) -> Result<JoinPreview, String> {
-    let store = config
-        .into_config(None)?
-        .open()
-        .map_err(|e| e.to_string())?;
+    let store = crate::cloud::describe(config, None)?.store;
     let Some(manifest) = silentsilo_sync::read_manifest(&*store)
         .await
         .map_err(|e| e.to_string())?
@@ -185,10 +182,19 @@ pub async fn vault_join_with_recovery(
     location: Option<String>,
 ) -> Result<VaultMeta, String> {
     let _ = location;
-    let store_config = config.into_config(None)?;
-    let store = store_config.open().map_err(|e| e.to_string())?;
-    let join = flows::recovery_join_begin(&*store, &code).await?;
-    finish_join(&app, &state, &store_config, &*store, join, &name).await
+    let described = crate::cloud::describe(config, None)?;
+    let join = flows::recovery_join_begin(&*described.store, &code).await?;
+    let meta = finish_join(
+        &app,
+        &state,
+        &described.config,
+        &*described.store,
+        join,
+        &name,
+    )
+    .await?;
+    described.adopt().await?;
+    Ok(meta)
 }
 
 /// Everything after the recovery code or a security key opened the silo:

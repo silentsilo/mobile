@@ -479,9 +479,10 @@ pub async fn vault_join_with_security_key(
 ) -> Result<VaultMeta, String> {
     let lock = app.state::<crate::background::BackgroundLock>();
     let _prompt = lock.prompt();
-    let store_config = config.into_config(None)?;
-    let store = store_config.open().map_err(|e| e.to_string())?;
-    let offer = flows::key_join_begin(&*store).await?;
+    let described = crate::cloud::describe(config, None)?;
+    let store_config = described.config.clone();
+    let store = &described.store;
+    let offer = flows::key_join_begin(&**store).await?;
     let ids: Vec<Vec<u8>> = offer
         .keys
         .iter()
@@ -518,9 +519,10 @@ pub async fn vault_join_with_security_key(
     };
     let (found, _) = with_pin(&app, None, ceremony).await?;
     let (credential_id, wrap_key, verified) = found.map_err(str::to_string)?;
-    let join = flows::key_join_open(&*store, &offer, &credential_id, &wrap_key).await?;
+    let join = flows::key_join_open(&**store, &offer, &credential_id, &wrap_key).await?;
     let meta =
-        crate::commands::finish_join(&app, &state, &store_config, &*store, join, &name).await?;
+        crate::commands::finish_join(&app, &state, &store_config, &**store, join, &name).await?;
+    described.adopt().await?;
     remember_pin_key(&credential_id, verified);
     Ok(meta)
 }

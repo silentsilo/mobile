@@ -57,6 +57,28 @@ impl<R: Runtime> Files<R> {
     }
 }
 
+impl<R: Runtime> Files<R> {
+    /// Opens a sign-in page in the phone's browser. Blocking, and short:
+    /// the answer is whether the browser started.
+    pub(crate) fn open_browser(&self, url: &str) -> Result<(), String> {
+        #[cfg(target_os = "android")]
+        {
+            self.0
+                .run_mobile_plugin::<serde_json::Value>(
+                    "openBrowser",
+                    serde_json::json!({ "url": url }),
+                )
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        }
+        #[cfg(not(target_os = "android"))]
+        {
+            let _ = url;
+            Err("This build cannot open the phone's browser.".into())
+        }
+    }
+}
+
 pub fn init<R: Runtime>() -> TauriPlugin<R> {
     Builder::new("files")
         .setup(|app, api| {

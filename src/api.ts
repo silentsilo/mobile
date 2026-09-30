@@ -37,7 +37,17 @@ export type StoreConfigInput =
         | { method: "password"; password: string | null }
         | { method: "key"; privateKey: string | null; passphrase: string | null };
       hostFingerprint: string | null;
-    };
+    }
+  // The account comes from the sign-in the app holds; `signIn` names it.
+  | { kind: CloudKind; signIn: string | null; folder: string };
+
+export type CloudKind = "onedrive" | "dropbox" | "google-drive";
+
+/** What a sign-in reached, as `cloud_sign_in` returns it. */
+export type CloudSignIn = {
+  id: string;
+  account: { id: string; label: string; freeBytes: number | null; totalBytes: number | null };
+};
 
 export type JoinPreview = { vault_id: string | null; key_labels: string[] };
 
@@ -152,6 +162,10 @@ export const api = {
   createRecovery: () => invoke<string>("recovery_create"),
   storageView: () => invoke<StorageView>("storage_view"),
   saveStorage: (config: StoreConfigInput) => invoke<void>("storage_save", { config }),
+  cloudProviders: () => invoke<string[]>("cloud_providers"),
+  cloudSignIn: (kind: CloudKind) => invoke<CloudSignIn>("cloud_sign_in", { kind }),
+  cloudCancelSignIn: () => invoke<void>("cloud_cancel_sign_in"),
+  cloudListSilos: (signIn: string) => invoke<string[]>("cloud_list_silos", { signIn }),
 
   phoneKeyState: () => invoke<PhoneKeyState>("phone_key_state"),
   unlock: () => invoke<VaultMeta>("vault_unlock"),

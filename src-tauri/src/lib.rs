@@ -4,6 +4,7 @@ mod android;
 mod autofill;
 mod background;
 mod backup;
+mod cloud;
 mod commands;
 mod create;
 mod device_key;
@@ -26,6 +27,7 @@ pub fn run() {
         .plugin(security_key::init())
         .manage(silentsilo_app::AppState::default())
         .manage(background::BackgroundLock::default())
+        .manage(cloud::SignInSlot::default())
         .register_asynchronous_uri_scheme_protocol("silo", |ctx, request, responder| {
             commands::serve_file(ctx.app_handle().clone(), request, responder)
         })
@@ -35,6 +37,9 @@ pub fn run() {
             background::remember(app.handle());
             let data = app.path().app_data_dir()?;
             silentsilo_vault::set_work_base(data.join("work"));
+            // OneDrive, Dropbox and Google Drive open through the tokens the
+            // vault keeps.
+            silentsilo_vault::install_cloud();
             // Nothing is unlocked yet: any scratch left is from a process
             // Android killed while a silo was open.
             let _ = app.state::<silentsilo_app::AppState>().sweep_scratch();
@@ -121,6 +126,10 @@ pub fn run() {
             create::recovery_create,
             create::storage_view,
             create::storage_save,
+            cloud::cloud_providers,
+            cloud::cloud_sign_in,
+            cloud::cloud_cancel_sign_in,
+            cloud::cloud_list_silos,
             security_key::security_key_status,
             security_key::security_key_cancel,
             security_key::security_key_count,

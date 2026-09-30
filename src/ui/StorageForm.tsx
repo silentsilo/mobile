@@ -1,7 +1,8 @@
 import { Eye, EyeOff } from "lucide-react";
-import { useState } from "react";
-import { api, type StorageView, type StoreConfigInput } from "../api";
+import { useEffect, useState } from "react";
+import { api, type CloudKind, type StorageView, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
+import { formatBytes } from "../shared/format";
 import { Field, Sheet } from "./chrome";
 
 type Kind = StoreConfigInput["kind"];
@@ -11,6 +12,27 @@ const KINDS: { kind: Kind; label: string }[] = [
   { kind: "web-dav", label: "WebDAV" },
   { kind: "sftp", label: "SFTP" },
 ];
+
+const CLOUD: Record<CloudKind, { name: string; company: string; place: string }> = {
+  onedrive: { name: "OneDrive", company: "Microsoft", place: "Apps/SilentSilo on your OneDrive" },
+  dropbox: { name: "Dropbox", company: "Dropbox", place: "Apps/SilentSilo in your Dropbox" },
+  "google-drive": { name: "Google Drive", company: "Google", place: "the SilentSilo folder of your Google Drive" },
+};
+
+function isCloud(kind: string): kind is CloudKind {
+  return kind in CLOUD;
+}
+
+/** The rule core applies, said before anything is sent. */
+function folderProblem(folder: string): string | null {
+  const name = folder.trim();
+  if (!name) return "Give the folder a name.";
+  // eslint-disable-next-line no-control-regex
+  if (name.length > 100 || /["*:<>?/\\|\u0000-\u001f]/.test(name) || name.startsWith(".") || name.endsWith(".")) {
+    return 'Use a plain folder name: no slashes, none of " * : < > ? |, no dot at either end.';
+  }
+  return null;
+}
 
 /**
  * The details of a backup storage, for joining a silo, making one, or
@@ -23,11 +45,14 @@ export function StorageForm({
   submitLabel,
   busyLabel,
   onSubmit,
+  joining = false,
 }: {
   current?: StorageView | null;
   submitLabel: string;
   busyLabel: string;
   onSubmit: (config: StoreConfigInput) => Promise<void>;
+  /** Joining a silo: a cloud account lists the silos it holds. */
+  joining?: boolean;
 }) {
   const known = current?.configured && current.kind !== "folder" ? (current.kind as Kind) : null;
   const [kind, setKind] = useState<Kind>(known ?? "s3");
@@ -51,20 +76,84 @@ export function StorageForm({
   const [error, setError] = useState<string | null>(null);
   const [fingerprint, setFingerprint] = useState<string | null>(null);
 
+  // A cloud account: the sign-in's id, what to show of it, and the folder.
+  // Stored, a copy keeps its sign-in while the folder stays the same.
+  const storedCloud = current?.configured && isCloud(current.kind);
+  const [cloud, setCloud] = useState({
+    signIn: null as string | null,
+    account: storedCloud ? current.username : "",
+    freeBytes: null as number | null,
+    folder: storedCloud ? current.path : "Silo",
+  });
+  const [found, setFound] = useState<string[] | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
+  const [clouds, setClouds] = useState<CloudKind[]>([]);
+  useEffect(() => {
+    let live = true;
+    api
+      .cloudProviders()
+      .then((kinds) => {
+        if (live) setClouds((Object.keys(CLOUD) as CloudKind[]).filter((k) => kinds.includes(k)));
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  const choose = (next: Kind) => {
+    // Another provider's sign-in is not this one's.
+    if (next !== kind && isCloud(next)) {
+      const same = known === next;
+      setCloud({
+        signIn: null,
+        account: same ? current?.username ?? "" : "",
+        freeBytes: null,
+        folder: same ? current?.path ?? "Silo" : "Silo",
+      });
+      setFound(null);
+    }
+    setKind(next);
+    setError(null);
+  };
+
+  const signIn = async () => {
+    if (!isCloud(kind)) return;
+    setSigningIn(true);
+    setError(null);
+    try {
+      const done = await api.cloudSignIn(kind);
+      const folders = joining ? await api.cloudListSilos(done.id) : null;
+      setFound(folders);
+      setCloud({
+        signIn: done.id,
+        account: done.account.label,
+        freeBytes: done.account.freeBytes,
+        folder: folders && folders.length > 0 ? folders[0]! : cloud.folder,
+      });
+    } catch (e) {
+      setError(formatAppError(e));
+    } finally {
+      setSigningIn(false);
+    }
+  };
+
   const set = (key: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF({ ...f, [key]: e.target.value });
   // A stored secret may stand in for a blank one on the same kind.
   const secretKept = known === kind;
   // A server the desktop set up with a private key keeps signing in with it.
   const keyKept = secretKept && kind === "sftp" && current?.authMethod === "key";
 
-  const ready =
-    kind === "s3"
+  const ready = isCloud(kind)
+    ? (cloud.signIn || (known === kind && cloud.account)) && !folderProblem(cloud.folder)
+    : kind === "s3"
       ? f.endpoint && f.bucket && f.accessKeyId && (f.secret || secretKept)
       : kind === "web-dav"
         ? f.url && f.username && (f.password || secretKept)
         : f.host && f.username && f.path && (f.password || secretKept);
 
   const configFor = (hostFingerprint: string | null): StoreConfigInput => {
+    if (isCloud(kind)) return { kind, signIn: cloud.signIn, folder: cloud.folder.trim() };
     if (kind === "s3") {
       return {
         kind,
@@ -154,14 +243,98 @@ export function StorageForm({
 
   return (
     <>
+      {clouds.length > 0 && (
+        <>
+          <p className="hint small">An account you already have</p>
+          <div className="segmented" role="group" aria-label="Account">
+            {clouds.map((k) => (
+              <button key={k} aria-pressed={kind === k} onClick={() => choose(k)}>
+                {CLOUD[k].name}
+              </button>
+            ))}
+          </div>
+          <p className="hint small">Storage you run or rent</p>
+        </>
+      )}
       <div className="segmented" role="group" aria-label="Storage type">
         {KINDS.map((k) => (
-          <button key={k.kind} aria-pressed={kind === k.kind} onClick={() => { setKind(k.kind); setError(null); }}>
+          <button key={k.kind} aria-pressed={kind === k.kind} onClick={() => choose(k.kind)}>
             {k.label}
           </button>
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {isCloud(kind) && (
+          <>
+            {signingIn ? (
+              <>
+                <p className="hint">Finish signing in to {CLOUD[kind].name} in your browser, then come back here.</p>
+                <button className="btn secondary" onClick={() => void api.cloudCancelSignIn().catch(() => undefined)}>
+                  Cancel
+                </button>
+              </>
+            ) : cloud.account ? (
+              <>
+                <div className="notice">
+                  Connected as {cloud.account}
+                  {cloud.freeBytes !== null ? `, ${formatBytes(cloud.freeBytes)} free` : ""}
+                </div>
+                <button className="btn secondary" disabled={busy} onClick={() => void signIn()}>
+                  Use another account
+                </button>
+              </>
+            ) : (
+              <>
+                <button className="btn" disabled={busy} onClick={() => void signIn()}>
+                  Connect {CLOUD[kind].name}
+                </button>
+                <p className="hint small">
+                  Opens {CLOUD[kind].company}&apos;s sign-in page in your browser. SilentSilo never sees your password,
+                  and gets access only to its own folder.
+                </p>
+              </>
+            )}
+            {joining ? (
+              found === null ? null : found.length > 0 ? (
+                <Field label="Silo folder">
+                  <div className="input">
+                    <select
+                      value={cloud.folder}
+                      onChange={(e) => setCloud({ ...cloud, folder: e.target.value })}
+                      style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", font: "inherit", color: "inherit" }}
+                    >
+                      {found.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </Field>
+              ) : (
+                <div className="notice error">There is no silo in {CLOUD[kind].place} yet. Sync once from your computer.</div>
+              )
+            ) : (
+              <>
+                <Field label="Folder name">
+                  <div className="input">
+                    <input
+                      value={cloud.folder}
+                      onChange={(e) => setCloud({ ...cloud, folder: e.target.value })}
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                    />
+                  </div>
+                </Field>
+                <p className="hint small">
+                  {folderProblem(cloud.folder) ??
+                    `In ${CLOUD[kind].place}. ${CLOUD[kind].company} sees this name. Your files inside are encrypted.`}
+                </p>
+              </>
+            )}
+          </>
+        )}
         {kind === "s3" && (
           <>
             <Field label="Endpoint">{text("endpoint", "https://s3.example.com", "url")}</Field>

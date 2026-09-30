@@ -260,6 +260,25 @@ const handlers: Record<string, Handler> = {
   storage_save: async () => {
     await wait(700);
   },
+  // A sign-in "in the browser" after a short wait.
+  cloud_providers: () => ["onedrive", "dropbox", "google-drive"],
+  cloud_sign_in: async (args) => {
+    await wait(900);
+    return {
+      id: "5b0f3a2e-9c1d-4e8f-a7b6-2d4c6e8f0a1b",
+      account: {
+        id: `${String(args.kind)}-account`,
+        label: args.kind === "google-drive" ? "alex@gmail.com" : "alex@outlook.com",
+        freeBytes: 812 * 1024 ** 3,
+        totalBytes: 1024 ** 4,
+      },
+    };
+  },
+  cloud_cancel_sign_in: () => null,
+  cloud_list_silos: async () => {
+    await wait(400);
+    return ["Silo"];
+  },
   device_key_enroll: async (args) => {
     await wait(900);
     phoneKey = true;

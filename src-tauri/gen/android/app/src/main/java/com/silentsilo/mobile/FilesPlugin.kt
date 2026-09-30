@@ -154,6 +154,24 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
     }
   }
 
+  // A provider's sign-in page, in the phone's own browser rather than the
+  // app's webview, so the password and second factor reach the provider
+  // only. Its answer comes back to 127.0.0.1 in this app.
+  @Command
+  fun openBrowser(invoke: Invoke) {
+    val uri = Uri.parse(invoke.getArgs().getString("url") ?: "")
+    if (uri.scheme != "https") {
+      invoke.reject("Not a sign-in page.")
+      return
+    }
+    try {
+      activity.startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE))
+      invoke.resolve()
+    } catch (e: Exception) {
+      invoke.reject("No browser on this phone opens the sign-in page.")
+    }
+  }
+
   // A read-only descriptor Rust takes ownership of and closes.
   @Command
   fun openFd(invoke: Invoke) {

@@ -27,7 +27,7 @@ silentsilo-sync = { workspace = true }
 silentsilo-app = { workspace = true }
 uuid = { version = "1", features = ["v4"] }
 hex = "0.4"
-tokio = { version = "1", features = ["time"] }
+tokio = { version = "1", features = ["time", "sync", "macros"] }
 silentsilo-fido = { workspace = true, features = ["enclave", "ctap2", "passkey"] }
 zeroize = "1"
 

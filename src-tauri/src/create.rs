@@ -225,10 +225,11 @@ pub async fn storage_save(
     let mut targets = silentsilo_vault::load_targets(silo.id);
     let existing = targets.first().map(|t| t.config.clone());
     // A blank secret keeps the stored one, for the same server only.
-    let config = config.into_config(existing)?;
-    let store = config.open().map_err(|e| e.to_string())?;
+    let described = crate::cloud::describe(config, existing)?;
+    let config = described.config.clone();
+    let store = &described.store;
     // Another silo's place is refused before anything is written there.
-    silentsilo_sync::refuse_foreign_vault(&*store, silo.id)
+    silentsilo_sync::refuse_foreign_vault(&**store, silo.id)
         .await
         .map_err(|e| e.to_string())?;
     store
@@ -244,5 +245,6 @@ pub async fn storage_save(
             role: TargetRole::Working,
         }),
     }
-    silentsilo_vault::save_targets(silo.id, &targets).map_err(|e| e.to_string())
+    silentsilo_vault::save_targets(silo.id, &targets).map_err(|e| e.to_string())?;
+    described.adopt().await
 }
