@@ -3,8 +3,8 @@
 The Android and iOS clients of [SilentSilo](https://silentsilo.com), a
 local-first encrypted vault for files and passwords. AGPL-3.0.
 
-> **Not released.** Nothing here is built for users yet. Android ships
-> with desktop 1.1.0; iOS follows.
+**Android** 12 or later: [Google Play](https://play.google.com/store/apps/details?id=com.silentsilo.mobile).
+**iOS**: not started, no date.
 
 The engine lives in [silentsilo/core](https://github.com/silentsilo/core).
 This repository pins a tag from it, the same way
@@ -15,10 +15,15 @@ wrote.
 
 ## What a phone does
 
-A phone joins a silo that already exists, from the backup storage that silo
-syncs to. It unlocks with a key held in the phone's own hardware, Android
-Keystore or the Secure Enclave, behind the fingerprint or face the phone
-already knows. The recovery code opens the silo when that key is gone.
+A phone creates a silo of its own or sets up one that already exists from
+the backup storage that silo syncs to (OneDrive, Dropbox, Google Drive, an
+S3 bucket, WebDAV or SFTP). It unlocks with a key held in the phone's own
+hardware (Android Keystore, StrongBox where the phone has it) behind its
+fingerprint, or with a security key over NFC or USB. The recovery code opens the silo when every key is gone.
+
+On Android it also fills logins in other apps through the system autofill,
+acts as a passkey provider for browsers, and can back up photos, videos and
+contacts, encrypted on the phone, once you turn that on.
 
 > **No independent security audit has been done.** The cryptography is
 > specified in core's `docs/CRYPTO.md` and the formats in its `FORMATS.md`.
