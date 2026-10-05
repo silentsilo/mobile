@@ -12,10 +12,11 @@
 import { formatBytes } from "./format";
 import { passwordStrength, typeOf } from "./passwordUtil";
 import type { PasswordEntry } from "./types";
+import { reusesOldPassword } from "./entryHistory";
 
 /** Fields that say where an entry lives or when it was touched, not what it
  * holds. From desktop src/lib/passwordImport.ts. */
-const IGNORED_FIELDS = new Set(["id", "created_at", "updated_at", "attachments", "category", "favorite"]);
+const IGNORED_FIELDS = new Set(["id", "created_at", "updated_at", "attachments", "category", "favorite", "history"]);
 
 /** A stable string identifying an entry by content. From desktop
  * src/lib/passwordImport.ts. */
@@ -25,8 +26,11 @@ function entryFingerprint(entry: PasswordEntry): string {
     if (IGNORED_FIELDS.has(key)) continue;
     const value = (entry as Record<string, unknown>)[key];
     if (value === undefined || value === null || value === "" || value === false) continue;
+    if (Array.isArray(value) && value.length === 0) continue;
     if (key === "type" && value === "login") continue;
-    parts.push(`${key}=${String(value)}`);
+    // An object (custom fields, a passkey) by its content: `String` made
+    // every one "[object Object]", so two different entries matched.
+    parts.push(`${key}=${typeof value === "object" ? JSON.stringify(value) : String(value)}`);
   }
   return parts.join("\u0000");
 }
@@ -129,6 +133,18 @@ export function analyseHealth(
         "If one site leaks it, every account with the same password is exposed. Change these first.",
       entries: affected,
       groups: reused,
+    });
+  }
+
+  const backToOld = entries.filter(reusesOldPassword).sort(byService);
+  if (backToOld.length > 0) {
+    findings.push({
+      id: "reused-old",
+      severity: "medium",
+      title: `${plural(backToOld.length, "entry is", "entries are")} back on an earlier password`,
+      detail:
+        "The password in use is one the entry had before. If it was changed because it leaked, it is exposed again.",
+      entries: backToOld,
     });
   }
 

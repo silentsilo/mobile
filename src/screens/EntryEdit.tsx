@@ -1,10 +1,10 @@
-import { Eye, EyeOff, Trash2, WandSparkles } from "lucide-react";
+import { Eye, EyeOff, Plus, Trash2, WandSparkles } from "lucide-react";
 import { useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { withEdits } from "../shared/passwordEntry";
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, parseTotpInput } from "../shared/totp";
-import type { PasswordEntry } from "../shared/types";
+import type { CustomField, PasswordEntry } from "../shared/types";
 import { Field, Sheet } from "../ui/chrome";
 import { GeneratorSheet } from "../ui/GeneratorSheet";
 
@@ -33,6 +33,7 @@ export function EntryEdit({
   const [url, setUrl] = useState(original.url);
   const [totp, setTotp] = useState(original.totp_secret ?? "");
   const [notes, setNotes] = useState(original.notes);
+  const [fields, setFields] = useState<CustomField[]>(original.fields ?? []);
   const [showPassword, setShowPassword] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -44,7 +45,17 @@ export function EntryEdit({
       setError("Give the entry a name.");
       return;
     }
-    const changes: Partial<PasswordEntry> = { service: service.trim(), username, password, url: url.trim(), notes, updated_at: Date.now() };
+    // A row left with neither a name nor a value was added and never used.
+    const kept = fields.filter((f) => f.name.trim() || f.value);
+    const changes: Partial<PasswordEntry> = {
+      service: service.trim(),
+      username,
+      password,
+      url: url.trim(),
+      notes,
+      fields: kept.length > 0 ? kept : undefined,
+      updated_at: Date.now(),
+    };
     if (totp.trim()) {
       const params = parseTotpInput(totp.trim());
       if (!params) {
@@ -61,9 +72,7 @@ export function EntryEdit({
     setBusy(true);
     setError(null);
     try {
-      const saved = withEdits(original, changes);
-      await api.upsertPassword(saved);
-      onSaved(saved);
+      onSaved(await api.savePassword(entry ?? undefined, withEdits(original, changes)));
     } catch (e) {
       setError(formatAppError(e));
     } finally {
@@ -124,6 +133,46 @@ export function EntryEdit({
         </Field>
         <Field label="Website">{input(url, setUrl, { inputMode: "url", placeholder: "example.com" })}</Field>
         <Field label="One-time code setup key">{input(totp, setTotp, { placeholder: "Optional" })}</Field>
+        <Field label="Custom fields">
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {fields.map((field, i) => {
+              const update = (change: Partial<CustomField>) =>
+                setFields((all) => all.map((f, j) => (j === i ? { ...f, ...change } : f)));
+              return (
+                <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <div className="input" style={{ flex: 1 }}>
+                      <input value={field.name} placeholder="Name" aria-label="Field name" onChange={(e) => update({ name: e.target.value })} />
+                    </div>
+                    <button className="icon-btn" aria-label="Remove field" onClick={(e) => { e.preventDefault(); setFields((all) => all.filter((_, j) => j !== i)); }}>
+                      <Trash2 size={20} />
+                    </button>
+                  </div>
+                  <div className="input">
+                    <input
+                      type={field.hidden && !showPassword ? "password" : "text"}
+                      value={field.value}
+                      placeholder="Value"
+                      aria-label={`Value of ${field.name || "this field"}`}
+                      autoCapitalize="none"
+                      autoCorrect="off"
+                      spellCheck={false}
+                      onChange={(e) => update({ value: e.target.value })}
+                    />
+                  </div>
+                  <label className="hint small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="checkbox" checked={field.hidden} onChange={(e) => update({ hidden: e.target.checked })} />
+                    Hidden, masked like the password
+                  </label>
+                </div>
+              );
+            })}
+            <button className="btn secondary" onClick={(e) => { e.preventDefault(); setFields((all) => [...all, { name: "", value: "", hidden: false }]); }}>
+              <Plus size={20} />
+              Add a field
+            </button>
+          </div>
+        </Field>
         <Field label="Notes">
           <div className="input">
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />

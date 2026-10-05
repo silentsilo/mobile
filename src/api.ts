@@ -1,5 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { isCategoriesRow } from "./shared/passwordUtil";
+import { DEFAULT_HISTORY_POLICY, withHistory, type HistoryPolicy } from "./shared/entryHistory";
 import type {
   Bootstrap,
   FileEntry,
@@ -209,6 +210,18 @@ export const api = {
   },
   upsertPassword: (entry: PasswordEntry) =>
     invoke<void>("vault_upsert_password", { id: entry.id, json: JSON.stringify(entry) }),
+  /** Every save from the app: `next` keeps `previous` in its history when
+   * what the entry says changed. Returns what was stored. */
+  savePassword: async (previous: PasswordEntry | undefined, next: PasswordEntry): Promise<PasswordEntry> => {
+    const saved = withHistory(previous, next, await api.historyPolicy());
+    await api.upsertPassword(saved);
+    return saved;
+  },
+  historyPolicy: async (): Promise<HistoryPolicy> => {
+    const policy = await invoke<string>("history_policy_get").catch(() => "10");
+    return policy === "fit" ? "fit" : Number.parseInt(policy, 10) || DEFAULT_HISTORY_POLICY;
+  },
+  setHistoryPolicy: (policy: HistoryPolicy) => invoke<void>("history_policy_set", { policy: String(policy) }),
   deletePassword: (id: string) => invoke<void>("vault_delete_password", { id }),
   copySecret: (text: string) => invoke<void>("copy_secret_to_clipboard", { text }),
 

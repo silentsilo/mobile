@@ -9,6 +9,7 @@ mod commands;
 mod copies;
 mod create;
 mod device_key;
+mod history;
 mod host;
 mod incoming;
 mod manage;
@@ -93,6 +94,8 @@ pub fn run() {
             commands::recovery_status,
             background::lock_after_get,
             background::lock_after_set,
+            history::history_policy_get,
+            history::history_policy_set,
             background::lock_on_screen_off_get,
             background::lock_on_screen_off_set,
             backup::backup_status,

@@ -268,6 +268,9 @@ fn save(
         let (entry, outcome) = match existing {
             Some(entry) if field(&entry, "password") == password => return Ok("unchanged"),
             Some(mut entry) if may_update => {
+                // The password it replaces stays in the entry's history,
+                // as an edit in the app would keep it.
+                crate::history::keep_version(&mut entry, crate::history::policy(data_dir));
                 entry["password"] = password.clone().into();
                 entry["updated_at"] = now.into();
                 (entry, "updated")

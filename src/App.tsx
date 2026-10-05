@@ -325,7 +325,17 @@ function OpenSiloScreens({
     if (!detail) return null;
     switch (detail.at) {
       case "entry":
-        return <Entry entry={detail.entry} onBack={() => setDetail(null)} onEdit={() => setDetail({ at: "edit", entry: detail.entry })} />;
+        return (
+          <Entry
+            entry={detail.entry}
+            onBack={() => setDetail(null)}
+            onEdit={() => setDetail({ at: "edit", entry: detail.entry })}
+            onChanged={(saved) => {
+              changed();
+              setDetail({ at: "entry", entry: saved });
+            }}
+          />
+        );
       case "edit":
         return (
           <EntryEdit

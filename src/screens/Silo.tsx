@@ -1,13 +1,18 @@
-import { ChevronRight, Cloud, Fingerprint, HardDrive, HeartPulse, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, Fingerprint, HardDrive, HeartPulse, History, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
 import { RecoveryCodeShow } from "../ui/RecoveryCodeShow";
 import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { RecoveryStatus } from "../shared/types";
+import { HISTORY_POLICIES, type HistoryPolicy } from "../shared/entryHistory";
 import { Sheet, useToast } from "../ui/chrome";
 import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
 import { announceSilo } from "./SiloSwitcher";
+
+function historyLabel(policy: HistoryPolicy): string {
+  return policy === "fit" ? "As many as fit" : `Last ${policy}`;
+}
 
 const LOCK_CHOICES = [
   { seconds: 0, label: "Immediately" },
@@ -52,6 +57,8 @@ export function Silo({
   const [recovery, setRecovery] = useState<RecoveryStatus | null>(null);
   const [lockAfter, setLockAfter] = useState<number | null>(null);
   const [choosingLock, setChoosingLock] = useState(false);
+  const [historyPolicy, setHistoryPolicy] = useState<HistoryPolicy | null>(null);
+  const [choosingHistory, setChoosingHistory] = useState(false);
   const [aboutRecovery, setAboutRecovery] = useState(false);
   const [makingCode, setMakingCode] = useState(false);
   // A code on screen is already the silo's: the sheet stays until it is kept.
@@ -71,6 +78,7 @@ export function Silo({
     api.listKeys().then((k) => setKeyCount(k.length), () => setKeyCount(null));
     api.recoveryStatus().then(setRecovery, () => setRecovery(null));
     api.lockAfter().then(setLockAfter, () => setLockAfter(null));
+    api.historyPolicy().then(setHistoryPolicy, () => setHistoryPolicy(null));
     api.lockOnScreenOff().then(setScreenOff, () => setScreenOff(null));
     const readAutofill = () => {
       api.autofillStatus().then(setAutofill, () => setAutofill(null));
@@ -111,6 +119,16 @@ export function Silo({
     try {
       await api.setLockAfter(seconds);
       setLockAfter(seconds);
+    } catch (e) {
+      toast(formatAppError(e));
+    }
+  };
+
+  const chooseHistory = async (policy: HistoryPolicy) => {
+    setChoosingHistory(false);
+    try {
+      await api.setHistoryPolicy(policy);
+      setHistoryPolicy(policy);
     } catch (e) {
       toast(formatAppError(e));
     }
@@ -169,6 +187,7 @@ export function Silo({
             {passkeys?.supported && navRow(Fingerprint, "Passkeys", passkeys.enabled ? "On" : "Off", () => setAboutPasskeys(true))}
             {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys)}
             {navRow(LockKeyhole, "Recovery code", recovery?.enabled ? "Active" : recovery ? "Not set" : "", () => setAboutRecovery(true))}
+            {navRow(History, "Earlier versions", historyPolicy === null ? "" : historyLabel(historyPolicy), () => setChoosingHistory(true))}
             {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
             {screenOff !== null && (
               <div className="row divide" style={{ minHeight: 60 }}>
@@ -238,6 +257,21 @@ export function Silo({
             <button key={c.seconds} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void chooseLock(c.seconds)} aria-pressed={lockAfter === c.seconds}>
               <span style={{ flex: 1 }}>{c.label}</span>
               {lockAfter === c.seconds && <span style={{ color: "var(--accent-hover)", fontWeight: 700 }}>Selected</span>}
+            </button>
+          ))}
+        </div>
+      </Sheet>
+
+      <Sheet open={choosingHistory} onClose={() => setChoosingHistory(false)} title="Earlier versions">
+        <p className="hint">
+          Each time a password, a field or a note changes, the entry keeps the version before it. Old passwords stay in the
+          silo until an entry's history is cleared. As many as fit means up to 256 KB per entry. On this phone only.
+        </p>
+        <div className="panel">
+          {HISTORY_POLICIES.map((policy, i) => (
+            <button key={String(policy)} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void chooseHistory(policy)} aria-pressed={historyPolicy === policy}>
+              <span style={{ flex: 1 }}>{historyLabel(policy)}</span>
+              {historyPolicy === policy && <span style={{ color: "var(--accent-hover)", fontWeight: 700 }}>Selected</span>}
             </button>
           ))}
         </div>
