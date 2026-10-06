@@ -21,6 +21,9 @@ S3 bucket, WebDAV or SFTP). It unlocks with a key held in the phone's own
 hardware (Android Keystore, StrongBox where the phone has it) behind its
 fingerprint, or with a security key over NFC or USB. The recovery code opens the silo when every key is gone.
 
+Passwords carry custom fields and their earlier versions, as on the
+desktop, and a password autofill replaces stays in the entry's history.
+
 On Android it also fills logins in other apps through the system autofill,
 acts as a passkey provider for browsers, and can back up photos, videos and
 contacts, encrypted on the phone, once you turn that on.
