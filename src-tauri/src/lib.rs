@@ -135,6 +135,7 @@ pub fn run() {
             cloud::cloud_providers,
             cloud::cloud_sign_in,
             cloud::cloud_cancel_sign_in,
+            cloud::cloud_discard_sign_in,
             cloud::cloud_list_silos,
             copies::backup_targets_list,
             copies::backup_target_add,

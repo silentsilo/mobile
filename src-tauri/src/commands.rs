@@ -459,6 +459,9 @@ pub async fn vault_lock(
         state.close_session(&host(&app), id)?;
     }
     state.sweep_scratch();
+    if state.open_silo_ids().is_empty() {
+        tauri::async_runtime::spawn(silentsilo_vault::forget_cloud_sign_ins());
+    }
     crate::viewer::wipe_opened(&app);
     crate::background::clear_clipboard(&app);
     Ok(())

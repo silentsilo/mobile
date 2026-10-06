@@ -186,6 +186,7 @@ export const api = {
   cloudSignIn: (kind: CloudKind) => invoke<CloudSignIn>("cloud_sign_in", { kind }),
   cloudCancelSignIn: () => invoke<void>("cloud_cancel_sign_in"),
   cloudListSilos: (signIn: string) => invoke<string[]>("cloud_list_silos", { signIn }),
+  cloudDiscardSignIn: (signIn: string) => invoke<void>("cloud_discard_sign_in", { signIn }),
 
   phoneKeyState: () => invoke<PhoneKeyState>("phone_key_state"),
   unlock: () => invoke<VaultMeta>("vault_unlock"),

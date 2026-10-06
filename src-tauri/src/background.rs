@@ -174,6 +174,8 @@ pub fn lock_all(app: &AppHandle) {
     }
     let _ = state.sweep_scratch();
     clear_clipboard(app);
+    // No silo open: a sign-in nothing saved has nothing left to be for.
+    tauri::async_runtime::spawn(silentsilo_vault::forget_cloud_sign_ins());
     let _ = app.emit("silos-locked", ());
 }
 

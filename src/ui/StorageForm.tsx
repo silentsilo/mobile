@@ -1,5 +1,5 @@
 import { Eye, EyeOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, type CloudKind, type StorageView, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
@@ -87,6 +87,20 @@ export function StorageForm({
   });
   const [found, setFound] = useState<string[] | null>(null);
   const [signingIn, setSigningIn] = useState(false);
+  /// The sign-in a save could still adopt, and whether a save has started.
+  /// Leaving the form without one lets the sign-in go; with one, the save
+  /// owns it.
+  const unsaved = useRef<{ signIn: string | null; submitted: boolean }>({
+    signIn: null,
+    submitted: false,
+  });
+  useEffect(
+    () => () => {
+      const { signIn, submitted } = unsaved.current;
+      if (signIn && !submitted) void api.cloudDiscardSignIn(signIn).catch(() => undefined);
+    },
+    [],
+  );
   // Back from the browser while the sign-in still finishes: the token is
   // fetched once the phone lets the app on the network again.
   const [back, setBack] = useState(false);
@@ -137,6 +151,10 @@ export function StorageForm({
     setError(null);
     try {
       const done = await api.cloudSignIn(kind);
+      // Signed in again: the one it replaces is no longer going anywhere.
+      const replaced = unsaved.current.signIn;
+      if (replaced && replaced !== done.id) void api.cloudDiscardSignIn(replaced).catch(() => undefined);
+      unsaved.current.signIn = done.id;
       const folders = joining ? await api.cloudListSilos(done.id) : null;
       setFound(folders);
       // From the state as it is now: a name typed while the sign-in was
@@ -198,6 +216,7 @@ export function StorageForm({
   };
 
   const submit = async (hostFingerprint: string | null) => {
+    unsaved.current.submitted = true;
     setBusy(true);
     setError(null);
     try {

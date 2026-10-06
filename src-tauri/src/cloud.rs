@@ -126,6 +126,16 @@ pub fn cloud_cancel_sign_in(slot: tauri::State<'_, SignInSlot>) -> Result<(), St
 }
 
 /// The silo folders a sign-in can see, for joining a silo.
+/// Lets go of a finished sign-in nothing will save: the form was left, or
+/// signed in again. A Dropbox one is ended at Dropbox too.
+#[tauri::command]
+pub async fn cloud_discard_sign_in(sign_in: String) -> Result<(), String> {
+    if let Ok(id) = uuid::Uuid::parse_str(sign_in.trim()) {
+        silentsilo_vault::cancel_cloud_sign_in(id).await;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub async fn cloud_list_silos(sign_in: String) -> Result<Vec<String>, String> {
     let id = uuid::Uuid::parse_str(sign_in.trim()).map_err(|_| "Sign in again.".to_string())?;
