@@ -139,7 +139,7 @@ export function Entry({
   const copy = async (label: string, value: string) => {
     if (!(await confirm())) return;
     try {
-      await api.copySecret(value);
+      await api.copySecret(entry, value, label.toLowerCase());
       toast(`${label} copied. It clears from the clipboard after 45 seconds.`);
     } catch (e) {
       toast(formatAppError(e));
@@ -147,7 +147,15 @@ export function Entry({
   };
 
   const toggle = async (label: string) => {
-    if (!revealed.has(label) && !(await confirm())) return;
+    if (!revealed.has(label)) {
+      if (!(await confirm())) return;
+      try {
+        await api.noteRevealed(entry);
+      } catch (e) {
+        toast(formatAppError(e));
+        return;
+      }
+    }
     const next = new Set(revealed);
     if (next.has(label)) next.delete(label);
     else next.add(label);
@@ -160,7 +168,7 @@ export function Entry({
     if (!(await confirm())) return;
     setBusy(true);
     try {
-      onChanged(await api.savePassword(entry, restoredFrom(entry, version, Date.now())));
+      onChanged(await api.savePassword(entry, restoredFrom(entry, version, Date.now()), "restored"));
       toast("Restored. The version it replaced is in the history.");
     } catch (e) {
       toast(formatAppError(e));
@@ -172,7 +180,7 @@ export function Entry({
   const clearHistory = async () => {
     setBusy(true);
     try {
-      onChanged(await api.savePassword(entry, withoutHistory(entry)));
+      onChanged(await api.savePassword(entry, withoutHistory(entry), "history_cleared"));
       setConfirmClear(false);
     } catch (e) {
       toast(formatAppError(e));

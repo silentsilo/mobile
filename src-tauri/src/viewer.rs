@@ -105,6 +105,7 @@ pub async fn file_open_with(
     } else {
         name
     });
+    crate::audit::file_opened(&app, file_id, "another app").await?;
     silentsilo_app::files::decrypt_to_file(&state, &host(&app), &silo, file_id, &dest).await?;
 
     #[cfg(target_os = "android")]

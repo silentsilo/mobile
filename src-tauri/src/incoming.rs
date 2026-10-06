@@ -181,6 +181,7 @@ pub async fn vault_import_offered(
         })
         .await
         .map_err(|e| e.to_string())??;
+        crate::audit::files_added(&app, 1);
         let _ = app.emit("vault-changed", ());
         Ok(entry)
     }
@@ -235,6 +236,7 @@ pub async fn vault_import_photo(
     .map_err(|e| e.to_string());
     let _ = std::fs::remove_file(&path);
     let entry = result??;
+    crate::audit::files_added(&app, 1);
     let _ = app.emit("vault-changed", ());
     Ok(entry)
 }

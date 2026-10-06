@@ -399,6 +399,11 @@ pub async fn vault_unlock_with_security_key(
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::record_off_thread(
+        &app,
+        crate::audit::event(crate::audit::codes::UNLOCKED).with("by", "security key"),
+    )
+    .await?;
     Ok(meta)
 }
 
@@ -460,11 +465,20 @@ pub async fn security_key_enroll(
         }
         .to_string(),
     };
-    let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
-    let session = sessions
-        .get(&silo.id)
-        .ok_or_else(|| "The silo locked while the key was added. Add it again.".to_string())?;
-    flows::enrol_device_key(session, &key).map(|_| ())
+    {
+        let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        let session = sessions
+            .get(&silo.id)
+            .ok_or_else(|| "The silo locked while the key was added. Add it again.".to_string())?;
+        flows::enrol_device_key(session, &key)?;
+    }
+    crate::audit::record_off_thread(
+        &app,
+        crate::audit::event(crate::audit::codes::KEY_ADDED)
+            .on(key.credential_id.clone(), key.label.clone())
+            .with("kind", "security key"),
+    )
+    .await
 }
 
 /// Joins a silo from its storage with a security key already on it, for

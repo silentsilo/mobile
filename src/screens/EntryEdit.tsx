@@ -83,7 +83,7 @@ export function EntryEdit({
   const remove = async () => {
     setBusy(true);
     try {
-      await api.deletePassword(original.id);
+      await api.deletePassword(original);
       onDeleted();
     } catch (e) {
       setConfirmDelete(false);

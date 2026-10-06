@@ -79,6 +79,8 @@ async function runMockSyncPass() {
 let joined = scenario === "locked" || scenario === "unlocked";
 let unlocked = scenario === "unlocked";
 // Per silo, so the second one does not answer with the first one's settings.
+let audit = { enabled: false, kept: false, organisation: false, retention_days: null, waiting: 0 };
+
 const settings: Record<string, { lockAfter: number; screenOff: boolean }> = {
   "0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0": { lockAfter: 30, screenOff: true },
   "5a5a5a5a-0000-4000-8000-000000000002": { lockAfter: 300, screenOff: false },
@@ -354,6 +356,12 @@ const handlers: Record<string, Handler> = {
     entries = entries.filter((e) => e.id !== args.id);
   },
   copy_secret_to_clipboard: () => undefined,
+  audit_note: () => undefined,
+  audit_status: () => audit,
+  audit_set_enabled: (args) => {
+    audit = { ...audit, enabled: Boolean(args.enabled), kept: true };
+    return audit;
+  },
 
   vault_root_folder: () => ({ id: ROOT, parent_id: null, name: "root", path: "/", created_at: 0, updated_at: 0, favorite: false }),
   vault_list_folder: (args) =>

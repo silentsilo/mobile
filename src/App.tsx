@@ -144,10 +144,14 @@ export default function App() {
     const recheck = () => void refresh();
     const onVisible = () => document.visibilityState === "visible" && recheck();
     const unlisten = listen("silos-locked", recheck);
+    // An organisation's silo whose activity log could not be written locks
+    // itself; the action that tried says why.
+    const unlistenAudit = listen("silo-audit-locked", recheck);
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       document.removeEventListener("visibilitychange", onVisible);
       void unlisten.then((stop) => stop());
+      void unlistenAudit.then((stop) => stop());
     };
   }, [open, refresh]);
 

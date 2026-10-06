@@ -67,14 +67,32 @@ pub fn vault_search(state: State<'_, AppState>, query: String) -> Result<Vec<Sea
 }
 
 #[tauri::command]
-pub fn vault_trash_file(state: State<'_, AppState>, file_id: String) -> Result<(), String> {
+pub fn vault_trash_file(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    file_id: String,
+) -> Result<(), String> {
     let file_id = id(&file_id)?;
+    let name = state.with_vfs(|_session, vfs| vfs.get_file(file_id).map(|f| f.name))?;
+    crate::audit::record(
+        &app,
+        crate::audit::event(crate::audit::codes::FILE_TRASHED).on(file_id.to_string(), name),
+    )?;
     state.with_vfs(|_session, vfs| vfs.trash_file(file_id))
 }
 
 #[tauri::command]
-pub fn vault_trash_folder(state: State<'_, AppState>, folder_id: String) -> Result<(), String> {
+pub fn vault_trash_folder(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    folder_id: String,
+) -> Result<(), String> {
     let folder_id = id(&folder_id)?;
+    let path = state.with_vfs(|_session, vfs| vfs.get_folder(folder_id).map(|f| f.path))?;
+    crate::audit::record(
+        &app,
+        crate::audit::event(crate::audit::codes::FILE_TRASHED).on(folder_id.to_string(), path),
+    )?;
     state.with_vfs(|_session, vfs| vfs.trash_folder(folder_id))
 }
 
@@ -113,6 +131,15 @@ pub fn vault_purge_trash(
 ) -> Result<u64, String> {
     let ids: Vec<Uuid> = ids.iter().map(|raw| id(raw)).collect::<Result<_, _>>()?;
     let silo = active_silo(&state)?;
+    let purge = crate::audit::event(crate::audit::codes::FILE_PURGED);
+    crate::audit::record(
+        &app,
+        if ids.is_empty() {
+            purge.with("what", "trash")
+        } else {
+            purge.with("count", ids.len())
+        },
+    )?;
     let (removed, blobs) = state.with_vfs(|_session, vfs| {
         if ids.is_empty() {
             vfs.empty_trash()

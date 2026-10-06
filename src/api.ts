@@ -2,7 +2,9 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { isCategoriesRow } from "./shared/passwordUtil";
 import { DEFAULT_HISTORY_POLICY, withHistory, type HistoryPolicy } from "./shared/entryHistory";
 import type {
+  AuditStatus,
   Bootstrap,
+  EntryChange,
   FileEntry,
   FolderEntry,
   PasswordEntry,
@@ -209,13 +211,18 @@ export const api = {
     const rows = JSON.parse(await invoke<string>("vault_read_passwords")) as unknown[];
     return rows.filter((row) => !isCategoriesRow(row)) as PasswordEntry[];
   },
-  upsertPassword: (entry: PasswordEntry) =>
-    invoke<void>("vault_upsert_password", { id: entry.id, json: JSON.stringify(entry) }),
+  /** `change` says what the save was, for the silo's activity log. */
+  upsertPassword: (entry: PasswordEntry, change: EntryChange) =>
+    invoke<void>("vault_upsert_password", { id: entry.id, json: JSON.stringify(entry), change }),
   /** Every save from the app: `next` keeps `previous` in its history when
    * what the entry says changed. Returns what was stored. */
-  savePassword: async (previous: PasswordEntry | undefined, next: PasswordEntry): Promise<PasswordEntry> => {
+  savePassword: async (
+    previous: PasswordEntry | undefined,
+    next: PasswordEntry,
+    change?: EntryChange,
+  ): Promise<PasswordEntry> => {
     const saved = withHistory(previous, next, await api.historyPolicy());
-    await api.upsertPassword(saved);
+    await api.upsertPassword(saved, change ?? (previous ? "edited" : "created"));
     return saved;
   },
   historyPolicy: async (): Promise<HistoryPolicy> => {
@@ -223,8 +230,21 @@ export const api = {
     return policy === "fit" ? "fit" : Number.parseInt(policy, 10) || DEFAULT_HISTORY_POLICY;
   },
   setHistoryPolicy: (policy: HistoryPolicy) => invoke<void>("history_policy_set", { policy: String(policy) }),
-  deletePassword: (id: string) => invoke<void>("vault_delete_password", { id }),
-  copySecret: (text: string) => invoke<void>("copy_secret_to_clipboard", { text }),
+  deletePassword: (entry: PasswordEntry) =>
+    invoke<void>("vault_delete_password", { id: entry.id, label: entry.service }),
+  /** `field` names what was copied for the silo's activity log, which records
+   * it before the clipboard holds anything. */
+  copySecret: (entry: PasswordEntry, text: string, field: string) =>
+    invoke<void>("copy_secret_to_clipboard", {
+      text,
+      audit: { entry_id: entry.id, label: entry.service, field },
+    }),
+  /** Before an entry's secrets show: the activity log, which an
+   * organisation's silo may not do without. */
+  noteRevealed: (entry: PasswordEntry) =>
+    invoke<void>("audit_note", { note: "entry_revealed", entryId: entry.id, label: entry.service }),
+  auditStatus: () => invoke<AuditStatus>("audit_status"),
+  setAuditLog: (enabled: boolean) => invoke<AuditStatus>("audit_set_enabled", { enabled }),
 
   rootFolder: () => invoke<FolderEntry>("vault_root_folder"),
   listFolder: (folderId: string) => invoke<VaultEntry[]>("vault_list_folder", { folderId }),

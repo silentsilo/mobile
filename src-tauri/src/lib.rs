@@ -1,5 +1,6 @@
 #[cfg(target_os = "android")]
 mod android;
+mod audit;
 #[cfg(target_os = "android")]
 mod autofill;
 mod background;
@@ -85,6 +86,9 @@ pub fn run() {
             commands::vault_upsert_password,
             commands::vault_delete_password,
             commands::copy_secret_to_clipboard,
+            audit::audit_note,
+            audit::audit_status,
+            audit::audit_set_enabled,
             commands::vault_root_folder,
             commands::vault_list_folder,
             commands::sync_status,

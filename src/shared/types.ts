@@ -362,3 +362,18 @@ export type SpaceReport = {
   wanted_bytes: number;
   headroom_bytes: number;
 };
+
+/** A silo's activity log, as this phone knows it. */
+export type AuditStatus = {
+  enabled: boolean;
+  /** There is a log to read, on or off. */
+  kept: boolean;
+  /** Kept by an organisation: on for good. */
+  organisation: boolean;
+  retention_days: number | null;
+  /** Records on this phone not yet on every copy. */
+  waiting: number;
+};
+
+/** What a save was, for the silo's activity log. */
+export type EntryChange = "created" | "edited" | "restored" | "history_cleared";

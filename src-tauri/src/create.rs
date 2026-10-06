@@ -117,8 +117,15 @@ pub async fn silo_resume_new(
 /// Makes the open silo's recovery code and returns it, the only time it is
 /// shown. A code made again replaces the old one once it syncs.
 #[tauri::command]
-pub fn recovery_create(state: State<'_, AppState>) -> Result<String, String> {
+pub fn recovery_create(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
     let silo = active_silo(&state)?;
+    crate::audit::record(
+        &app,
+        crate::audit::event(crate::audit::codes::RECOVERY_CODE_CHANGED).with("now", "new code"),
+    )?;
     state.with_session_id(silo.id, |session, _vfs| {
         let (code, envelope) =
             silentsilo_vault::create_recovery_envelope(&session.dek, &session.kek)

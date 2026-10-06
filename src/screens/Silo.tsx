@@ -1,9 +1,9 @@
-import { ChevronRight, Cloud, Fingerprint, HardDrive, HeartPulse, History, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, Fingerprint, HardDrive, HeartPulse, History, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, ScrollText, Smartphone, Trash2 } from "lucide-react";
 import { RecoveryCodeShow } from "../ui/RecoveryCodeShow";
 import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
-import type { RecoveryStatus } from "../shared/types";
+import type { AuditStatus, RecoveryStatus } from "../shared/types";
 import { HISTORY_POLICIES, type HistoryPolicy } from "../shared/entryHistory";
 import { Sheet, useToast } from "../ui/chrome";
 import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
@@ -72,6 +72,8 @@ export function Silo({
   const [aboutAutofill, setAboutAutofill] = useState(false);
   const [passkeys, setPasskeys] = useState<{ supported: boolean; enabled: boolean } | null>(null);
   const [aboutPasskeys, setAboutPasskeys] = useState(false);
+  const [audit, setAudit] = useState<AuditStatus | null>(null);
+  const [aboutAudit, setAboutAudit] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -80,6 +82,7 @@ export function Silo({
     api.lockAfter().then(setLockAfter, () => setLockAfter(null));
     api.historyPolicy().then(setHistoryPolicy, () => setHistoryPolicy(null));
     api.lockOnScreenOff().then(setScreenOff, () => setScreenOff(null));
+    api.auditStatus().then(setAudit, () => setAudit(null));
     const readAutofill = () => {
       api.autofillStatus().then(setAutofill, () => setAutofill(null));
       api.passkeysStatus().then(setPasskeys, () => setPasskeys(null));
@@ -124,6 +127,16 @@ export function Silo({
     }
   };
 
+  const setAuditLog = async (enabled: boolean) => {
+    try {
+      setAudit(await api.setAuditLog(enabled));
+      // The copies hear of it at the next sync. With none, there is nothing to send.
+      void api.syncNow().catch(() => undefined);
+    } catch (e) {
+      toast(formatAppError(e));
+    }
+  };
+
   const chooseHistory = async (policy: HistoryPolicy) => {
     setChoosingHistory(false);
     try {
@@ -157,6 +170,14 @@ export function Silo({
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <SiloHeader siloName={siloName} sync={sync} />
       <div className="screen-body tight" style={{ paddingTop: 0, gap: 18 }}>
+        {audit?.enabled && (
+          <button className="panel row" style={{ minHeight: 48, gap: 10 }} onClick={() => setAboutAudit(true)}>
+            <ScrollText size={18} color="var(--accent-hover)" />
+            <span style={{ flex: 1 }}>
+              {audit.organisation ? "Activity log, for the organisation" : "Activity log on"}
+            </span>
+          </button>
+        )}
         {sync?.configured && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span className="label" style={{ padding: "0 4px" }}>Backup</span>
@@ -187,6 +208,7 @@ export function Silo({
             {passkeys?.supported && navRow(Fingerprint, "Passkeys", passkeys.enabled ? "On" : "Off", () => setAboutPasskeys(true))}
             {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys)}
             {navRow(LockKeyhole, "Recovery code", recovery?.enabled ? "Active" : recovery ? "Not set" : "", () => setAboutRecovery(true))}
+            {navRow(ScrollText, "Activity log", audit === null ? "" : audit.organisation ? "Organisation" : audit.enabled ? "On" : "Off", () => setAboutAudit(true))}
             {navRow(History, "Earlier versions", historyPolicy === null ? "" : historyLabel(historyPolicy), () => setChoosingHistory(true))}
             {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
             {screenOff !== null && (
@@ -260,6 +282,37 @@ export function Silo({
             </button>
           ))}
         </div>
+      </Sheet>
+
+      <Sheet open={aboutAudit} onClose={() => setAboutAudit(false)} title="Activity log">
+        {audit?.organisation ? (
+          <p className="hint">
+            This silo keeps an activity log for its organisation, and it stays on. Every device records what is done
+            with the silo; only an organisation key reads the log, on a computer.
+          </p>
+        ) : (
+          <>
+            <p className="hint">
+              A record of what is done with this silo: unlocking, showing or copying a secret, opening a file, and
+              changes to entries, files, keys and the recovery code. Each record is encrypted on the device that made
+              it. Anyone who can open this silo can read the log, on a computer. Filling with autofill is not recorded
+              yet.
+            </p>
+            <div className="panel">
+              <div className="row" style={{ minHeight: 60 }}>
+                <span style={{ flex: 1, fontSize: "1rem" }}>Keep an activity log</span>
+                <button
+                  className="switch"
+                  role="switch"
+                  aria-checked={audit?.enabled ?? false}
+                  aria-label="Keep an activity log"
+                  disabled={audit === null}
+                  onClick={() => void setAuditLog(!(audit?.enabled ?? false))}
+                />
+              </div>
+            </div>
+          </>
+        )}
       </Sheet>
 
       <Sheet open={choosingHistory} onClose={() => setChoosingHistory(false)} title="Earlier versions">

@@ -81,7 +81,7 @@ export function Passwords({
   const copyPassword = async (entry: PasswordEntry) => {
     try {
       await ensureVerified(entry);
-      await api.copySecret(entry.password);
+      await api.copySecret(entry, entry.password, "password");
       toast("Password copied. It clears from the clipboard after 45 seconds.");
     } catch (e) {
       toast(formatAppError(e));

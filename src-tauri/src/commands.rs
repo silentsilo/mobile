@@ -317,7 +317,14 @@ pub async fn device_key_enroll(
             .ok_or_else(|| "Unlock the silo first.".to_string())?;
         flows::enrol_device_key(session, &key)?;
     }
-    save_device_key(&app, silo.id, &enrolled.credential_id)
+    save_device_key(&app, silo.id, &enrolled.credential_id)?;
+    crate::audit::record_off_thread(
+        &app,
+        crate::audit::event(crate::audit::codes::KEY_ADDED)
+            .on(enrolled.credential_id.clone(), key.label.clone())
+            .with("kind", "this phone"),
+    )
+    .await
 }
 
 /// What this phone's own key can still do. Changing the fingerprints on the
@@ -379,6 +386,11 @@ pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::record_off_thread(
+        &app,
+        crate::audit::event(crate::audit::codes::UNLOCKED).with("by", "this phone"),
+    )
+    .await?;
     Ok(meta)
 }
 
@@ -442,6 +454,16 @@ pub async fn vault_unlock_with_recovery(
     .map_err(|e| e.to_string())??;
     silentsilo_app::wipe_open_scratch(&silo.path);
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::record_off_thread(
+        &app,
+        crate::audit::event(crate::audit::codes::RECOVERY_CODE_USED),
+    )
+    .await?;
+    crate::audit::record_off_thread(
+        &app,
+        crate::audit::event(crate::audit::codes::UNLOCKED).with("by", "recovery code"),
+    )
+    .await?;
     Ok(meta)
 }
 
@@ -475,8 +497,10 @@ pub fn vault_read_passwords(state: State<AppState>) -> Result<String, String> {
 
 #[tauri::command]
 pub fn vault_upsert_password(
+    app: AppHandle,
     id: String,
     json: String,
+    change: Option<crate::audit::EntryChange>,
     state: State<AppState>,
 ) -> Result<(), String> {
     let id = Uuid::parse_str(&id).map_err(|e| format!("This entry's id is not valid ({e})."))?;
@@ -487,17 +511,49 @@ pub fn vault_upsert_password(
         Some(_) => return Err("This entry's id does not match the one being saved.".into()),
         None => return Err("This entry has no id.".into()),
     }
+    // The category list is a row of its own, not an entry anyone edited.
+    let is_entry = !parsed
+        .get("type")
+        .and_then(|v| v.as_str())
+        .is_some_and(|t| t.starts_with("meta:"));
+    if is_entry {
+        let label = parsed
+            .get("service")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default();
+        let code = change.unwrap_or(crate::audit::EntryChange::Edited).code();
+        crate::audit::record(&app, crate::audit::event(code).on(id.to_string(), label))?;
+    }
     state.with_vfs(|_session, vfs| vfs.upsert_password(id, &json))
 }
 
 #[tauri::command]
-pub fn vault_delete_password(id: String, state: State<AppState>) -> Result<(), String> {
+pub fn vault_delete_password(
+    app: AppHandle,
+    id: String,
+    label: Option<String>,
+    state: State<AppState>,
+) -> Result<(), String> {
     let id = Uuid::parse_str(&id).map_err(|e| format!("This entry's id is not valid ({e})."))?;
+    crate::audit::record(
+        &app,
+        crate::audit::event(crate::audit::codes::ENTRY_DELETED)
+            .on(id.to_string(), label.unwrap_or_default()),
+    )?;
     state.with_vfs(|_session, vfs| vfs.delete_password(id))
 }
 
+/// `audit` says what the secret was, for the silo's activity log; it is
+/// written before the clipboard holds anything.
 #[tauri::command]
-pub async fn copy_secret_to_clipboard(app: AppHandle, text: String) -> Result<(), String> {
+pub async fn copy_secret_to_clipboard(
+    app: AppHandle,
+    text: String,
+    audit: Option<crate::audit::CopiedSecret>,
+) -> Result<(), String> {
+    if let Some(audit) = audit {
+        crate::audit::record_off_thread(&app, audit.event()).await?;
+    }
     app.state::<crate::device_key::DeviceKey<tauri::Wry>>()
         .copy_secret(&text)
         .await
@@ -555,6 +611,13 @@ pub fn serve_file(
                 .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("w=")))
                 .and_then(|w| w.parse().ok())
                 .unwrap_or(1080);
+            // Opening a PDF asks for its page count first, once.
+            if let (Some(id), "pages") = (id, what.as_str())
+                && let Err(e) = crate::audit::file_opened(&app, id, "this app").await
+            {
+                responder.respond(respond(403, "text/plain", e.into_bytes()));
+                return;
+            }
             let response = match id {
                 Some(id) => match crate::viewer::serve_pdf(&app, id, &what, width).await {
                     Ok((mime, body)) => respond(200, mime, body),
@@ -569,6 +632,12 @@ pub fn serve_file(
             .rsplit('/')
             .next()
             .and_then(|last| Uuid::parse_str(last).ok());
+        if let Some(file_id) = id
+            && let Err(e) = crate::audit::file_opened(&app, file_id, "this app").await
+        {
+            responder.respond(respond(403, "text/plain", e.into_bytes()));
+            return;
+        }
         let state = app.state::<AppState>();
         let response = match (id, active_silo(&state)) {
             (Some(file_id), Ok(silo)) => {
@@ -690,6 +759,17 @@ pub async fn fido_remove_key(
     if keys.active().next().is_none() {
         return Err("This is the silo's last key. Add another before removing it.".into());
     }
+    let label = keys
+        .keys
+        .iter()
+        .find(|k| k.credential_id == credential_id)
+        .map(|k| k.label.clone())
+        .unwrap_or_default();
+    crate::audit::record_off_thread(
+        &app,
+        crate::audit::event(crate::audit::codes::KEY_REMOVED).on(credential_id.clone(), label),
+    )
+    .await?;
     silentsilo_vault::save_fido_keys(&silo.path, &keys, silentsilo_vault::Authority::Machine)
         .map_err(|e| e.to_string())?;
     if is_this_phone {
