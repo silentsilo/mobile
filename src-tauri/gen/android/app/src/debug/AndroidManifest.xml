@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only. rustls-platform-verifier brings a network security
+     config that allows cleartext only to the CRL servers it needs; a debug
+     build loads the UI from the dev server over plain HTTP, which that
+     config would block, so here the app's own usesCleartextTraffic decides
+     again. Release builds keep the library's config. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application tools:remove="android:networkSecurityConfig" />
+</manifest>

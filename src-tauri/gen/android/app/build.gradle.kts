@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.security.MessageDigest
 
 plugins {
     id("com.android.application")
@@ -78,16 +79,27 @@ rust {
     rootDirRel = "../../../"
 }
 
-// The Kotlin half of rustls-platform-verifier ships inside its crate as a
-// local Maven repository; cargo says where that crate sits on this machine.
+// The Kotlin half of rustls-platform-verifier. From 0.2.0 its crate no longer
+// carries it; upstream publishes it on a GitHub branch instead. It is kept
+// here, under vendor/maven, so a build fetches nothing and runs only the
+// bytes checked in, and cargo's lockfile still decides the version: a
+// version with no copy here, or a copy that does not match its hash, stops
+// the build. To move to a new version, add its .aar and .pom from
+// https://github.com/rustls/rustls-platform-verifier/tree/maven-archive/android-release-support/maven
+// after checking them against the .sha1 published beside them, and its
+// SHA-256 below.
+val rustlsVerifierSha256 = mapOf(
+    "0.2.0" to "aa021794230fbc2f0be355999e2cf67398dd563de066a2e17001ffbd0b69101b",
+)
+
 repositories {
     maven {
-        url = uri(rustlsPlatformVerifierMaven())
+        url = uri(file("../vendor/maven"))
         metadataSources.artifact()
     }
 }
 
-fun rustlsPlatformVerifierMaven(): File {
+fun rustlsPlatformVerifierVersion(): String {
     val json = providers.exec {
         workingDir = file("../../../")
         commandLine(
@@ -98,8 +110,16 @@ fun rustlsPlatformVerifierMaven(): File {
     }.standardOutput.asText.get()
     @Suppress("UNCHECKED_CAST")
     val packages = (groovy.json.JsonSlurper().parseText(json) as Map<String, Any>)["packages"] as List<Map<String, Any>>
-    val manifest = packages.first { it["name"] == "rustls-platform-verifier-android" }["manifest_path"] as String
-    return File(File(manifest).parentFile, "maven")
+    val version = packages.first { it["name"] == "rustls-platform-verifier-android" }["version"] as String
+    val expected = rustlsVerifierSha256[version]
+        ?: throw GradleException("rustls-platform-verifier-android $version has no vendored copy in vendor/maven; see build.gradle.kts")
+    val aar = file("../vendor/maven/org/rustls/rustls-platform-verifier/$version/rustls-platform-verifier-$version.aar")
+    val actual = MessageDigest.getInstance("SHA-256")
+        .digest(aar.readBytes()).joinToString("") { byte -> "%02x".format(byte) }
+    if (actual != expected) {
+        throw GradleException("vendor/maven: rustls-platform-verifier-$version.aar does not match its SHA-256")
+    }
+    return version
 }
 
 dependencies {
@@ -111,7 +131,7 @@ dependencies {
     // The passkey provider API (Android 14+).
     implementation("androidx.credentials:credentials:1.5.0")
     // Certificate checks for S3 and WebDAV, called from Rust.
-    implementation("rustls:rustls-platform-verifier:latest.release")
+    implementation("org.rustls:rustls-platform-verifier:${rustlsPlatformVerifierVersion()}")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
