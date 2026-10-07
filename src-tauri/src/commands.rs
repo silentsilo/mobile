@@ -386,6 +386,7 @@ pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
         &app,
         crate::audit::event(crate::audit::codes::UNLOCKED).with("by", "this phone"),
@@ -454,6 +455,7 @@ pub async fn vault_unlock_with_recovery(
     .map_err(|e| e.to_string())??;
     silentsilo_app::wipe_open_scratch(&silo.path);
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
         &app,
         crate::audit::event(crate::audit::codes::RECOVERY_CODE_USED),

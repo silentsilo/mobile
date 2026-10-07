@@ -119,6 +119,7 @@ pub(crate) fn with_front_silo<T>(
             if !state.session_is_open(silo.id) {
                 let session = open(&silo)?;
                 state.open_session(&crate::host::MobileHost(app.clone()), silo.id, session)?;
+                crate::audit::start_by_default(app, silo.id);
                 let _ = tauri::Emitter::emit(app, "vault-changed", ());
                 crate::background::opened_while_away(app);
             }

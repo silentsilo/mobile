@@ -1,6 +1,7 @@
 import { ChevronRight, Cloud, Fingerprint, HardDrive, HeartPulse, History, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, ScrollText, Smartphone, Trash2 } from "lucide-react";
 import { RecoveryCodeShow } from "../ui/RecoveryCodeShow";
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { AuditStatus, RecoveryStatus } from "../shared/types";
@@ -95,6 +96,17 @@ export function Silo({
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, []);
 
+  // A pass can start the log (on by default) or carry another device's
+  // choice: the row follows each one.
+  useEffect(() => {
+    const stop = listen("sync-report", () => {
+      api.auditStatus().then(setAudit, () => undefined);
+    });
+    return () => {
+      void stop.then((unlisten) => unlisten());
+    };
+  }, []);
+
   const syncNow = async () => {
     setSyncing(true);
     try {
@@ -109,6 +121,7 @@ export function Silo({
             : `${report.blobs_failed} files could not be backed up. They are tried again on the next sync.`,
         );
       else toast(report.ops_pushed + report.ops_fetched > 0 ? "Synced." : "Already up to date.");
+      api.auditStatus().then(setAudit, () => undefined);
       onSynced();
     } catch (e) {
       toast(formatAppError(e));

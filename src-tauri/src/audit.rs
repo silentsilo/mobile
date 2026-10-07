@@ -54,6 +54,23 @@ pub fn record_in(app: &AppHandle, id: Uuid, event: Event) -> Result<(), String> 
     Err(UNRECORDED.into())
 }
 
+/// The log is on by default: a silo with no copies has nobody to ask
+/// whether it was ever set, so it starts here, when opened, as on desktop.
+/// One with copies gets it at its first sync pass. Best effort, and before
+/// the unlock is recorded, so the unlock is in it.
+pub fn start_by_default(app: &AppHandle, id: Uuid) {
+    let state = app.state::<AppState>();
+    if let Err(e) = state.start_audit_by_default(&host(app), id) {
+        host(app).warn("audit", &e);
+    }
+}
+
+/// [`start_by_default`] on the blocking pool: it writes the queue on disk.
+pub async fn start_by_default_off_thread(app: &AppHandle, id: Uuid) {
+    let app = app.clone();
+    let _ = tauri::async_runtime::spawn_blocking(move || start_by_default(&app, id)).await;
+}
+
 /// [`record`] on the blocking pool, for an async command.
 pub async fn record_off_thread(app: &AppHandle, event: Event) -> Result<(), String> {
     let app = app.clone();

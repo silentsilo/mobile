@@ -399,6 +399,7 @@ pub async fn vault_unlock_with_security_key(
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
         &app,
         crate::audit::event(crate::audit::codes::UNLOCKED).with("by", "security key"),

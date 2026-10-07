@@ -1,6 +1,11 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { isCategoriesRow } from "./shared/passwordUtil";
-import { DEFAULT_HISTORY_POLICY, withHistory, type HistoryPolicy } from "./shared/entryHistory";
+import {
+  DEFAULT_HISTORY_POLICY,
+  withBaseFields,
+  withHistory,
+  type HistoryPolicy,
+} from "./shared/entryHistory";
 import type {
   AuditStatus,
   Bootstrap,
@@ -209,7 +214,7 @@ export const api = {
 
   readPasswords: async (): Promise<PasswordEntry[]> => {
     const rows = JSON.parse(await invoke<string>("vault_read_passwords")) as unknown[];
-    return rows.filter((row) => !isCategoriesRow(row)) as PasswordEntry[];
+    return (rows.filter((row) => !isCategoriesRow(row)) as PasswordEntry[]).map(withBaseFields);
   },
   /** `change` says what the save was, for the silo's activity log. */
   upsertPassword: (entry: PasswordEntry, change: EntryChange) =>
