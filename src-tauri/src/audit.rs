@@ -10,6 +10,9 @@
 //! the logins and the person picks one in Android's own list, so this side
 //! never learns which was filled.
 
+use std::collections::HashMap;
+use std::sync::Mutex;
+
 use silentsilo_app::{AppState, Host};
 use silentsilo_audit::Event;
 pub use silentsilo_audit::codes;
@@ -35,9 +38,61 @@ pub fn record(app: &AppHandle, event: Event) -> Result<(), String> {
     record_in(app, id, event)
 }
 
+/// The key each open silo was unlocked with, as the log names it. Every
+/// event the silo records while open carries it as `via`, as on desktop.
+static UNLOCKED_WITH: Mutex<Option<HashMap<Uuid, String>>> = Mutex::new(None);
+
+/// What the log calls this phone's own key.
+pub const VIA_PHONE_KEY: &str = "phone key";
+/// What the log calls an unlock with the recovery code.
+pub const VIA_RECOVERY_CODE: &str = "recovery code";
+
+/// Set where a session opens: `None` for one opened without a key the log
+/// can name (a new silo, a join), so an earlier session's key never sticks.
+pub fn set_unlocked_with(id: Uuid, via: Option<String>) {
+    let Ok(mut map) = UNLOCKED_WITH.lock() else {
+        return;
+    };
+    let map = map.get_or_insert_with(HashMap::new);
+    match via.filter(|v| !v.is_empty()) {
+        Some(via) => map.insert(id, via),
+        None => map.remove(&id),
+    };
+}
+
+fn unlocked_with(id: Uuid) -> Option<String> {
+    UNLOCKED_WITH.lock().ok()?.as_ref()?.get(&id).cloned()
+}
+
+/// A security key as the log names it: its label, or its slot.
+pub fn key_name(root: &std::path::Path, credential_id: &str) -> String {
+    silentsilo_vault::load_fido_keys(root)
+        .ok()
+        .and_then(|keys| {
+            keys.keys
+                .into_iter()
+                .find(|k| k.credential_id == credential_id)
+        })
+        .map(|k| {
+            if k.label.is_empty() {
+                format!("Security key {}", k.key_slot)
+            } else {
+                k.label
+            }
+        })
+        .unwrap_or_else(|| "security key".into())
+}
+
 /// Records `event` in silo `id`'s log. An `Err` means the silo was locked
 /// and the action must not happen.
-pub fn record_in(app: &AppHandle, id: Uuid, event: Event) -> Result<(), String> {
+pub fn record_in(app: &AppHandle, id: Uuid, mut event: Event) -> Result<(), String> {
+    // The unlock itself already says how.
+    if event.c != codes::UNLOCKED
+        && !event.x.contains_key("via")
+        && let Some(via) = unlocked_with(id)
+    {
+        event = event.with("via", via);
+    }
     let state = app.state::<AppState>();
     let Err(e) = state.audit_record(id, event) else {
         return Ok(());

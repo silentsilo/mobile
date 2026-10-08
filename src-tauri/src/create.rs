@@ -78,6 +78,7 @@ pub async fn silo_create(
     save_registry(&app_data, &registry).map_err(|e| e.to_string())?;
     *state.active_silo.lock().map_err(|e| e.to_string())? = Some(entry);
     state.open_session(&host(&app), vault_id, session)?;
+    crate::audit::set_unlocked_with(vault_id, None);
     crate::audit::start_by_default_off_thread(&app, vault_id).await;
     Ok(meta)
 }
@@ -112,6 +113,7 @@ pub async fn silo_resume_new(
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::set_unlocked_with(silo.id, None);
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
     Ok(meta)
 }

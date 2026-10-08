@@ -393,12 +393,14 @@ pub async fn vault_unlock_with_security_key(
     let (credential_id, _shape, verified, wrap_key) = found.map_err(str::to_string)?;
     remember_pin_key(&credential_id, verified);
     let root = silo.path.clone();
+    let via = crate::audit::key_name(&silo.path, &credential_id);
     let (session, meta) = tauri::async_runtime::spawn_blocking(move || {
         flows::open_with_device_key(root, &credential_id, &wrap_key, silo.id)
     })
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::set_unlocked_with(silo.id, Some(via));
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
         &app,

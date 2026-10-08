@@ -248,6 +248,7 @@ pub(crate) async fn finish_join(
     save_registry(&app_data, &registry).map_err(|e| e.to_string())?;
     *state.active_silo.lock().map_err(|e| e.to_string())? = Some(entry.clone());
     state.open_session(&host(app), entry.id, session)?;
+    crate::audit::set_unlocked_with(entry.id, None);
     Ok(meta)
 }
 
@@ -386,6 +387,7 @@ pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::set_unlocked_with(silo.id, Some(crate::audit::VIA_PHONE_KEY.into()));
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
         &app,
@@ -455,6 +457,7 @@ pub async fn vault_unlock_with_recovery(
     .map_err(|e| e.to_string())??;
     silentsilo_app::wipe_open_scratch(&silo.path);
     state.open_session(&host(&app), silo.id, session)?;
+    crate::audit::set_unlocked_with(silo.id, Some(crate::audit::VIA_RECOVERY_CODE.into()));
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
         &app,
