@@ -158,7 +158,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
           anything saved from then on.
         </p>
         {error && <Notice tone="error">{error}</Notice>}
-        <button className="btn danger" onClick={remove} disabled={busy}>
+        <button className="btn danger" aria-busy={busy} onClick={remove} disabled={busy}>
           {busy ? "Removing" : "Remove key"}
         </button>
         <button className="btn secondary" onClick={() => setChosen(null)} disabled={busy}>

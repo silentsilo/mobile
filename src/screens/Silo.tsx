@@ -200,8 +200,8 @@ export function Silo({
                 <Cloud size={20} color={waiting ? "var(--warning)" : "var(--success)"} />
                 <span style={{ flex: 1 }}>{waiting ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to sync` : "Synced"}</span>
               </div>
-              <button className="btn secondary" onClick={syncNow} disabled={syncing}>
-                <RefreshCw size={18} />
+              <button className="btn secondary" aria-busy={syncing} onClick={syncNow} disabled={syncing}>
+                {!syncing && <RefreshCw size={18} />}
                 {syncing ? "Syncing" : "Sync now"}
               </button>
             </div>

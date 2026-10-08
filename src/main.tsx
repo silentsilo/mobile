@@ -4,11 +4,14 @@ import "@fontsource-variable/plus-jakarta-sans";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import App from "./App";
+import { isIOS } from "./ui/platform";
 import { applyTheme, readTheme } from "./ui/theme";
 
 async function start() {
   // Before the first paint, so a chosen theme never flashes the other one.
   applyTheme(readTheme());
+  // Platform patterns in the stylesheet: targets, bars, tabs, dividers.
+  document.documentElement.dataset.platform = isIOS ? "ios" : "android";
   // WebKit shows :active on a touch only when the page listens for touches.
   document.addEventListener("touchstart", () => undefined, { passive: true });
   // Development only, and only when asked for: a release build never runs it.

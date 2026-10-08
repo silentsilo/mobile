@@ -416,7 +416,7 @@ export function StorageForm({
       <p className="hint small">The silo is encrypted on this phone before it is sent. These details stay on this phone.</p>
       {error && <Notice tone="error">{error}</Notice>}
       <div className="spacer" />
-      <button className="btn" disabled={!ready || busy} onClick={onContinue}>
+      <button className="btn" aria-busy={busy} disabled={!ready || busy} onClick={onContinue}>
         {busy ? busyLabel : submitLabel}
       </button>
 

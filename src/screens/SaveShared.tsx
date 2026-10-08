@@ -87,7 +87,7 @@ export function SaveShared({ files, siloName, onDone }: { files: Offered[]; silo
           ))}
         </div>
         <div className="spacer" />
-        <button className="btn" disabled={!here || saving !== null} onClick={() => void save()}>
+        <button className="btn" aria-busy={saving !== null} disabled={!here || saving !== null} onClick={() => void save()}>
           {saving === null ? `Save in ${here?.name ?? ""}` : `Saving ${Math.min(saving + 1, files.length)} of ${files.length}`}
         </button>
       </div>

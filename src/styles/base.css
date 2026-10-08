@@ -306,9 +306,30 @@ a {
   width: 100%;
 }
 
-.row + .row,
-.divide {
+/* Rows in a list: no lines between them on Android (Material 3); on iOS a
+   hairline from where the text starts. Other things marked .divide keep a
+   full line. */
+.row {
+  position: relative;
+}
+
+.divide:not(.row) {
   border-top: 1px solid var(--border-subtle);
+}
+
+:root[data-platform="ios"] .row + .row::before,
+:root[data-platform="ios"] .row.divide::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 0;
+  height: 1px;
+  background: var(--border-subtle);
+}
+
+:root[data-platform="ios"] .row:has(> .tile, > .avatar, > .row-main > .tile, > .row-main > .avatar)::before {
+  left: 68px;
 }
 
 /* A row that holds two buttons side by side: the row itself, and a
@@ -466,7 +487,7 @@ a {
   justify-content: space-between;
   gap: 4px;
   flex: none;
-  min-height: 56px;
+  min-height: 64px;
   padding: 4px 8px;
 }
 
@@ -482,8 +503,10 @@ a {
 /* Tab bar */
 .tabbar {
   display: flex;
+  align-items: center;
   justify-content: space-around;
   flex: none;
+  min-height: calc(80px + var(--safe-bottom));
   padding: 8px 8px calc(8px + var(--safe-bottom));
   border-top: 1px solid var(--border-subtle);
   background: var(--tabbar-bg);
@@ -853,21 +876,44 @@ a {
 }
 
 .toast {
+  display: flex;
+  align-items: center;
   width: 100%;
   max-width: 560px;
   min-height: 48px;
-  padding: 12px 16px;
-  border: 0;
   border-radius: var(--r-md);
   background: var(--inverse-surface);
   box-shadow: var(--shadow-md);
   color: var(--on-inverse);
   font-size: var(--fs-small);
   line-height: 1.4;
-  text-align: left;
   pointer-events: auto;
-  cursor: pointer;
   animation: toast-in var(--dur-2) var(--ease-out);
+}
+
+.toast-message {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.toast-action {
+  flex: none;
+  min-height: var(--target);
+  margin-right: 4px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--inverse-accent);
+  font-weight: 700;
+  cursor: pointer;
 }
 
 @keyframes toast-in {
@@ -1239,4 +1285,66 @@ input[type="checkbox"] {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* iOS: 44pt targets, a 44pt bar, taller buttons, a filled icon for the
+   selected tab instead of a pill, and the text size from Dynamic Type. */
+:root[data-platform="ios"] {
+  --target: 44px;
+  font: -apple-system-body;
+}
+
+:root[data-platform="ios"] .btn {
+  min-height: 50px;
+}
+
+:root[data-platform="ios"] .top-bar {
+  min-height: 44px;
+}
+
+:root[data-platform="ios"] .tabbar {
+  min-height: calc(50px + var(--safe-bottom));
+  padding-top: 4px;
+}
+
+:root[data-platform="ios"] .tab[aria-selected="true"] .tab-icon {
+  background: none;
+  color: var(--accent-text);
+}
+
+:root[data-platform="ios"] .tab[aria-selected="true"] .tab-icon svg {
+  fill: currentColor;
+  fill-opacity: 0.25;
+}
+
+/* A button at work: a spinner beside its label, which says what is
+   happening. It stays at full strength while it waits. */
+.btn[aria-busy="true"]:disabled {
+  opacity: 1;
+}
+
+/* A button at work: a spinner beside its label, which says what is happening. */
+.btn[aria-busy="true"]::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* An icon button shows a 40px circle when pressed, inside its 48px target,
+   and the accent when it is switched on. */
+.icon-btn:not(.framed):active:not(:disabled) {
+  background-image: radial-gradient(circle closest-side, var(--pressed) calc(100% - 4px), transparent calc(100% - 3.5px));
+}
+
+.icon-btn[aria-pressed="true"] {
+  color: var(--accent-text);
+}
+
+.input:has(:disabled) {
+  background: var(--surface-2);
 }

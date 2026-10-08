@@ -83,7 +83,7 @@ export function JoinCode({
         </Field>
         {error && <Notice tone="error">{error}</Notice>}
         <div className="spacer" />
-        <button className="btn" disabled={!isComplete(code) || busy} onClick={join}>
+        <button className="btn" aria-busy={busy} disabled={!isComplete(code) || busy} onClick={join}>
           {busy ? "Opening the silo" : "Continue"}
         </button>
         {preview.key_labels.length > 0 && (

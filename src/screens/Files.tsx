@@ -194,12 +194,27 @@ export function Files({
     try {
       if (entry.kind === "folder") await api.trashFolder(entry.id);
       else await api.trashFile(entry.id);
-      toast("Moved to the trash.");
+      toast("Moved to the trash.", { label: "Undo", run: () => void restore([entry]) });
       setEdits((n) => n + 1);
       void load(here.id);
     } catch (e) {
       toast(formatAppError(e));
     }
+  };
+
+  // Undo from the toast: back where they were, the same as from Trash.
+  const restore = async (entries: VaultEntry[]) => {
+    try {
+      for (const entry of entries) {
+        if (entry.kind === "folder") await api.restoreFolder(entry.id);
+        else await api.restoreFile(entry.id);
+      }
+      toast(entries.length === 1 ? "Restored." : `Restored ${entries.length} items.`);
+    } catch (e) {
+      toast(formatAppError(e));
+    }
+    setEdits((n) => n + 1);
+    if (asked.current) void load(asked.current);
   };
 
   const selecting = selected.size > 0;
@@ -319,10 +334,12 @@ export function Files({
     setSelected(new Map());
     let failed = 0;
     let reason = "";
+    const trashed: VaultEntry[] = [];
     for (const entry of list) {
       try {
         if (entry.kind === "folder") await api.trashFolder(entry.id);
         else await api.trashFile(entry.id);
+        trashed.push(entry);
       } catch (e) {
         failed += 1;
         reason ||= formatAppError(e);
@@ -337,6 +354,7 @@ export function Files({
           : list.length === 1
             ? "Moved to the trash."
             : `Moved ${list.length} items to the trash.`,
+      trashed.length > 0 ? { label: "Undo", run: () => void restore(trashed) } : undefined,
     );
     void load(here.id);
   };

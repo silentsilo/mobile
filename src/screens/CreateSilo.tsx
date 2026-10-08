@@ -40,7 +40,7 @@ export function CreateSilo({ onBack, onCreated }: { onBack: () => void; onCreate
         </Field>
         {error && <Notice tone="error">{error}</Notice>}
         <div className="spacer" />
-        <button className="btn" disabled={!name.trim() || busy} onClick={() => void create()}>
+        <button className="btn" aria-busy={busy} disabled={!name.trim() || busy} onClick={() => void create()}>
           {busy ? "Making the silo" : "Continue"}
         </button>
       </div>

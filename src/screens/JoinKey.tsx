@@ -88,7 +88,7 @@ export function JoinKey({
         </Field>
         {error && <Notice tone="error">{error}</Notice>}
         <div className="spacer" />
-        <button className="btn" disabled={busy} onClick={create}>
+        <button className="btn" aria-busy={busy} disabled={busy} onClick={create}>
           {busy ? "Waiting for your fingerprint or face" : rekey ? "Create new key" : "Create key"}
         </button>
         {rekey && (

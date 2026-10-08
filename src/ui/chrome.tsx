@@ -265,7 +265,9 @@ export function ChoiceRow({
   );
 }
 
-type ToastApi = (message: string) => void;
+/** A step the message offers, such as Undo. */
+export type ToastAction = { label: string; run: () => void };
+type ToastApi = (message: string, action?: ToastAction) => void;
 const ToastContext = createContext<ToastApi>(() => undefined);
 
 /** Long enough to read: 4 s for a word, up to 10 s for a paragraph. */
@@ -274,12 +276,14 @@ export function toastDuration(text: string): number {
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ text: string; action?: ToastAction } | null>(null);
   const timer = useRef<number | undefined>(undefined);
-  const show = useCallback<ToastApi>((text) => {
-    setMessage(text);
+  const show = useCallback<ToastApi>((text, action) => {
+    setMessage({ text, action });
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setMessage(null), toastDuration(text));
+    // An action needs time to be reached: never under 6 s.
+    const time = toastDuration(text);
+    timer.current = window.setTimeout(() => setMessage(null), action ? Math.max(6_000, time) : time);
   }, []);
   const dismiss = () => {
     window.clearTimeout(timer.current);
@@ -294,12 +298,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {createPortal(
         <div className="toast-region" role="status" aria-live="polite">
           {message && (
-            <button className="toast" onClick={dismiss} aria-describedby="toast-dismiss">
-              {message}
-              <span id="toast-dismiss" className="visually-hidden">
-                Tap to dismiss.
-              </span>
-            </button>
+            <div className="toast">
+              <button className="toast-message" onClick={dismiss} aria-describedby="toast-dismiss">
+                {message.text}
+                <span id="toast-dismiss" className="visually-hidden">
+                  Tap to dismiss.
+                </span>
+              </button>
+              {message.action && (
+                <button
+                  className="toast-action"
+                  onClick={() => {
+                    dismiss();
+                    message.action!.run();
+                  }}
+                >
+                  {message.action.label}
+                </button>
+              )}
+            </div>
           )}
         </div>,
         document.body,

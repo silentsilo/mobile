@@ -76,7 +76,7 @@ export function DeviceCheck({ check, checking, onRetry }: { check: Check; checki
           ))}
         </div>
         <div className="spacer" />
-        <button className="btn" onClick={onRetry} disabled={checking}>
+        <button className="btn" aria-busy={checking} onClick={onRetry} disabled={checking}>
           {checking ? "Checking" : "Check again"}
         </button>
       </div>

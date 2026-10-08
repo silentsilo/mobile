@@ -124,7 +124,7 @@ export function RecoveryCodeShow({
           </Notice>
         )}
         {error && <Notice tone="error">{error}</Notice>}
-        <button className="btn" disabled={busy} onClick={() => void make()}>
+        <button className="btn" aria-busy={busy} disabled={busy} onClick={() => void make()}>
           {busy ? "Making the code" : replacing ? "Make a new code" : "Make the recovery code"}
         </button>
       </>

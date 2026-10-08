@@ -172,8 +172,8 @@ export function Unlock({
               Use recovery code
             </button>
           ) : (
-            <button className="btn" disabled={busy} onClick={unlock}>
-              <BiometricIcon size={20} aria-hidden />
+            <button className="btn" aria-busy={busy && !recovering} disabled={busy} onClick={unlock}>
+              {!(busy && !recovering) && <BiometricIcon size={20} aria-hidden />}
               Unlock
             </button>
           )}
@@ -205,7 +205,7 @@ export function Unlock({
       <Sheet open={recovering} onClose={() => setRecovering(false)} title="Unlock with your recovery code">
         <RecoveryCodeInput value={code} onChange={setCode} disabled={busy} autoFocus />
         {error && <Notice tone="error">{error}</Notice>}
-        <button className="btn" disabled={!isComplete(code) || busy} onClick={unlockWithCode}>
+        <button className="btn" aria-busy={busy} disabled={!isComplete(code) || busy} onClick={unlockWithCode}>
           {busy ? "Unlocking" : "Unlock"}
         </button>
       </Sheet>
