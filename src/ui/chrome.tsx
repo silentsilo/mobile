@@ -1,5 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useBackLayer } from "./back";
+
+const nothing = () => undefined;
 
 export function TopBar({
   onBack,
@@ -12,6 +15,7 @@ export function TopBar({
   title?: string;
   right?: ReactNode;
 }) {
+  useBackLayer(!!onBack, onBack ?? nothing);
   return (
     <div className="top-bar">
       {onBack &&
@@ -32,6 +36,7 @@ export function TopBar({
 }
 
 export function StepBar({ step, onBack }: { step: 1 | 2 | 3; onBack: () => void }) {
+  useBackLayer(true, onBack);
   return (
     <div className="top-bar">
       <button className="icon-btn" aria-label="Back" style={{ color: "var(--ink)" }} onClick={onBack}>
@@ -61,6 +66,7 @@ export function Field({ label, children }: { label: string; children: ReactNode 
 }
 
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: string; children: ReactNode }) {
+  useBackLayer(open, onClose);
   if (!open) return null;
   return (
     <>

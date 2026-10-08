@@ -5,6 +5,7 @@ import { formatAppError } from "../shared/errors";
 import { formatBytes, formatDate } from "../shared/format";
 import type { FileEntry, FolderEntry, VaultEntry } from "../shared/types";
 import { addAll, photoName } from "../shared/importing";
+import { useBackLayer } from "../ui/back";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
 import { useSyncProgress } from "../ui/syncActivity";
 import { SiloHeader } from "./Passwords";
@@ -200,6 +201,7 @@ export function Files({
   };
 
   const selecting = selected.size > 0;
+  useBackLayer(selecting, () => setSelected(new Map()));
   const toggle = (item: VaultEntry) => {
     const next = new Map(selected);
     if (next.has(item.id)) next.delete(item.id);
@@ -395,11 +397,11 @@ export function Files({
               className="row divide"
               onClick={() => (hit.kind === "folder" ? void openFolderAt(hit) : onOpenFile(hit as FileEntry))}
             >
-              <span className="tile" style={hit.kind === "folder" ? { background: "rgba(139, 92, 246, 0.35)", color: "#fff" } : undefined}>
+              <span className={`tile${hit.kind === "folder" ? " folder" : ""}`}>
                 {hit.kind === "folder" ? <Folder size={20} /> : fileIcon(hit as FileEntry)}
               </span>
               <span className="row-text">
-                <span className="row-title" style={{ fontWeight: 600 }}>{hit.name}</span>
+                <span className="row-title">{hit.name}</span>
                 <span className="row-sub">{hit.folder_path === "/" ? siloName : hit.folder_path}</span>
               </span>
             </button>
@@ -409,52 +411,41 @@ export function Files({
             {query ? "Nothing in this folder matches." : "This folder is empty."}
           </p>
         )}
-        {!searching && shown.map((item) =>
-          item.kind === "folder" ? (
-            <button
-              key={item.id}
-              className="row divide"
-              aria-pressed={selecting ? selected.has(item.id) : undefined}
-              onClick={() => tap(item, () => enter({ id: item.id, name: item.name }))}
-              {...pressProps(item)}
-            >
-              <span className="tile" style={selected.has(item.id) ? { background: "var(--accent)", color: "#fff" } : { background: "rgba(139, 92, 246, 0.35)", color: "#fff" }}>
-                {selected.has(item.id) ? <Check size={20} /> : <Folder size={20} />}
-              </span>
-              <span className="row-text">
-                <span className="row-title" style={{ fontWeight: 600 }}>{item.name}</span>
-              </span>
-              <span role="button" className="icon-btn" aria-label={`More for ${item.name}`} onClick={(e) => { e.stopPropagation(); setActing(item); }}>
-                <EllipsisVertical size={20} color="var(--text-dim)" />
-              </span>
-            </button>
-          ) : (
-            <button
-              key={item.id}
-              className="row divide"
-              aria-pressed={selecting ? selected.has(item.id) : undefined}
-              onClick={() => tap(item, () => onOpenFile(item))}
-              {...pressProps(item)}
-            >
-              <span className="tile" style={selected.has(item.id) ? { background: "var(--accent)", color: "#fff" } : undefined}>
-                {selected.has(item.id) ? <Check size={20} /> : fileIcon(item)}
-              </span>
-              <span className="row-text">
-                <span className="row-title" style={{ fontWeight: 600 }}>{item.name}</span>
-                <span className="row-sub">
-                  {syncing?.file_id === item.id
-                    ? syncing.phase === "uploading"
-                      ? "Uploading…"
-                      : "Downloading…"
-                    : `${formatBytes(item.size_bytes)} · ${formatDate(item.updated_at)}`}
-                </span>
-              </span>
-              <span role="button" className="icon-btn" aria-label={`More for ${item.name}`} onClick={(e) => { e.stopPropagation(); setActing(item); }}>
-                <EllipsisVertical size={20} color="var(--text-dim)" />
-              </span>
-            </button>
-          ),
-        )}
+        {!searching &&
+          shown.map((item) => {
+            const ticked = selected.has(item.id);
+            const folder = item.kind === "folder";
+            return (
+              // Two buttons side by side, so TalkBack reaches "More" on its own.
+              <div key={item.id} className="row split divide">
+                <button
+                  className="row-main"
+                  aria-pressed={selecting ? ticked : undefined}
+                  onClick={() => tap(item, () => (folder ? enter({ id: item.id, name: item.name }) : onOpenFile(item)))}
+                  {...pressProps(item)}
+                >
+                  <span className={`tile${folder ? " folder" : ""}${ticked ? " ticked" : ""}`}>
+                    {ticked ? <Check size={20} /> : folder ? <Folder size={20} /> : fileIcon(item)}
+                  </span>
+                  <span className="row-text">
+                    <span className="row-title">{item.name}</span>
+                    {!folder && (
+                      <span className="row-sub">
+                        {syncing?.file_id === item.id
+                          ? syncing.phase === "uploading"
+                            ? "Uploading…"
+                            : "Downloading…"
+                          : `${formatBytes(item.size_bytes)} · ${formatDate(item.updated_at)}`}
+                      </span>
+                    )}
+                  </span>
+                </button>
+                <button className="icon-btn" aria-label={`More for ${item.name}`} onClick={() => setActing(item)}>
+                  <EllipsisVertical size={20} />
+                </button>
+              </div>
+            );
+          })}
       </div>
 
       <Sheet open={adding} onClose={() => setAdding(false)} title="Add to this folder">

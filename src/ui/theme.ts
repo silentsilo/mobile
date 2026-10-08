@@ -1,3 +1,5 @@
+import { api } from "../api";
+
 export type ThemeChoice = "system" | "dark" | "light";
 
 const KEY = "theme";
@@ -22,4 +24,6 @@ export function applyTheme(choice: ThemeChoice) {
   } catch {
     // Still applies for this session.
   }
+  // The system bars, the window behind the page and the next cold start.
+  api.setAppTheme(choice).catch(() => undefined);
 }

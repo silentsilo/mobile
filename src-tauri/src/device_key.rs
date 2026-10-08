@@ -91,6 +91,9 @@ impl<R: Runtime> DeviceKey<R> {
     pub async fn passkeys_enable(&self) -> Result<(), String> {
         Err(Self::ABSENT.into())
     }
+    pub async fn set_theme(&self, _choice: &str) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 #[cfg(target_os = "android")]
@@ -184,6 +187,13 @@ impl<R: Runtime> DeviceKey<R> {
             .map(|_| ())
     }
 
+    /// The theme chosen in the app, for the system bars and the window.
+    pub async fn set_theme(&self, choice: &str) -> Result<(), String> {
+        self.call::<serde_json::Value>("setTheme", serde_json::json!({ "choice": choice }))
+            .await
+            .map(|_| ())
+    }
+
     async fn call<T: serde::de::DeserializeOwned>(
         &self,
         command: &str,
@@ -250,4 +260,16 @@ pub async fn passkeys_enable(app: tauri::AppHandle) -> Result<(), String> {
     let lock = app.state::<crate::background::BackgroundLock>();
     let _prompt = lock.prompt();
     app.state::<DeviceKey<tauri::Wry>>().passkeys_enable().await
+}
+
+/// `system`, `dark` or `light`: the system bars and the window background
+/// follow the app's theme rather than the phone's.
+#[tauri::command]
+pub async fn app_theme_set(app: tauri::AppHandle, choice: String) -> Result<(), String> {
+    if !matches!(choice.as_str(), "system" | "dark" | "light") {
+        return Err("Unknown theme.".into());
+    }
+    app.state::<DeviceKey<tauri::Wry>>()
+        .set_theme(&choice)
+        .await
 }

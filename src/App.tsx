@@ -28,6 +28,7 @@ import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
 import { ToastProvider, useToast } from "./ui/chrome";
 import { RecoveryCodeKeeper } from "./ui/RecoveryCodeShow";
 import { SyncActivityProvider } from "./ui/syncActivity";
+import { useBackLayer } from "./ui/back";
 import { forgetVerified } from "./ui/reverify";
 import { useWide } from "./ui/useWide";
 
@@ -312,6 +313,8 @@ function OpenSiloScreens({
   const [detail, setDetail] = useState<Detail | null>(null);
   const toast = useToast();
   const wide = useWide();
+  // Back from another tab goes to Passwords first, then leaves the app.
+  useBackLayer(tab !== "passwords", () => setTab("passwords"));
 
   // Keyed by what is open, so opening another entry beside the list starts
   // its screen fresh instead of keeping the last one's state.

@@ -171,6 +171,7 @@ export const api = {
   bootstrap: () => invoke<Bootstrap>("app_bootstrap"),
   deviceCheck: () => invoke<DeviceCheck>("device_check"),
   deviceName: () => invoke<string>("device_name"),
+  setAppTheme: (choice: "system" | "dark" | "light") => invoke<void>("app_theme_set", { choice }),
 
   probeHostKey: (host: string, port: number) => invoke<string>("sftp_probe_host_key", { host, port }),
   previewJoin: (config: StoreConfigInput) => invoke<JoinPreview>("vault_preview_join", { config }),

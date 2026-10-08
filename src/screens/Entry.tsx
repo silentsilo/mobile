@@ -4,7 +4,7 @@ import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatDate, formatDay } from "../shared/format";
 import { changedLabels, restoredFrom, withoutHistory } from "../shared/entryHistory";
-import { cardDigits, groupCardNumber, hashColor, inkOn, notesAreSecret, serviceInitials, typeOf } from "../shared/passwordUtil";
+import { cardDigits, groupCardNumber, avatarColor, inkOn, notesAreSecret, serviceInitials, typeOf } from "../shared/passwordUtil";
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, generateTotp, totpSecondsRemaining } from "../shared/totp";
 import type { HistoryVersion, PasswordEntry } from "../shared/types";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
@@ -118,7 +118,7 @@ export function Entry({
   const history = entry.history ?? [];
   const toast = useToast();
   const totp = useTotp(entry);
-  const bg = hashColor(entry.service);
+  const bg = avatarColor(entry.service);
   const editable = typeOf(entry) === "login";
 
   // An entry marked to ask again shows and copies nothing until the
@@ -226,10 +226,8 @@ export function Entry({
                   <span className="label" style={{ color: "var(--text-dim)", letterSpacing: "0.03em" }}>
                     {row.label}
                   </span>
-                  <span
-                    className={row.mono ? "mono" : undefined}
-                    style={{ fontSize: "1rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: row.label === "Notes" ? "pre-wrap" : "nowrap", letterSpacing: shown ? undefined : "0.12em" }}
-                  >
+                  {/* Shown values wrap: a long password is read whole, never cut short. */}
+                  <span className={`field-value${row.mono ? " mono" : ""}${shown ? "" : " masked"}`}>
                     {shown ? row.value : "••••••••••••••••"}
                   </span>
                 </div>
@@ -318,7 +316,7 @@ export function Entry({
                         {changed.length > 0 ? `Next change: ${changed.join(", ")}` : "No change"}
                       </span>
                       {version.password && (
-                        <span className="mono" style={{ letterSpacing: shown ? undefined : "0.12em" }}>
+                        <span className={`field-value mono${shown ? "" : " masked"}`}>
                           {shown ? version.password : "••••••••"}
                         </span>
                       )}

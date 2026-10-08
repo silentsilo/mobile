@@ -2,7 +2,7 @@ import { ChevronDown, Copy, Plus, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
-import { hashColor, inkOn, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
+import { avatarColor, inkOn, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
 import type { PasswordEntry } from "../shared/types";
 import { useToast } from "../ui/chrome";
 import { describeProgress, useSyncProgress } from "../ui/syncActivity";
@@ -119,13 +119,10 @@ export function Passwords({
           </p>
         )}
         {shown.map((entry) => {
-          const bg = hashColor(entry.service);
+          const bg = avatarColor(entry.service);
           return (
-            <div key={entry.id} className="row divide" style={{ paddingRight: 4 }}>
-              <button
-                onClick={() => onOpen(entry)}
-                style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, minHeight: 64, padding: 0, border: 0, background: "transparent", textAlign: "left", cursor: "pointer" }}
-              >
+            <div key={entry.id} className="row split divide">
+              <button className="row-main" onClick={() => onOpen(entry)}>
                 <span className="avatar" style={{ background: bg, color: inkOn(bg) }}>
                   {serviceInitials(entry.service)}
                 </span>

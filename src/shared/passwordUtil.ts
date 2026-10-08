@@ -128,12 +128,29 @@ const DEFAULT_CATEGORIES: PasswordCategory[] = [
   { name: "Other", color: "hsl(0, 0%, 50%)" },
 ];
 
+function nameHash(name: string): number {
+  let hash = 0;
+  for (const ch of name) hash = (hash * 31 + ch.codePointAt(0)!) >>> 0;
+  return hash;
+}
+
 /** A stable colour for a name the list does not define: same name, same
  * hue, on every device, with nothing to store. */
 export function hashColor(name: string): string {
-  let hash = 0;
-  for (const ch of name) hash = (hash * 31 + ch.codePointAt(0)!) >>> 0;
-  return `hsl(${hash % 360}, 60%, 50%)`;
+  return `hsl(${nameHash(name) % 360}, 60%, 50%)`;
+}
+
+/** Tile colours for initials, each at least 4.9:1 with white. Same list on
+ * desktop and mobile. */
+export const AVATAR_PALETTE = [
+  "#7c3aed", "#4f46e5", "#2563eb", "#0369a1", "#0f766e",
+  "#047857", "#4d7c0f", "#a16207", "#b45309", "#c2410c",
+  "#b91c1c", "#be185d", "#a21caf", "#9333ea", "#475569",
+] as const;
+
+/** The initials tile colour for a name, stable across devices. */
+export function avatarColor(name: string): string {
+  return AVATAR_PALETTE[nameHash(name) % AVATAR_PALETTE.length]!;
 }
 
 /**
@@ -339,14 +356,44 @@ export function serviceInitials(service: string): string {
 /**
  * Ink that stays readable on a given tile colour.
  *
- * The tile is a category colour: a default, a name hash, or whatever the
- * user picked. White initials on a yellow or lime tile measured under 3:1,
- * so the letters follow the tile rather than the theme.
+ * The tile is an avatar colour, a category colour or whatever the user
+ * picked. The ink follows the tile's luminance rather than the theme.
  */
 export function inkOn(background: string): string {
-  const hsl = background.match(/hsl\(\s*[\d.]+\s*,\s*[\d.]+%\s*,\s*([\d.]+)%/i);
-  const lightness = hsl ? Number(hsl[1]) : 0;
-  return lightness > 58 ? "#0a0e1a" : "#fff";
+  const rgb = toRgb(background);
+  if (!rgb) return "#fff";
+  // Whichever ink has the higher WCAG contrast against the tile.
+  const tile = luminance(rgb);
+  const onWhite = 1.05 / (tile + 0.05);
+  const onDark = (tile + 0.05) / (luminance([10, 14, 26]) + 0.05);
+  return onDark > onWhite ? "#0a0e1a" : "#fff";
+}
+
+function toRgb(colour: string): [number, number, number] | null {
+  const hex = colour.match(/^#([0-9a-f]{6})$/i);
+  if (hex) {
+    const n = parseInt(hex[1]!, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  const hsl = colour.match(/hsl\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/i);
+  if (!hsl) return null;
+  const h = Number(hsl[1]);
+  const sat = Number(hsl[2]) / 100;
+  const l = Number(hsl[3]) / 100;
+  const a = sat * Math.min(l, 1 - l);
+  const f = (n: number) => {
+    const k = (n + h / 30) % 12;
+    return Math.round((l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))) * 255);
+  };
+  return [f(0), f(8), f(4)];
+}
+
+function luminance([r, g, b]: [number, number, number]): number {
+  const lin = (v: number) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
 }
 
 /** Colour lookup over the resolved list, falling back to the name hash so

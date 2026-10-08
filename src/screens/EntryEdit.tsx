@@ -5,6 +5,7 @@ import { formatAppError } from "../shared/errors";
 import { withEdits } from "../shared/passwordEntry";
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, parseTotpInput } from "../shared/totp";
 import type { CustomField, PasswordEntry } from "../shared/types";
+import { useBackLayer } from "../ui/back";
 import { Field, Sheet } from "../ui/chrome";
 import { GeneratorSheet } from "../ui/GeneratorSheet";
 
@@ -39,6 +40,8 @@ export function EntryEdit({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Back is Cancel, except while a save or delete is running.
+  useBackLayer(true, () => !busy && onCancel());
 
   const save = async () => {
     if (!service.trim()) {

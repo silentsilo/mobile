@@ -22,6 +22,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.security.keystore.StrongBoxUnavailableException
 import android.webkit.WebView
+import androidx.activity.ComponentActivity
 import app.tauri.annotation.Command
 import app.tauri.annotation.TauriPlugin
 import app.tauri.plugin.Invoke
@@ -104,6 +105,19 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
 
   // What the owner calls this phone: the name set in Settings, which Samsung
   // and Pixel fill with the marketing name, else maker and model.
+  // The theme chosen in the app: `system`, `dark` or `light`.
+  @Command
+  fun setTheme(invoke: Invoke) {
+    val choice = when (val asked = invoke.getArgs().getString("choice")) {
+      "dark", "light" -> asked
+      else -> "system"
+    }
+    activity.runOnUiThread {
+      (activity as? ComponentActivity)?.let { Appearance.choose(it, choice) }
+      invoke.resolve()
+    }
+  }
+
   @Command
   fun deviceName(invoke: Invoke) {
     val resolver = activity.contentResolver

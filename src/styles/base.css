@@ -177,8 +177,8 @@ a {
   align-items: center;
   justify-content: center;
   flex: none;
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   padding: 0;
   border: 0;
   border-radius: var(--radius);
@@ -304,6 +304,42 @@ a {
   white-space: nowrap;
 }
 
+/* A row that holds two buttons side by side: the row itself, and a
+   trailing action of its own. */
+.row.split {
+  padding: 0 4px 0 0;
+}
+
+.row-main {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  min-height: var(--row);
+  padding: 0 0 0 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* A field's value on an entry: shown whole, wrapped, never ellipsized. */
+.field-value {
+  font-size: 1rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.field-value.masked {
+  overflow: hidden;
+  letter-spacing: 0.12em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .avatar {
   display: flex;
   align-items: center;
@@ -328,6 +364,12 @@ a {
   border-radius: 9px;
   background: rgba(139, 92, 246, 0.12);
   color: var(--accent-hover);
+}
+
+.tile.folder,
+.tile.ticked {
+  background: #6d28d9;
+  color: #fff;
 }
 
 /* Top bars */

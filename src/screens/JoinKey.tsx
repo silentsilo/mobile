@@ -2,6 +2,7 @@ import { LockKeyhole, ScanFace } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
+import { useBackLayer } from "../ui/back";
 import { Field, StepBar, TopBar } from "../ui/chrome";
 
 /**
@@ -32,6 +33,8 @@ export function JoinKey({
   }, [edited]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Setting the phone up again: back is "Not now".
+  useBackLayer(rekey, () => !busy && onBack());
 
   const create = async () => {
     setBusy(true);
