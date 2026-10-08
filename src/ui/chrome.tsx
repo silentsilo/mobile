@@ -162,6 +162,14 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
   useBackLayer(open, onClose);
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  // Still on screen while it slides away; gone once the slide ends.
+  const [mounted, setMounted] = useState(open);
+  if (open && !mounted) setMounted(true);
+  const closing = mounted && !open;
+  // What it showed while open: the state behind it is usually cleared at
+  // once, and the sheet should not empty itself on the way out.
+  const shown = useRef({ title, children });
+  if (open) shown.current = { title, children };
 
   useEffect(() => {
     if (!open) return;
@@ -178,22 +186,42 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       openSheets -= 1;
       if (openSheets === 0) root?.removeAttribute("inert");
       // Back where it was, unless something else (another sheet's field) has it now.
-      const lost = !document.activeElement || document.activeElement === document.body;
+      const active = document.activeElement;
+      const lost = !active || active === document.body || !!sheet?.contains(active);
       if (lost && before?.isConnected) before.focus({ preventScroll: true });
     };
   }, [open]);
 
-  if (!open) return null;
+  // The slide's end unmounts it; the timer covers a slide that never runs.
+  useEffect(() => {
+    if (!closing) return;
+    const timer = window.setTimeout(() => setMounted(false), 400);
+    return () => window.clearTimeout(timer);
+  }, [closing]);
+
+  if (!mounted) return null;
+  const { title: heading, children: body } = open ? { title, children } : shown.current;
   return createPortal(
     <>
-      <div className="scrim" onClick={onClose} />
-      <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} tabIndex={-1}>
-        {title && (
+      <div className={closing ? "scrim closing" : "scrim"} onClick={closing ? undefined : onClose} />
+      <div
+        ref={ref}
+        className={closing ? "sheet closing" : "sheet"}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={heading ? titleId : undefined}
+        tabIndex={-1}
+        inert={closing || undefined}
+        onAnimationEnd={(e) => {
+          if (closing && e.target === e.currentTarget) setMounted(false);
+        }}
+      >
+        {heading && (
           <h2 className="sheet-title" id={titleId} tabIndex={-1}>
-            {title}
+            {heading}
           </h2>
         )}
-        {children}
+        {body}
       </div>
     </>,
     document.body,

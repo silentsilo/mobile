@@ -255,24 +255,25 @@ export function Entry({
                   {verified ? spaced(totp.code) : "••• •••"}
                 </span>
               </div>
-              <svg width="30" height="30" viewBox="0 0 30 30" aria-label={`${totp.left} seconds left`} style={{ flex: "none" }}>
-                <circle cx="15" cy="15" r="12" fill="none" stroke="var(--surface-2)" strokeWidth="3" />
-                <circle
-                  cx="15"
-                  cy="15"
-                  r="12"
-                  fill="none"
-                  stroke="var(--accent-text)"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={circumference * (1 - totp.left / totp.period)}
-                  transform="rotate(-90 15 15)"
-                />
-                <text x="15" y="19" textAnchor="middle" fontSize="10" fontWeight="700" fill="var(--text-muted)">
-                  {totp.left}
-                </text>
-              </svg>
+              {/* Sized in em, so the seconds stay readable with large text. */}
+              <span className="totp-ring" role="img" aria-label={`${totp.left} seconds left`}>
+                <svg viewBox="0 0 30 30" aria-hidden>
+                  <circle cx="15" cy="15" r="12" fill="none" stroke="var(--surface-2)" strokeWidth="3" />
+                  <circle
+                    cx="15"
+                    cy="15"
+                    r="12"
+                    fill="none"
+                    stroke="var(--accent-text)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={circumference * (1 - totp.left / totp.period)}
+                    transform="rotate(-90 15 15)"
+                  />
+                </svg>
+                <span aria-hidden>{totp.left}</span>
+              </span>
               <button className="icon-btn" aria-label="Copy one-time code" onClick={() => copy("One-time code", totp.code)} disabled={!totp.code}>
                 <Copy size={20} />
               </button>

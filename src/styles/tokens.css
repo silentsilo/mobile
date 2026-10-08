@@ -69,6 +69,7 @@
   --dur-2: 200ms;
   --dur-3: 260ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
 
   /* 48 on Android; iOS takes 44 when it comes. */
   --target: 48px;
