@@ -3,7 +3,7 @@ import { useState } from "react";
 import { api, type JoinPreview, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { isComplete } from "../shared/recoveryCode";
-import { Field, Sheet, StepBar, useToast } from "../ui/chrome";
+import { Field, Notice, Sheet, StepBar, useToast } from "../ui/chrome";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 
@@ -81,7 +81,7 @@ export function JoinCode({
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
         </Field>
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         <div className="spacer" />
         <button className="btn" disabled={!isComplete(code) || busy} onClick={join}>
           {busy ? "Opening the silo" : "Continue"}

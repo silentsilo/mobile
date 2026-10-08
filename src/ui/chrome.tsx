@@ -1,5 +1,5 @@
-import { ArrowLeft } from "lucide-react";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { ArrowLeft, CircleAlert, Info, TriangleAlert } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useBackLayer } from "./back";
 
 const nothing = () => undefined;
@@ -20,9 +20,9 @@ export function TopBar({
     <div className="top-bar">
       {onBack &&
         (backLabel ? (
-          <button className="text-btn" style={{ paddingLeft: 4, gap: 2 }} onClick={onBack}>
-            <ArrowLeft size={22} />
-            {backLabel}
+          <button className="text-btn back-label" onClick={onBack}>
+            <ArrowLeft size={22} style={{ flex: "none" }} />
+            <span>{backLabel}</span>
           </button>
         ) : (
           <button className="icon-btn" aria-label="Back" style={{ color: "var(--ink)" }} onClick={onBack}>
@@ -56,12 +56,90 @@ export function StepBar({ step, onBack }: { step: 1 | 2 | 3; onBack: () => void 
   );
 }
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({ label, error, errorId, children }: { label: string; error?: string | null; errorId?: string; children: ReactNode }) {
   return (
-    <label className="field">
-      <span className="label">{label}</span>
-      {children}
-    </label>
+    <div className="field">
+      <label className="field">
+        <span className="label">{label}</span>
+        {children}
+      </label>
+      {error && <FieldError id={errorId}>{error}</FieldError>}
+    </div>
+  );
+}
+
+/** The reason a field is not accepted, under it, announced when it appears. */
+export function FieldError({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <p className="field-error" id={id} role="alert">
+      <CircleAlert size={16} aria-hidden />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+/**
+ * A boxed message. Errors are announced when they appear; `quiet` is for one
+ * that is part of the screen from the start.
+ */
+export function Notice({
+  tone,
+  quiet = false,
+  style,
+  children,
+}: {
+  tone?: "error" | "warning";
+  quiet?: boolean;
+  style?: CSSProperties;
+  children: ReactNode;
+}) {
+  const Icon = tone === "error" ? CircleAlert : tone === "warning" ? TriangleAlert : Info;
+  return (
+    <div className={`notice${tone ? ` ${tone}` : ""}`} role={tone === "error" && !quiet ? "alert" : undefined} style={style}>
+      <Icon size={18} aria-hidden />
+      <div style={{ minWidth: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+/** A row that is a switch as a whole: the label, the hint and the track. */
+export function ToggleRow({
+  label,
+  hint,
+  icon,
+  checked,
+  onChange,
+  disabled,
+  busy,
+  first = false,
+}: {
+  label: string;
+  hint?: string;
+  icon?: ReactNode;
+  checked: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+  busy?: boolean;
+  first?: boolean;
+}) {
+  return (
+    <button
+      className={`row toggle-row${first ? "" : " divide"}`}
+      role="switch"
+      aria-checked={checked}
+      aria-busy={busy || undefined}
+      disabled={disabled}
+      onClick={onChange}
+    >
+      {icon}
+      <span className="row-text">
+        <span className="row-title" style={{ fontWeight: 500, whiteSpace: "normal" }}>
+          {label}
+        </span>
+        {hint && <span className="row-sub">{hint}</span>}
+      </span>
+      <span className="switch" aria-hidden />
+    </button>
   );
 }
 

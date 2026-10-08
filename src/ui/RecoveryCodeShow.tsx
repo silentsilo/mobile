@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { toGroups } from "../shared/recoveryCode";
+import { Notice } from "./chrome";
 
 type Keeper = { showing: (code: string) => void; hidden: () => void; kept: () => void };
 
@@ -57,7 +58,7 @@ function CodeOnPaper({ code, onKept }: { code: string; onKept: () => void }) {
       </div>
       <p className="hint small">There is no copy button: other apps can read the clipboard.</p>
       <label className="row" style={{ minHeight: 56, gap: 12 }}>
-        <input type="checkbox" checked={kept} onChange={(e) => setKept(e.target.checked)} style={{ width: 22, height: 22 }} />
+        <input type="checkbox" checked={kept} onChange={(e) => setKept(e.target.checked)} />
         <span className="small">I wrote the code down and keep it apart from this phone</span>
       </label>
       <button className="btn" disabled={!kept} onClick={onKept}>
@@ -117,12 +118,12 @@ export function RecoveryCodeShow({
           once, so write it on paper.
         </p>
         {replacing && (
-          <div className="notice warning">
+          <Notice tone="warning">
             The code made before stops working once this one syncs. Throw the old paper away after.
             {archiveTargets > 0 && " A never-delete copy keeps the old code, and it still opens what is stored there."}
-          </div>
+          </Notice>
         )}
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         <button className="btn" disabled={busy} onClick={() => void make()}>
           {busy ? "Making the code" : replacing ? "Make a new code" : "Make the recovery code"}
         </button>

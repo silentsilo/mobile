@@ -6,7 +6,7 @@ import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { AuditStatus, RecoveryStatus } from "../shared/types";
 import { HISTORY_POLICIES, type HistoryPolicy } from "../shared/entryHistory";
-import { Sheet, useToast } from "../ui/chrome";
+import { Notice, Sheet, ToggleRow, useToast } from "../ui/chrome";
 import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
 import { announceSilo } from "./SiloSwitcher";
@@ -225,24 +225,19 @@ export function Silo({
             {navRow(History, "Earlier versions", historyPolicy === null ? "" : historyLabel(historyPolicy), () => setChoosingHistory(true))}
             {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
             {screenOff !== null && (
-              <div className="row divide" style={{ minHeight: 60 }}>
-                <MonitorOff size={20} color="var(--accent-text)" />
-                <span style={{ flex: 1 }}>Lock when the screen turns off</span>
-                <button
-                  className="switch"
-                  role="switch"
-                  aria-checked={screenOff}
-                  aria-label="Lock when the screen turns off"
-                  onClick={() => {
-                    const next = !screenOff;
-                    setScreenOff(next);
-                    api.setLockOnScreenOff(next).catch((e) => {
-                      setScreenOff(!next);
-                      toast(formatAppError(e));
-                    });
-                  }}
-                />
-              </div>
+              <ToggleRow
+                icon={<MonitorOff size={20} color="var(--accent-text)" style={{ flex: "none" }} />}
+                label="Lock when the screen turns off"
+                checked={screenOff}
+                onChange={() => {
+                  const next = !screenOff;
+                  setScreenOff(next);
+                  api.setLockOnScreenOff(next).catch((e) => {
+                    setScreenOff(!next);
+                    toast(formatAppError(e));
+                  });
+                }}
+              />
             )}
           </div>
         </div>
@@ -312,17 +307,13 @@ export function Silo({
               yet.
             </p>
             <div className="panel">
-              <div className="row" style={{ minHeight: 60 }}>
-                <span style={{ flex: 1 }}>Keep an activity log</span>
-                <button
-                  className="switch"
-                  role="switch"
-                  aria-checked={audit?.enabled ?? false}
-                  aria-label="Keep an activity log"
-                  disabled={audit === null}
-                  onClick={() => void setAuditLog(!(audit?.enabled ?? false))}
-                />
-              </div>
+              <ToggleRow
+                first
+                label="Keep an activity log"
+                checked={audit?.enabled ?? false}
+                disabled={audit === null}
+                onChange={() => void setAuditLog(!(audit?.enabled ?? false))}
+              />
             </div>
           </>
         )}
@@ -385,15 +376,15 @@ export function Silo({
             To stop other devices listing this phone's key, remove it under Keys first.
           </p>
         ) : (
-          <div className="notice error">
+          <Notice tone="error" quiet>
             This silo has no backup storage, so this phone holds its only copy. Removing it deletes the silo for good.
-          </div>
+          </Notice>
         )}
         {sync?.configured && waiting > 0 && (
-          <div className="notice warning">
+          <Notice tone="warning">
             {waiting === 1 ? "1 change has" : `${waiting} changes have`} not reached backup storage yet and would be lost. Sync
             first.
-          </div>
+          </Notice>
         )}
         <button
           className="btn danger"

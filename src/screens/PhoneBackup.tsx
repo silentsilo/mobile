@@ -1,9 +1,9 @@
-import { ChevronRight, RefreshCw } from "lucide-react";
+import { Check, ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type BackupSettings, type BackupStatus, type MediaFolder } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
-import { Sheet, TopBar, useToast } from "../ui/chrome";
+import { Notice, Sheet, ToggleRow, TopBar, useToast } from "../ui/chrome";
 
 /** How long ago, in the words desktop's status lines use. */
 function ago(seconds: number) {
@@ -119,13 +119,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
   };
 
   const toggle = (label: string, hint: string, on: boolean, onChange: () => void, first = false) => (
-    <div className={`row${first ? "" : " divide"}`} style={{ minHeight: 64 }}>
-      <div className="row-text">
-        <span className="row-title">{label}</span>
-        <span className="row-sub">{hint}</span>
-      </div>
-      <button className="switch" role="switch" aria-checked={on} aria-label={label} aria-busy={busy} onClick={onChange} />
-    </div>
+    <ToggleRow label={label} hint={hint} checked={on} busy={busy} onChange={onChange} first={first} />
   );
 
   const on = !!status && (status.photos || status.videos || status.contacts);
@@ -144,7 +138,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
             SilentSilo 1.1 or later. The originals stay on the phone.
           </p>
         </div>
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         {status && (
           <>
             <div className="panel">
@@ -187,7 +181,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
                   <span className="muted">Last run</span>
                   <span>{ago(status.lastRun)}</span>
                 </div>
-                {status.lastError && <div className="notice error">{status.lastError}</div>}
+                {status.lastError && <Notice tone="error">{status.lastError}</Notice>}
                 <button className="btn secondary" onClick={runNow} disabled={busy}>
                   <RefreshCw size={18} />
                   Back up now
@@ -277,7 +271,8 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
                   key={folder.id}
                   className={`row${i ? " divide" : ""}`}
                   style={{ minHeight: 56 }}
-                  aria-pressed={ticked}
+                  role="checkbox"
+                  aria-checked={ticked}
                   onClick={() => setChosen(ticked ? chosen.filter((id) => id !== folder.id) : [...chosen, folder.id])}
                 >
                   <span className="row-text">
@@ -286,7 +281,9 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
                       {folder.photos.toLocaleString()} photos · {folder.videos.toLocaleString()} videos · {formatBytes(folder.bytes)}
                     </span>
                   </span>
-                  <span className="switch" role="presentation" aria-checked={ticked} />
+                  <span className="checkmark" aria-hidden>
+                    <Check size={16} strokeWidth={3} />
+                  </span>
                 </button>
               );
             })}

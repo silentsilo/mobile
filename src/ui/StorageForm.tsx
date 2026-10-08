@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, type CloudKind, type StorageView, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
-import { Field, Sheet } from "./chrome";
+import { Field, Notice, Sheet } from "./chrome";
 
 type Kind = StoreConfigInput["kind"];
 
@@ -251,7 +251,7 @@ export function StorageForm({
         placeholder={secretKept ? "Unchanged" : undefined}
         autoComplete="off"
       />
-      <button className="icon-btn" style={{ width: 36, height: 36 }} aria-label={showSecret ? "Hide" : "Show"} onClick={(e) => { e.preventDefault(); setShowSecret(!showSecret); }}>
+      <button className="icon-btn" aria-label={showSecret ? "Hide" : "Show"} onClick={(e) => { e.preventDefault(); setShowSecret(!showSecret); }}>
         {showSecret ? <EyeOff size={20} /> : <Eye size={20} />}
       </button>
     </div>
@@ -351,7 +351,7 @@ export function StorageForm({
                   </div>
                 </Field>
               ) : (
-                <div className="notice error">There is no silo in {CLOUD[kind].place} yet. Sync once from your computer.</div>
+                <Notice tone="error">There is no silo in {CLOUD[kind].place} yet. Sync once from your computer.</Notice>
               )
             ) : (
               <>
@@ -382,8 +382,8 @@ export function StorageForm({
             <Field label="Folder in the bucket (optional)">{text("prefix")}</Field>
             <Field label="Access key ID">{text("accessKeyId")}</Field>
             <Field label="Secret access key">{secretInput("secret")}</Field>
-            <label style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <input type="checkbox" checked={pathStyle} onChange={(e) => setPathStyle(e.target.checked)} style={{ width: 22, height: 22 }} />
+            <label className="check-label">
+              <input type="checkbox" checked={pathStyle} onChange={(e) => setPathStyle(e.target.checked)} />
               <span>Path-style addresses (MinIO and most self-hosted servers)</span>
             </label>
           </>
@@ -408,13 +408,13 @@ export function StorageForm({
         )}
       </div>
       {plainHttp && (
-        <div className="notice warning">
+        <Notice tone="warning">
           Plain HTTP. Your files are still encrypted, but the password or access key for this storage travels readable on the
           network, public Wi-Fi included. Use https://.
-        </div>
+        </Notice>
       )}
       <p className="hint small">The silo is encrypted on this phone before it is sent. These details stay on this phone.</p>
-      {error && <div className="notice error">{error}</div>}
+      {error && <Notice tone="error">{error}</Notice>}
       <div className="spacer" />
       <button className="btn" disabled={!ready || busy} onClick={onContinue}>
         {busy ? busyLabel : submitLabel}
@@ -429,10 +429,10 @@ export function StorageForm({
           {fingerprint}
         </div>
         {rekeyed && (
-          <div className="notice error">
+          <Notice tone="error">
             This is not the key this server had before. If you did not change the server, someone may be between this phone
             and it. The saved password is not sent to it: type the password again to trust the new key.
-          </div>
+          </Notice>
         )}
         <button className="btn" disabled={rekeyed && !f.password} onClick={() => { const fp = fingerprint; setFingerprint(null); void submit(fp); }}>
           They match, continue

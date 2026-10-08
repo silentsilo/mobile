@@ -4,7 +4,7 @@ import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import type { TrashItem } from "../shared/types";
-import { Sheet, TopBar, useToast } from "../ui/chrome";
+import { Notice, Sheet, TopBar, useToast } from "../ui/chrome";
 import { fileIcon } from "./Files";
 
 /** Said before a purge: the app never deletes from a never-delete copy. */
@@ -48,7 +48,7 @@ export function Trash({ sync, onBack }: { sync: SyncStatus | null; onBack: () =>
           <h1 className="title">Trash</h1>
           <p className="hint">Deleted files and folders stay here, on every device, until the trash is emptied.</p>
         </div>
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         {items?.length === 0 && <p className="hint" style={{ textAlign: "center", padding: 24 }}>The trash is empty.</p>}
         {items && items.length > 0 && (
           <div className="panel">

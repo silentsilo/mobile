@@ -1,9 +1,9 @@
-import { LockKeyhole, ScanFace } from "lucide-react";
+import { ScanFace } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { useBackLayer } from "../ui/back";
-import { Field, StepBar, TopBar } from "../ui/chrome";
+import { Field, Notice, StepBar, TopBar } from "../ui/chrome";
 
 /**
  * Making this phone's key. `rekey` is the same thing after a fingerprint
@@ -66,13 +66,12 @@ export function JoinKey({
               : "SilentSilo makes a key in this phone's secure hardware, which does not let it be copied off the phone. It opens the silo after your fingerprint or face."}
           </p>
         </div>
-        <div className="notice warning">
-          <LockKeyhole size={20} style={{ flex: "none", marginTop: 1 }} />
+        <Notice tone="warning">
           <p className="hint small">
             Adding or removing a fingerprint later retires this key. You would then unlock with your recovery code and set
             the phone up again.
           </p>
-        </div>
+        </Notice>
         <Field label="Name this key">
           <div className="input">
             <input
@@ -85,7 +84,7 @@ export function JoinKey({
             />
           </div>
         </Field>
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         <div className="spacer" />
         <button className="btn" disabled={busy} onClick={create}>
           {busy ? "Waiting for your fingerprint or face" : rekey ? "Create new key" : "Create key"}

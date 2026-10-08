@@ -9,6 +9,8 @@ import { applyTheme, readTheme } from "./ui/theme";
 async function start() {
   // Before the first paint, so a chosen theme never flashes the other one.
   applyTheme(readTheme());
+  // WebKit shows :active on a touch only when the page listens for touches.
+  document.addEventListener("touchstart", () => undefined, { passive: true });
   // Development only, and only when asked for: a release build never runs it.
   if (import.meta.env.DEV && (location.search.includes("mock") || import.meta.env.VITE_MOCK === "1")) {
     const { installMockBackend } = await import("./dev/mockBackend");

@@ -25,7 +25,7 @@ import { Unlock } from "./screens/Unlock";
 import { Welcome } from "./screens/Welcome";
 import { formatAppError } from "./shared/errors";
 import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
-import { ToastProvider, useToast } from "./ui/chrome";
+import { Notice, ToastProvider, useToast } from "./ui/chrome";
 import { RecoveryCodeKeeper } from "./ui/RecoveryCodeShow";
 import { SyncActivityProvider } from "./ui/syncActivity";
 import { useBackLayer } from "./ui/back";
@@ -170,7 +170,7 @@ export default function App() {
         return (
           <div className="screen">
             <div className="screen-body">
-              <div className="notice error">{phase.message}</div>
+              <Notice tone="error">{phase.message}</Notice>
               <div className="spacer" />
               <button
                 className="btn"
@@ -422,7 +422,9 @@ function OpenSiloScreens({
         if (wide) setDetail(null);
       }}
     >
-      <Icon size={24} />
+      <span className="tab-icon" aria-hidden>
+        <Icon size={22} />
+      </span>
       {label}
     </button>
   ));

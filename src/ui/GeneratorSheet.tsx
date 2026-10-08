@@ -1,7 +1,7 @@
 import { RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DEFAULT_GEN_OPTIONS, generatePassword, passwordStrength, type PasswordGenOptions } from "../shared/passwordUtil";
-import { Sheet } from "./chrome";
+import { Sheet, ToggleRow } from "./chrome";
 
 export function GeneratorSheet({ open, onClose, onUse }: { open: boolean; onClose: () => void; onUse: (password: string) => void }) {
   const [opts, setOpts] = useState<PasswordGenOptions>(DEFAULT_GEN_OPTIONS);
@@ -51,17 +51,8 @@ export function GeneratorSheet({ open, onClose, onUse }: { open: boolean; onClos
         />
       </label>
       <div className="panel">
-        {toggles.map(({ key, label }) => (
-          <div key={key} className="row" style={{ minHeight: 56, justifyContent: "space-between" }}>
-            <span>{label}</span>
-            <button
-              className="switch"
-              role="switch"
-              aria-checked={opts[key]}
-              aria-label={label}
-              onClick={() => setOpts({ ...opts, [key]: !opts[key] })}
-            />
-          </div>
+        {toggles.map(({ key, label }, i) => (
+          <ToggleRow key={key} first={i === 0} label={label} checked={opts[key]} onChange={() => setOpts({ ...opts, [key]: !opts[key] })} />
         ))}
       </div>
       <button className="btn" onClick={() => onUse(value)}>

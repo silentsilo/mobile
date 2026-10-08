@@ -1,12 +1,12 @@
 import { Eye, EyeOff, Plus, Trash2, WandSparkles } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { withEdits } from "../shared/passwordEntry";
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, parseTotpInput } from "../shared/totp";
 import type { CustomField, PasswordEntry } from "../shared/types";
 import { useBackLayer } from "../ui/back";
-import { Field, Sheet } from "../ui/chrome";
+import { Field, Notice, Sheet } from "../ui/chrome";
 import { GeneratorSheet } from "../ui/GeneratorSheet";
 
 function blankEntry(): PasswordEntry {
@@ -40,12 +40,19 @@ export function EntryEdit({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A field's own problem, shown under it.
+  const [fieldError, setFieldError] = useState<{ field: "name" | "totp"; message: string } | null>(null);
+  // The field at fault comes into view with the caret in it.
+  useEffect(() => {
+    if (fieldError) document.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
+  }, [fieldError]);
   // Back is Cancel, except while a save or delete is running.
   useBackLayer(true, () => !busy && onCancel());
 
   const save = async () => {
+    setFieldError(null);
     if (!service.trim()) {
-      setError("Give the entry a name.");
+      setFieldError({ field: "name", message: "Give the entry a name." });
       return;
     }
     // A row left with neither a name nor a value was added and never used.
@@ -62,7 +69,7 @@ export function EntryEdit({
     if (totp.trim()) {
       const params = parseTotpInput(totp.trim());
       if (!params) {
-        setError("That one-time code setup key is not valid.");
+        setFieldError({ field: "totp", message: "That one-time code setup key is not valid." });
         return;
       }
       changes.totp_secret = params.secret;
@@ -96,11 +103,30 @@ export function EntryEdit({
     }
   };
 
-  const input = (value: string, onChange: (v: string) => void, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
-    <div className="input">
-      <input value={value} onChange={(e) => onChange(e.target.value)} autoCapitalize="none" autoCorrect="off" spellCheck={false} {...props} />
+  const invalid = (field: "name" | "totp") => fieldError?.field === field;
+  const input = (
+    value: string,
+    onChange: (v: string) => void,
+    props: React.InputHTMLAttributes<HTMLInputElement> = {},
+    field?: "name" | "totp",
+  ) => (
+    <div className={field && invalid(field) ? "input invalid" : "input"}>
+      <input
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (field && invalid(field)) setFieldError(null);
+        }}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        aria-invalid={field && invalid(field) ? true : undefined}
+        aria-describedby={field && invalid(field) ? `${field}-error` : undefined}
+        {...props}
+      />
     </div>
   );
+  const errorFor = (field: "name" | "totp") => (invalid(field) ? fieldError!.message : null);
 
   return (
     <div className="screen">
@@ -114,7 +140,11 @@ export function EntryEdit({
         </button>
       </div>
       <div className="screen-body" style={{ gap: 16 }}>
-        <Field label="Name">{input(service, setService, { autoCapitalize: "words", autoFocus: !entry })}</Field>
+        {/* Up here, next to Save: what went wrong with the save itself. */}
+        {error && <Notice tone="error">{error}</Notice>}
+        <Field label="Name" error={errorFor("name")} errorId="name-error">
+          {input(service, setService, { autoCapitalize: "words", autoFocus: !entry }, "name")}
+        </Field>
         <Field label="Username">{input(username, setUsername, { inputMode: "email" })}</Field>
         <Field label="Password">
           <div style={{ display: "flex", gap: 8 }}>
@@ -125,7 +155,7 @@ export function EntryEdit({
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
               />
-              <button className="icon-btn" style={{ width: 36, height: 36 }} aria-label={showPassword ? "Hide password" : "Show password"} onClick={(e) => { e.preventDefault(); setShowPassword(!showPassword); }}>
+              <button className="icon-btn" aria-label={showPassword ? "Hide password" : "Show password"} onClick={(e) => { e.preventDefault(); setShowPassword(!showPassword); }}>
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
@@ -135,7 +165,9 @@ export function EntryEdit({
           </div>
         </Field>
         <Field label="Website">{input(url, setUrl, { inputMode: "url", placeholder: "example.com" })}</Field>
-        <Field label="One-time code setup key">{input(totp, setTotp, { placeholder: "Optional" })}</Field>
+        <Field label="One-time code setup key" error={errorFor("totp")} errorId="totp-error">
+          {input(totp, setTotp, { placeholder: "Optional" }, "totp")}
+        </Field>
         <Field label="Custom fields">
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {fields.map((field, i) => {
@@ -163,7 +195,7 @@ export function EntryEdit({
                       onChange={(e) => update({ value: e.target.value })}
                     />
                   </div>
-                  <label className="hint small" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <label className="hint small check-label">
                     <input type="checkbox" checked={field.hidden} onChange={(e) => update({ hidden: e.target.checked })} />
                     Hidden, masked like the password
                   </label>
@@ -181,7 +213,6 @@ export function EntryEdit({
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
           </div>
         </Field>
-        {error && <div className="notice error">{error}</div>}
         <div className="spacer" />
         {entry && (
           <button className="btn danger" onClick={() => setConfirmDelete(true)} disabled={busy}>

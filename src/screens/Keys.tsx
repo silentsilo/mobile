@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { SecurityKeyInfo } from "../shared/types";
-import { Field, Sheet, TopBar } from "../ui/chrome";
+import { Field, Notice, Sheet, TopBar } from "../ui/chrome";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 
 function describe(key: SecurityKeyInfo) {
@@ -79,7 +79,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
           <h1 className="title">Keys</h1>
           <p className="hint">Each key opens this silo on its own.</p>
         </div>
-        {error && !chosen && <div className="notice error">{error}</div>}
+        {error && !chosen && <Notice tone="error">{error}</Notice>}
         {keys && (
           <div className="panel">
             {keys.map((key, i) => {
@@ -125,7 +125,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
                 <input value={label} onChange={(e) => setLabel(e.target.value)} />
               </div>
             </Field>
-            {addError && <div className="notice error">{addError}</div>}
+            {addError && <Notice tone="error">{addError}</Notice>}
             <button className="btn" onClick={() => void addKey()}>
               Continue
             </button>
@@ -143,10 +143,10 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
 
       <Sheet open={chosen !== null} onClose={() => setChosen(null)} title={chosen ? `Remove ${chosen.label || describe(chosen).detail}?` : undefined}>
         {chosen?.this_phone && (
-          <div className="notice error">
+          <Notice tone="error" quiet>
             This is this phone&apos;s own key. Once it is removed, this phone opens the silo only with the recovery code or
             another key, and asks you to add a key again.
-          </div>
+          </Notice>
         )}
         <p className="hint">
           It stops opening this silo.
@@ -154,7 +154,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
           If the key was lost or stolen, also replace the encryption key from SilentSilo on your computer, so it cannot open
           anything saved from then on.
         </p>
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         <button className="btn danger" onClick={remove} disabled={busy}>
           {busy ? "Removing" : "Remove key"}
         </button>

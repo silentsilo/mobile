@@ -5,7 +5,7 @@ import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import { addAll } from "../shared/importing";
 import type { VaultEntry } from "../shared/types";
-import { TopBar, useToast } from "../ui/chrome";
+import { Notice, TopBar, useToast } from "../ui/chrome";
 
 type Crumb = { id: string; name: string };
 
@@ -67,7 +67,7 @@ export function SaveShared({ files, siloName, onDone }: { files: Offered[]; silo
             {files.every((f) => f.size >= 0) && `, ${formatBytes(files.reduce((n, f) => n + f.size, 0))}`}
           </p>
         </div>
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         <div className="panel">
           {folders?.length === 0 && <p className="hint" style={{ padding: 16 }}>No folders here.</p>}
           {folders?.map((f, i) => (

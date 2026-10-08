@@ -2,6 +2,7 @@ import { Nfc } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { api, type SecurityKeyStatus } from "../api";
+import { Notice } from "./chrome";
 
 /** What to do with the key while the phone waits for it. */
 export function SecurityKeyWait({ touches = 1 }: { touches?: 1 | 2 }) {
@@ -37,14 +38,14 @@ export function SecurityKeyWait({ touches = 1 }: { touches?: 1 | 2 }) {
         </p>
       )}
       {status && status.nfc && !status.nfcOn && (
-        <div className="notice warning" style={{ alignSelf: "stretch" }}>
+        <Notice tone="warning" style={{ alignSelf: "stretch" }}>
           NFC is off. Turn it on in the phone's settings, or plug the key in.
-        </div>
+        </Notice>
       )}
       {status && !status.nfc && !status.usb && (
-        <div className="notice error" style={{ alignSelf: "stretch" }}>
+        <Notice tone="error" quiet style={{ alignSelf: "stretch" }}>
           This phone has neither NFC nor a USB port that can reach a security key.
-        </div>
+        </Notice>
       )}
     </div>
   );

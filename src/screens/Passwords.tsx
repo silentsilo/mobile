@@ -4,7 +4,7 @@ import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { avatarColor, inkOn, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
 import type { PasswordEntry } from "../shared/types";
-import { useToast } from "../ui/chrome";
+import { Notice, useToast } from "../ui/chrome";
 import { describeProgress, useSyncProgress } from "../ui/syncActivity";
 import { ensureVerified } from "../ui/reverify";
 import { SiloSwitcher } from "./SiloSwitcher";
@@ -112,7 +112,7 @@ export function Passwords({
         </div>
       </div>
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {error && <div className="notice error" style={{ margin: 16 }}>{error}</div>}
+        {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
         {entries && shown.length === 0 && (
           <p className="hint" style={{ textAlign: "center", padding: 32 }}>
             {query ? "Nothing matches that search." : "No passwords in this silo yet."}

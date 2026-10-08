@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
-import { Field, StepBar } from "../ui/chrome";
+import { Field, Notice, StepBar } from "../ui/chrome";
 
 /** A new silo, made on this phone. Its key, recovery code and storage come next. */
 export function CreateSilo({ onBack, onCreated }: { onBack: () => void; onCreated: () => void }) {
@@ -38,7 +38,7 @@ export function CreateSilo({ onBack, onCreated }: { onBack: () => void; onCreate
             <input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </div>
         </Field>
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         <div className="spacer" />
         <button className="btn" disabled={!name.trim() || busy} onClick={() => void create()}>
           {busy ? "Making the silo" : "Continue"}

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Offered } from "../api";
 import { formatAppError } from "../shared/errors";
 import { isComplete } from "../shared/recoveryCode";
-import { Sheet } from "../ui/chrome";
+import { Notice, Sheet } from "../ui/chrome";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 
@@ -133,12 +133,12 @@ export function Unlock({
           </p>
         </div>
         {invalidated && (
-          <div className="notice warning" style={{ alignSelf: "stretch" }}>
+          <Notice tone="warning" style={{ alignSelf: "stretch" }}>
             <p className="hint small">
               The fingerprints or faces on this phone changed, so its silo key was retired. Use your recovery code below, and
               the app will offer to set this phone up again.
             </p>
-          </div>
+          </Notice>
         )}
         {shared.length > 0 && (
           <div className="notice" style={{ alignSelf: "stretch" }}>
@@ -147,9 +147,9 @@ export function Unlock({
           </div>
         )}
         {error && !recovering && !invalidated && (
-          <div className="notice error" style={{ alignSelf: "stretch" }}>
+          <Notice tone="error" style={{ alignSelf: "stretch" }}>
             {error}
-          </div>
+          </Notice>
         )}
         <div style={{ flex: 1.3 }} />
         <div style={{ display: "flex", flexDirection: "column", gap: 10, alignSelf: "stretch" }}>
@@ -183,7 +183,7 @@ export function Unlock({
 
       <Sheet open={recovering} onClose={() => setRecovering(false)} title="Unlock with your recovery code">
         <RecoveryCodeInput value={code} onChange={setCode} disabled={busy} autoFocus />
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         <button className="btn" disabled={!isComplete(code) || busy} onClick={unlockWithCode}>
           {busy ? "Unlocking" : "Unlock"}
         </button>

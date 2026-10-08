@@ -5,7 +5,7 @@ import { formatAppError } from "../shared/errors";
 import { analyseHealth, type HealthFinding } from "../shared/health";
 import { subtitleFor } from "../shared/passwordUtil";
 import type { PasswordEntry } from "../shared/types";
-import { TopBar } from "../ui/chrome";
+import { Notice, TopBar } from "../ui/chrome";
 
 const COLOUR: Record<HealthFinding["severity"], string> = {
   high: "var(--danger)",
@@ -49,7 +49,7 @@ export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry:
           <h1 className="title">Password health</h1>
           <p className="hint">Checked on this phone. No password leaves it for this.</p>
         </div>
-        {error && <div className="notice error">{error}</div>}
+        {error && <Notice tone="error">{error}</Notice>}
         {findings?.length === 0 && <div className="notice">Nothing to fix. Every password is unique and strong.</div>}
         {findings?.map((finding) => {
           const expanded = open === finding.id;

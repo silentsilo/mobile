@@ -6,7 +6,7 @@ import { formatBytes, formatDate } from "../shared/format";
 import type { FileEntry, FolderEntry, VaultEntry } from "../shared/types";
 import { addAll, photoName } from "../shared/importing";
 import { useBackLayer } from "../ui/back";
-import { Sheet, TopBar, useToast } from "../ui/chrome";
+import { Notice, Sheet, TopBar, useToast } from "../ui/chrome";
 import { useSyncProgress } from "../ui/syncActivity";
 import { SiloHeader } from "./Passwords";
 
@@ -384,7 +384,7 @@ export function Files({
       </div>
       {progress && <div className="notice" style={{ margin: "0 16px 10px" }}>{progress}</div>}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {error && <div className="notice error" style={{ margin: 16 }}>{error}</div>}
+        {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
         {searching && hits && hits.length === 0 && (
           <p className="hint" style={{ textAlign: "center", padding: 32 }}>
             Nothing in the silo matches.
