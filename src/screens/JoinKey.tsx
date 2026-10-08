@@ -4,6 +4,7 @@ import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { useBackLayer } from "../ui/back";
 import { Field, Notice, StepBar, TopBar } from "../ui/chrome";
+import { t, useLocale } from "../i18n";
 
 /**
  * Making this phone's key. `rekey` is the same thing after a fingerprint
@@ -23,6 +24,7 @@ export function JoinKey({
   of?: number;
   rekey?: boolean;
 }) {
+  useLocale();
   const [label, setLabel] = useState("");
   const [edited, setEdited] = useState(false);
 
@@ -42,7 +44,7 @@ export function JoinKey({
     setBusy(true);
     setError(null);
     try {
-      await api.enrollDeviceKey(label.trim() || "This phone");
+      await api.enrollDeviceKey(label.trim() || t("start.key_default_label"));
       onDone();
     } catch (e) {
       setError(formatAppError(e));
@@ -61,24 +63,17 @@ export function JoinKey({
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h1 className="title">{rekey ? "Set this phone up again" : "Let this phone unlock the silo"}</h1>
-          <p className="hint">
-            {rekey
-              ? "The fingerprints or faces on this phone changed, so its old key was retired. A new one brings back unlocking with your fingerprint, autofill and passkeys."
-              : "SilentSilo makes a key in this phone's secure hardware, which does not let it be copied off the phone. It opens the silo after your fingerprint or face."}
-          </p>
+          <h1 className="title">{rekey ? t("start.rekey_title") : t("start.key_title")}</h1>
+          <p className="hint">{rekey ? t("start.rekey_body") : t("start.key_body")}</p>
         </div>
         <Notice tone="warning">
-          <p className="hint small">
-            Adding or removing a fingerprint later retires this key. You would then unlock with your recovery code and set
-            the phone up again.
-          </p>
+          <p className="hint small">{t("start.key_warning")}</p>
         </Notice>
-        <Field label="Name this key">
+        <Field label={t("start.key_name_label")}>
           <div className="input">
             <input
               value={label}
-              placeholder="This phone"
+              placeholder={t("start.key_default_label")}
               onChange={(e) => {
                 setEdited(true);
                 setLabel(e.target.value);
@@ -89,11 +84,11 @@ export function JoinKey({
         {error && <Notice tone="error">{error}</Notice>}
         <div className="spacer" />
         <button className="btn" aria-busy={busy} disabled={busy} onClick={create}>
-          {busy ? "Waiting for your fingerprint or face" : rekey ? "Create new key" : "Create key"}
+          {busy ? t("start.waiting_biometric") : rekey ? t("start.key_create_new") : t("start.key_create")}
         </button>
         {rekey && (
           <button className="btn secondary" disabled={busy} onClick={onBack}>
-            Not now
+            {t("start.not_now")}
           </button>
         )}
       </div>

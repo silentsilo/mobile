@@ -3,6 +3,7 @@ import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { toGroups } from "../shared/recoveryCode";
 import { Notice } from "./chrome";
+import { t, useLocale } from "../i18n";
 
 type Keeper = { showing: (code: string) => void; hidden: () => void; kept: () => void };
 
@@ -17,6 +18,7 @@ const CodeKeeper = createContext<Keeper | null>(null);
  * code that opens the silo without the fingerprint.
  */
 export function RecoveryCodeKeeper({ open, children }: { open: boolean; children: ReactNode }) {
+  useLocale();
   const [held, setHeld] = useState<{ code: string; onScreen: boolean } | null>(null);
   const keeper = useMemo<Keeper>(
     () => ({
@@ -31,11 +33,8 @@ export function RecoveryCodeKeeper({ open, children }: { open: boolean; children
       {held && !held.onScreen && open ? (
         <div className="screen">
           <div className="screen-body">
-            <h1 className="title">Your new recovery code</h1>
-            <p className="hint">
-              The silo locked while this code was on screen. Write it down now: it is not shown again, and the code made
-              before no longer works.
-            </p>
+            <h1 className="title">{t("start.recovery_new_title")}</h1>
+            <p className="hint">{t("start.recovery_new_body")}</p>
             <CodeOnPaper code={held.code} onKept={keeper.kept} />
           </div>
         </div>
@@ -48,6 +47,7 @@ export function RecoveryCodeKeeper({ open, children }: { open: boolean; children
 
 /** The code in its printed groups, and the promise it was written down. */
 function CodeOnPaper({ code, onKept }: { code: string; onKept: () => void }) {
+  useLocale();
   const [kept, setKept] = useState(false);
   return (
     <>
@@ -56,13 +56,13 @@ function CodeOnPaper({ code, onKept }: { code: string; onKept: () => void }) {
           <span key={i}>{group}</span>
         ))}
       </div>
-      <p className="hint small">There is no copy button: other apps can read the clipboard.</p>
+      <p className="hint small">{t("start.recovery_no_copy")}</p>
       <label className="row" style={{ minHeight: 56, gap: 12 }}>
         <input type="checkbox" checked={kept} onChange={(e) => setKept(e.target.checked)} />
-        <span className="small">I wrote the code down and keep it apart from this phone</span>
+        <span className="small">{t("start.recovery_kept")}</span>
       </label>
       <button className="btn" disabled={!kept} onClick={onKept}>
-        Continue
+        {t("start.continue")}
       </button>
     </>
   );
@@ -85,6 +85,7 @@ export function RecoveryCodeShow({
   onShown?: () => void;
   onDone: () => void;
 }) {
+  useLocale();
   const [code, setCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -113,19 +114,16 @@ export function RecoveryCodeShow({
   if (!code) {
     return (
       <>
-        <p className="hint">
-          The recovery code opens the silo when every key is gone, after a lost phone or a changed fingerprint. It is shown
-          once, so write it on paper.
-        </p>
+        <p className="hint">{t("start.recovery_intro")}</p>
         {replacing && (
           <Notice tone="warning">
-            The code made before stops working once this one syncs. Throw the old paper away after.
-            {archiveTargets > 0 && " A never-delete copy keeps the old code, and it still opens what is stored there."}
+            {t("start.recovery_replacing")}
+            {archiveTargets > 0 && ` ${t("start.recovery_never_delete")}`}
           </Notice>
         )}
         {error && <Notice tone="error">{error}</Notice>}
         <button className="btn" aria-busy={busy} disabled={busy} onClick={() => void make()}>
-          {busy ? "Making the code" : replacing ? "Make a new code" : "Make the recovery code"}
+          {busy ? t("start.recovery_making") : replacing ? t("start.recovery_make_new") : t("start.recovery_make")}
         </button>
       </>
     );

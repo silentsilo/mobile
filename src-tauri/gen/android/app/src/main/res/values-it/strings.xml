@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_fill_from">Compila da SilentSilo</string>
+    <string name="autofill_fill_title">Compila un login</string>
+    <string name="autofill_nothing_saved">Niente di salvato per %1$s</string>
+    <string name="autofill_no_silo_save">Su questo telefono non c’è alcun silo in cui salvare.</string>
+    <string name="autofill_save_title">Salva il login</string>
+    <string name="autofill_saved_new">Salvato in SilentSilo.</string>
+    <string name="autofill_saved_updated">Password aggiornata in SilentSilo.</string>
+    <string name="autofill_saved_unchanged">SilentSilo ha già questo login.</string>
+    <string name="autofill_save_failed">Impossibile salvare il login.</string>
+    <string name="autofill_pick_hint">Scegli un login solo se volevi compilarlo qui.</string>
+    <string name="autofill_search_hint">Cerca nel silo</string>
+    <string name="cancel">Annulla</string>
+    <string name="cancelled">Annullato.</string>
+    <string name="backup_channel">Backup in attesa del silo</string>
+    <string name="backup_title">Apri SilentSilo per completare il backup</string>
+    <string name="lock_tile">Blocca SilentSilo</string>
+    <string name="passkey_no_silo">Su questo telefono non c’è alcun silo.</string>
+    <string name="passkey_description">Salvata nel silo e sincronizzata con il suo backup</string>
+    <string name="passkey_in">Passkey in %1$s</string>
+    <string name="passkey_only_browser">Per ora solo un browser può usare le passkey di SilentSilo.</string>
+    <string name="passkey_save_for">Salva una passkey per %1$s</string>
+    <string name="passkey_sign_in_to">Accedi a %1$s</string>
+    <string name="passkey_not_saved">La passkey non è stata salvata.</string>
+    <string name="passkey_not_signed">L’accesso non è stato firmato.</string>
+    <string name="passkey_silo_not_open">Il silo non si è aperto.</string>
+    <string name="passkey_none_for_site">Il silo non ha passkey per questo sito.</string>
+    <string name="passkey_choose_for">Scegli una passkey per %1$s</string>
+    <string name="phonekey_changed">Le impronte o i volti su questo telefono sono cambiati, quindi la sua chiave del silo non funziona più. Apri il silo con il codice di recupero, poi aggiungi di nuovo questo telefono.</string>
+    <string name="phonekey_absent">Questo telefono non ha alcuna chiave per questo silo.</string>
+    <string name="pin_title">PIN della chiave di sicurezza</string>
+    <string name="pin_message">Una chiave di sicurezza con PIN ne ha bisogno per aprire il silo, come sul computer. Va solo alla chiave e non viene conservato.</string>
+    <string name="pin_continue">Continua</string>
+    <string name="pin_no_pin">La chiave non ha PIN</string>
+    <plurals name="backup_waiting">
+        <item quantity="one">%d elemento attende di essere aggiunto al silo.</item>
+        <item quantity="many">%d di elementi attendono di essere aggiunti al silo.</item>
+        <item quantity="other">%d elementi attendono di essere aggiunti al silo.</item>
+    </plurals>
+</resources>

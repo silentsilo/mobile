@@ -2,19 +2,23 @@ import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api, type CopyView, type StorageView, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
-import { formatAge } from "../shared/format";
+import { t, useLocale } from "../i18n";
 import { Notice, Sheet, Skeleton, TopBar, useToast } from "../ui/chrome";
 import { StorageForm } from "../ui/StorageForm";
 
-const KIND_NAME: Record<string, string> = {
-  s3: "S3 bucket",
+const BRAND_NAME: Record<string, string> = {
   "web-dav": "WebDAV",
   sftp: "SFTP",
-  folder: "Folder on a computer",
   onedrive: "OneDrive",
   dropbox: "Dropbox",
   "google-drive": "Google Drive",
 };
+
+function kindName(kind: string): string {
+  if (kind === "s3") return t("silo.kind_s3");
+  if (kind === "folder") return t("silo.kind_folder");
+  return BRAND_NAME[kind] ?? kind;
+}
 
 /** Where a copy is, in one line: the account, bucket, server or folder. */
 function whereIs(config: CopyView["config"]): string {
@@ -28,16 +32,34 @@ function whereIs(config: CopyView["config"]): string {
     case "folder":
       return config.path;
     default:
-      return `${config.account}, folder ${config.folder}`;
+      return t("silo.where_cloud", { account: config.account, folder: config.folder });
   }
 }
 
+/** How long ago, coarse, in words that fit "Last written {duration} ago". */
+function describeDuration(seconds: number): string {
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return s <= 1 ? t("silo.duration_moment") : t("silo.duration_seconds", { count: s });
+  const minutes = Math.round(s / 60);
+  if (minutes < 60) return t("silo.duration_minutes", { count: minutes });
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return t("silo.duration_hours", { count: hours });
+  const days = Math.round(hours / 24);
+  if (days < 30) return t("silo.duration_days", { count: days });
+  const months = Math.round(days / 30);
+  if (months < 12) return t("silo.duration_months", { count: months });
+  return t("silo.duration_years", { count: Math.round(months / 12) });
+}
+
 function written(copy: CopyView): string {
-  return copy.lastSuccess > 0 ? `Last written ${formatAge(copy.lastSuccess * 1000)}` : "Not written to yet";
+  return copy.lastSuccess > 0
+    ? t("silo.copy_last_written", { duration: describeDuration(Date.now() / 1000 - copy.lastSuccess) })
+    : t("silo.copy_never");
 }
 
 /** Where the open silo backs up: the main copy, the others, and a new one. */
 export function Storage({ onBack }: { onBack: () => void }) {
+  useLocale();
   const [current, setCurrent] = useState<StorageView | null>(null);
   const [copies, setCopies] = useState<CopyView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +85,7 @@ export function Storage({ onBack }: { onBack: () => void }) {
 
   const save = async (config: StoreConfigInput) => {
     await api.saveStorage(config);
-    toast("Saved. Syncing now.");
+    toast(t("silo.toast_saved"));
     void api.syncNow().catch(() => undefined);
     setEditing(false);
     load();
@@ -71,7 +93,7 @@ export function Storage({ onBack }: { onBack: () => void }) {
 
   const add = async (config: StoreConfigInput) => {
     await api.addCopy(config);
-    toast("Copy added. Syncing now.");
+    toast(t("silo.toast_copy_added"));
     void api.syncNow().catch(() => undefined);
     setAdding(false);
     load();
@@ -81,7 +103,7 @@ export function Storage({ onBack }: { onBack: () => void }) {
     setRemoving(null);
     try {
       await api.removeCopy(copy.id);
-      toast("Copy removed. Nothing there was deleted.");
+      toast(t("silo.toast_copy_removed"));
       load();
     } catch (e) {
       setError(formatAppError(e));
@@ -93,38 +115,38 @@ export function Storage({ onBack }: { onBack: () => void }) {
 
   return (
     <div className="screen">
-      <TopBar onBack={onBack} backLabel="Silo" />
+      <TopBar onBack={onBack} backLabel={t("silo.tab_name")} />
       <div className="screen-body tight" style={{ gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
-          <h1 className="title">Backup storage</h1>
-          {copies && copies.length === 0 && <p className="hint">Not backed up. This silo is only on this phone.</p>}
+          <h1 className="title">{t("silo.row_storage")}</h1>
+          {copies && copies.length === 0 && <p className="hint">{t("silo.storage_none")}</p>}
         </div>
         {error && <Notice tone="error">{error}</Notice>}
         {!copies && !error && <Skeleton avatar={false} rows={2} />}
 
         {copies && copies.length === 0 && current && (
-          <StorageForm current={current} submitLabel="Save" busyLabel="Checking the backup storage" onSubmit={save} />
+          <StorageForm current={current} submitLabel={t("common.save")} busyLabel={t("silo.checking_storage")} onSubmit={save} />
         )}
 
         {main && !editing && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span className="label" style={{ padding: "0 4px" }}>
-              Main copy
+              {t("silo.main_copy")}
             </span>
             <div className="panel">
               <div className="row" style={{ minHeight: 64, padding: "10px 16px" }}>
                 <div className="row-text">
-                  <span className="row-title">{KIND_NAME[main.config.kind] ?? main.config.kind}</span>
+                  <span className="row-title">{kindName(main.config.kind)}</span>
                   <span className="row-sub">{whereIs(main.config)}</span>
                   <span className="row-sub">{written(main)}</span>
                 </div>
               </div>
             </div>
             {main.config.kind === "folder" ? (
-              <p className="hint small">A folder on a computer, which the phone cannot reach.</p>
+              <p className="hint small">{t("silo.folder_unreachable")}</p>
             ) : (
               <button className="btn secondary" onClick={() => setEditing(true)}>
-                Change
+                {t("silo.change")}
               </button>
             )}
           </div>
@@ -132,12 +154,10 @@ export function Storage({ onBack }: { onBack: () => void }) {
 
         {main && editing && current && (
           <>
-            <p className="hint">
-              Change the details when a password or address changed. A new place must be empty or hold this same silo.
-            </p>
-            <StorageForm current={current} submitLabel="Save" busyLabel="Checking the backup storage" onSubmit={save} />
+            <p className="hint">{t("silo.change_hint")}</p>
+            <StorageForm current={current} submitLabel={t("common.save")} busyLabel={t("silo.checking_storage")} onSubmit={save} />
             <button className="btn secondary" onClick={() => setEditing(false)}>
-              Cancel
+              {t("common.cancel")}
             </button>
           </>
         )}
@@ -145,31 +165,31 @@ export function Storage({ onBack }: { onBack: () => void }) {
         {main && !editing && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span className="label" style={{ padding: "0 4px" }}>
-              Other copies
+              {t("silo.other_copies")}
             </span>
             {others.length > 0 ? (
               <div className="panel">
                 {others.map((copy) => (
                   <div key={copy.id} className="row" style={{ minHeight: 64, padding: "10px 16px" }}>
                     <div className="row-text">
-                      <span className="row-title">{copy.label || KIND_NAME[copy.config.kind] || copy.config.kind}</span>
+                      <span className="row-title">{copy.label || kindName(copy.config.kind)}</span>
                       <span className="row-sub">{whereIs(copy.config)}</span>
                       <span className="row-sub">{written(copy)}</span>
                     </div>
                     <button className="text-btn" onClick={() => setRemoving(copy)}>
-                      Remove
+                      {t("silo.remove")}
                     </button>
                   </div>
                 ))}
               </div>
             ) : (
               <p className="hint small" style={{ padding: "0 4px" }}>
-                One copy somewhere else, on another kind of storage, is what survives losing the first.
+                {t("silo.other_copies_hint")}
               </p>
             )}
             {!adding && (
               <button className="btn secondary" onClick={() => setAdding(true)}>
-                Add another copy
+                {t("silo.add_another")}
               </button>
             )}
           </div>
@@ -177,24 +197,23 @@ export function Storage({ onBack }: { onBack: () => void }) {
 
         {adding && (
           <>
-            <StorageForm submitLabel="Add this copy" busyLabel="Checking the backup storage" onSubmit={add} />
+            <StorageForm submitLabel={t("silo.add_this_copy")} busyLabel={t("silo.checking_storage")} onSubmit={add} />
             <button className="btn secondary" onClick={() => setAdding(false)}>
-              Cancel
+              {t("common.cancel")}
             </button>
           </>
         )}
       </div>
 
-      <Sheet open={removing !== null} onClose={() => setRemoving(null)} title="Remove this copy?">
+      <Sheet open={removing !== null} onClose={() => setRemoving(null)} title={t("silo.remove_copy_title")}>
         <p className="hint">
-          {removing ? `${KIND_NAME[removing.config.kind] ?? ""}, ${whereIs(removing.config)}` : ""} stops receiving this
-          silo. Nothing there is deleted.
+          {removing ? t("silo.remove_copy_body", { where: `${kindName(removing.config.kind)}, ${whereIs(removing.config)}` }) : ""}
         </p>
         <button className="btn danger" onClick={() => removing && void remove(removing)}>
-          Remove
+          {t("silo.remove")}
         </button>
         <button className="btn secondary" onClick={() => setRemoving(null)}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </Sheet>
     </div>

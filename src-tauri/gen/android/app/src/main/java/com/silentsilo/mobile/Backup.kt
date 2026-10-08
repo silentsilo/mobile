@@ -497,7 +497,7 @@ object BackupReminder {
     if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return false
     val manager = context.getSystemService(NotificationManager::class.java)
     manager.createNotificationChannel(
-      NotificationChannel(CHANNEL, "Backup waiting for the silo", NotificationManager.IMPORTANCE_LOW)
+      NotificationChannel(CHANNEL, context.getString(R.string.backup_channel), NotificationManager.IMPORTANCE_LOW)
     )
     val open = PendingIntent.getActivity(
       context,
@@ -505,10 +505,10 @@ object BackupReminder {
       Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
       PendingIntent.FLAG_IMMUTABLE,
     )
-    val text = if (count == 1L) "1 item is waiting to be added to your silo." else "$count items are waiting to be added to your silo."
+    val text = context.resources.getQuantityString(R.plurals.backup_waiting, count.toInt(), count.toInt())
     val notification = Notification.Builder(context, CHANNEL)
       .setSmallIcon(R.drawable.ic_stat_silo)
-      .setContentTitle("Open SilentSilo to finish the backup")
+      .setContentTitle(context.getString(R.string.backup_title))
       .setContentText(text)
       .setContentIntent(open)
       .setAutoCancel(true)

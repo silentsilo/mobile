@@ -7,16 +7,16 @@ import type { TrashItem } from "../shared/types";
 import { EmptyState, Notice, Sheet, Skeleton, TopBar, useToast } from "../ui/chrome";
 import { fileIcon } from "./Files";
 import { haptic } from "../ui/haptics";
+import { t, useLocale } from "../i18n";
 
 /** Said before a purge: the app never deletes from a never-delete copy. */
 function archiveNote(archiveTargets: number): string {
   if (archiveTargets === 0) return "";
-  return archiveTargets === 1
-    ? " One of your copies is a never-delete copy, so the content stays there until that storage's own rules remove it."
-    : ` ${archiveTargets} of your copies are never-delete copies, so the content stays there until that storage's own rules remove it.`;
+  return ` ${t("files.archive_note", { count: archiveTargets })}`;
 }
 
 export function Trash({ sync, onBack }: { sync: SyncStatus | null; onBack: () => void }) {
+  useLocale();
   const [items, setItems] = useState<TrashItem[] | null>(null);
   const [chosen, setChosen] = useState<TrashItem | null>(null);
   const [emptying, setEmptying] = useState(false);
@@ -43,16 +43,16 @@ export function Trash({ sync, onBack }: { sync: SyncStatus | null; onBack: () =>
 
   return (
     <div className="screen">
-      <TopBar onBack={onBack} backLabel="Silo" />
+      <TopBar onBack={onBack} backLabel={t("files.back_silo")} />
       <div className="screen-body tight" style={{ gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
-          <h1 className="title">Trash</h1>
-          <p className="hint">Deleted files and folders stay here, on every device, until the trash is emptied.</p>
+          <h1 className="title">{t("files.trash_title")}</h1>
+          <p className="hint">{t("files.trash_hint")}</p>
         </div>
         {error && <Notice tone="error">{error}</Notice>}
         {!items && !error && <Skeleton avatar={false} rows={4} />}
         {items?.length === 0 && (
-          <EmptyState icon={<Trash2 size={26} />} title="The trash is empty" hint="Files and folders you delete wait here until the trash is emptied." />
+          <EmptyState icon={<Trash2 size={26} />} title={t("files.trash_empty_title")} hint={t("files.trash_empty_hint")} />
         )}
         {items && items.length > 0 && (
           <div className="panel">
@@ -74,7 +74,7 @@ export function Trash({ sync, onBack }: { sync: SyncStatus | null; onBack: () =>
         {items && items.length > 0 && (
           <button className="btn danger" onClick={() => setEmptying(true)}>
             <Trash2 size={18} />
-            Empty trash
+            {t("files.empty_trash")}
           </button>
         )}
       </div>
@@ -82,39 +82,39 @@ export function Trash({ sync, onBack }: { sync: SyncStatus | null; onBack: () =>
       <Sheet open={chosen !== null} onClose={() => setChosen(null)} title={chosen?.name}>
         {chosen && (
           <>
-            <p className="hint">Delete for good cannot be undone.{archiveNote(sync?.archive_targets ?? 0)}</p>
+            <p className="hint">{t("files.purge_warning")}{archiveNote(sync?.archive_targets ?? 0)}</p>
             <button
               className="btn secondary"
               onClick={() =>
-                void act(() => (chosen.kind === "folder" ? api.restoreFolder(chosen.id) : api.restoreFile(chosen.id)), "Restored.")
+                void act(() => (chosen.kind === "folder" ? api.restoreFolder(chosen.id) : api.restoreFile(chosen.id)), t("files.restored_one"))
               }
             >
               <RotateCcw size={18} />
-              Restore
+              {t("files.restore")}
             </button>
             <button className="btn danger" onClick={() => {
                 haptic("heavy");
-                void act(() => api.purgeTrash([chosen.id]), "Deleted for good.");
+                void act(() => api.purgeTrash([chosen.id]), t("files.deleted_for_good"));
               }}>
-              Delete for good
+              {t("files.delete_for_good")}
             </button>
           </>
         )}
       </Sheet>
 
-      <Sheet open={emptying} onClose={() => setEmptying(false)} title="Empty trash?">
+      <Sheet open={emptying} onClose={() => setEmptying(false)} title={t("files.empty_trash_title")}>
         <p className="hint">
-          Everything in the trash is deleted for good, on every device, once they sync. This cannot be undone.
+          {t("files.empty_trash_text")}
           {archiveNote(sync?.archive_targets ?? 0)}
         </p>
         <button className="btn danger" onClick={() => {
             haptic("heavy");
-            void act(() => api.purgeTrash([]), "Trash emptied.");
+            void act(() => api.purgeTrash([]), t("files.trash_emptied"));
           }}>
-          Empty trash
+          {t("files.empty_trash")}
         </button>
         <button className="btn secondary" onClick={() => setEmptying(false)}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </Sheet>
     </div>

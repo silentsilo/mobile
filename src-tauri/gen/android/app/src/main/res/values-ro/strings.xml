@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_fill_from">Completează din SilentSilo</string>
+    <string name="autofill_fill_title">Completează datele de conectare</string>
+    <string name="autofill_nothing_saved">Nimic salvat pentru %1$s</string>
+    <string name="autofill_no_silo_save">Pe acest telefon nu există niciun siloz în care să salvezi.</string>
+    <string name="autofill_save_title">Salvează datele de conectare</string>
+    <string name="autofill_saved_new">Salvat în SilentSilo.</string>
+    <string name="autofill_saved_updated">Parola a fost actualizată în SilentSilo.</string>
+    <string name="autofill_saved_unchanged">SilentSilo are deja aceste date de conectare.</string>
+    <string name="autofill_save_failed">Datele de conectare nu au putut fi salvate.</string>
+    <string name="autofill_pick_hint">Alege date de conectare doar dacă voiai să le completezi aici.</string>
+    <string name="autofill_search_hint">Caută în siloz</string>
+    <string name="cancel">Anulează</string>
+    <string name="cancelled">Anulat.</string>
+    <string name="backup_channel">Backup care așteaptă silozul</string>
+    <string name="backup_title">Deschide SilentSilo ca să termini backupul</string>
+    <string name="lock_tile">Blochează SilentSilo</string>
+    <string name="passkey_no_silo">Pe acest telefon nu există niciun siloz.</string>
+    <string name="passkey_description">Salvată în siloz și sincronizată cu backupul lui</string>
+    <string name="passkey_in">Cheie de acces în %1$s</string>
+    <string name="passkey_only_browser">Deocamdată doar un browser poate folosi cheile de acces din SilentSilo.</string>
+    <string name="passkey_save_for">Salvează o cheie de acces pentru %1$s</string>
+    <string name="passkey_sign_in_to">Conectează-te la %1$s</string>
+    <string name="passkey_not_saved">Cheia de acces nu a fost salvată.</string>
+    <string name="passkey_not_signed">Conectarea nu a fost semnată.</string>
+    <string name="passkey_silo_not_open">Silozul nu s-a deschis.</string>
+    <string name="passkey_none_for_site">Silozul nu are nicio cheie de acces pentru acest site.</string>
+    <string name="passkey_choose_for">Alege o cheie de acces pentru %1$s</string>
+    <string name="phonekey_changed">Amprentele sau fețele de pe acest telefon s-au schimbat, așa că cheia lui pentru siloz nu mai funcționează. Deschide silozul cu codul de recuperare, apoi adaugă din nou acest telefon.</string>
+    <string name="phonekey_absent">Acest telefon nu are nicio cheie pentru acest siloz.</string>
+    <string name="pin_title">PIN-ul cheii de securitate</string>
+    <string name="pin_message">O cheie de securitate cu PIN are nevoie de el ca să deschidă silozul, ca pe calculator. PIN-ul merge doar la cheie și nu este păstrat.</string>
+    <string name="pin_continue">Continuă</string>
+    <string name="pin_no_pin">Cheia nu are PIN</string>
+    <plurals name="backup_waiting">
+        <item quantity="one">%d element așteaptă să fie adăugat în siloz.</item>
+        <item quantity="few">%d elemente așteaptă să fie adăugate în siloz.</item>
+        <item quantity="other">%d de elemente așteaptă să fie adăugate în siloz.</item>
+    </plurals>
+</resources>

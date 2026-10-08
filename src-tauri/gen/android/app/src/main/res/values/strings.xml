@@ -1,4 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">"SilentSilo"</string>
     <string name="main_activity_title">"SilentSilo"</string>
+    <!-- What Android itself shows: autofill, passkeys, the backup notification, the Quick Settings tile, the security key PIN dialog. Each values-xx folder translates these by meaning; the app's own screens are translated in src/i18n. -->
+    <string name="autofill_fill_from">Fill from SilentSilo</string>
+    <string name="autofill_fill_title">Fill a login</string>
+    <string name="autofill_nothing_saved">Nothing saved for %1$s</string>
+    <string name="autofill_no_silo_save">There is no silo on this phone to save to.</string>
+    <string name="autofill_save_title">Save the login</string>
+    <string name="autofill_saved_new">Saved to SilentSilo.</string>
+    <string name="autofill_saved_updated">Password updated in SilentSilo.</string>
+    <string name="autofill_saved_unchanged">SilentSilo already has this login.</string>
+    <string name="autofill_save_failed">The login could not be saved.</string>
+    <string name="autofill_pick_hint">Choose a login only if you meant to fill it here.</string>
+    <string name="autofill_search_hint">Search the silo</string>
+    <string name="cancel">Cancel</string>
+    <string name="cancelled">Cancelled.</string>
+    <string name="backup_channel">Backup waiting for the silo</string>
+    <string name="backup_title">Open SilentSilo to finish the backup</string>
+    <string name="lock_tile">Lock SilentSilo</string>
+    <string name="passkey_no_silo">There is no silo on this phone.</string>
+    <string name="passkey_description">Saved in your silo and synced to its backup</string>
+    <string name="passkey_in">Passkey in %1$s</string>
+    <string name="passkey_only_browser">Only a browser can use passkeys from SilentSilo for now.</string>
+    <string name="passkey_save_for">Save a passkey for %1$s</string>
+    <string name="passkey_sign_in_to">Sign in to %1$s</string>
+    <string name="passkey_not_saved">The passkey was not saved.</string>
+    <string name="passkey_not_signed">The sign-in was not signed.</string>
+    <string name="passkey_silo_not_open">The silo did not open.</string>
+    <string name="passkey_none_for_site">The silo has no passkey for this site.</string>
+    <string name="passkey_choose_for">Choose a passkey for %1$s</string>
+    <string name="phonekey_changed">The fingerprints or faces on this phone changed, so its silo key stopped working. Open the silo with your recovery code, then add this phone again.</string>
+    <string name="phonekey_absent">This phone holds no key for this silo.</string>
+    <string name="pin_title">Security key PIN</string>
+    <string name="pin_message">A security key with a PIN needs it to open the silo, as on your computer. It goes to the key only and is not kept.</string>
+    <string name="pin_continue">Continue</string>
+    <string name="pin_no_pin">Key has no PIN</string>
+    <plurals name="backup_waiting">
+        <item quantity="one">%d item is waiting to be added to your silo.</item>
+        <item quantity="other">%d items are waiting to be added to your silo.</item>
+    </plurals>
 </resources>

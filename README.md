@@ -35,6 +35,12 @@ On Android it also fills logins in other apps through the system autofill,
 acts as a passkey provider for browsers, and can back up photos, videos and
 contacts, encrypted on the phone, once you turn that on.
 
+The app speaks English, Romanian, German, French, Spanish, Italian,
+Brazilian Portuguese and Polish, chosen under Silo, Language, or following
+the phone. What Android shows itself (autofill, passkeys, notifications)
+follows the phone's language. Every text has a note for translators in
+`src/i18n/screens/`, and the terms follow the desktop app's glossary.
+
 > **No independent security audit has been done.** The cryptography is
 > specified in core's `docs/CRYPTO.md` and the formats in its `FORMATS.md`.
 > That makes the design reviewable; it is not the same as an audit.

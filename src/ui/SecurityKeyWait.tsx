@@ -3,9 +3,11 @@ import { listen } from "@tauri-apps/api/event";
 import { useEffect, useState } from "react";
 import { api, type SecurityKeyStatus } from "../api";
 import { Notice } from "./chrome";
+import { t, useLocale } from "../i18n";
 
 /** What to do with the key while the phone waits for it. */
 export function SecurityKeyWait({ touches = 1 }: { touches?: 1 | 2 }) {
+  useLocale();
   const [status, setStatus] = useState<SecurityKeyStatus | null>(null);
   const [second, setSecond] = useState(false);
   useEffect(() => {
@@ -29,22 +31,22 @@ export function SecurityKeyWait({ touches = 1 }: { touches?: 1 | 2 }) {
       </div>
       {second ? (
         <p className="hint">
-          <strong>Once more.</strong> Take the key away and hold it to the phone again, or touch it again if it is plugged in.
+          <strong>{t("start.key_once_more")}</strong> {t("start.key_once_more_body")}
         </p>
       ) : (
         <p className="hint">
-          Hold the key flat against the back of the phone until it is done, or plug it in and touch it when it blinks.
-          {touches === 2 ? " Adding a key takes this twice." : ""}
+          {t("start.key_hold")}
+          {touches === 2 ? ` ${t("start.key_twice")}` : ""}
         </p>
       )}
       {status && status.nfc && !status.nfcOn && (
         <Notice tone="warning" style={{ alignSelf: "stretch" }}>
-          NFC is off. Turn it on in the phone's settings, or plug the key in.
+          {t("start.key_nfc_off")}
         </Notice>
       )}
       {status && !status.nfc && !status.usb && (
         <Notice tone="error" quiet style={{ alignSelf: "stretch" }}>
-          This phone has neither NFC nor a USB port that can reach a security key.
+          {t("start.key_no_reader")}
         </Notice>
       )}
     </div>

@@ -23,6 +23,8 @@ import java.util.UUID
 // camera, and other apps' share sheet. Rust reads each one through a file
 // descriptor opened here, so nothing is copied out in the clear on the way.
 @TauriPlugin
+// A rejection the app shows carries its translation key after the English
+// and a unit separator, as core's errors do (silentsilo_core::coded).
 class FilesPlugin(private val activity: Activity) : Plugin(activity) {
   private var shared: List<Uri> = emptyList()
 
@@ -111,7 +113,7 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
       startActivityForResult(invoke, intent, "photoTaken")
     } catch (e: Exception) {
       file.delete()
-      invoke.reject("This phone has no camera app to take the photo.")
+      invoke.reject("This phone has no camera app to take the photo.\u001ferr.android_no_camera")
     }
   }
 
@@ -138,7 +140,7 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
     val file = File(args.getString("path"))
     val open = File(activity.cacheDir, "open").canonicalFile
     if (!file.canonicalPath.startsWith(open.path + File.separator)) {
-      invoke.reject("That file is not one opened from the silo.")
+      invoke.reject("That file is not one opened from the silo.\u001ferr.android_not_from_silo")
       return
     }
     val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
@@ -150,7 +152,7 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
       activity.startActivity(Intent.createChooser(view, null))
       invoke.resolve()
     } catch (e: Exception) {
-      invoke.reject("No app on this phone opens this kind of file.")
+      invoke.reject("No app on this phone opens this kind of file.\u001ferr.android_no_app_for_file")
     }
   }
 
@@ -168,7 +170,7 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
       activity.startActivity(Intent(Intent.ACTION_VIEW, uri).addCategory(Intent.CATEGORY_BROWSABLE))
       invoke.resolve()
     } catch (e: Exception) {
-      invoke.reject("No browser on this phone opens the sign-in page.")
+      invoke.reject("No browser on this phone opens the sign-in page.\u001ferr.android_no_browser")
     }
   }
 
@@ -177,20 +179,20 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
   fun openFd(invoke: Invoke) {
     val uri = Uri.parse(invoke.getArgs().getString("uri"))
     if (!foreign(uri)) {
-      invoke.reject("This file could not be opened.")
+      invoke.reject("This file could not be opened.\u001ferr.android_file_not_opened")
       return
     }
     try {
       val fd = activity.contentResolver.openFileDescriptor(uri, "r")?.detachFd()
       if (fd == null) {
-        invoke.reject("This file could not be opened.")
+        invoke.reject("This file could not be opened.\u001ferr.android_file_not_opened")
         return
       }
       val out = JSObject()
       out.put("fd", fd)
       invoke.resolve(out)
     } catch (e: Exception) {
-      invoke.reject("This file could not be opened.")
+      invoke.reject("This file could not be opened.\u001ferr.android_file_not_opened")
     }
   }
 

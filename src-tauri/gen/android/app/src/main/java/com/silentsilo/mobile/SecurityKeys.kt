@@ -185,16 +185,16 @@ class SecurityKeyPlugin(private val activity: Activity) : Plugin(activity) {
         invoke.resolve(result)
       }
       val builder = AlertDialog.Builder(activity)
-        .setTitle("Security key PIN")
-        .setMessage(note ?: "A security key with a PIN needs it to open the silo, as on your computer. It goes to the key only and is not kept.")
+        .setTitle(activity.getString(R.string.pin_title))
+        .setMessage(note ?: activity.getString(R.string.pin_message))
         .setView(box)
-        .setPositiveButton("Continue") { _, _ ->
+        .setPositiveButton(activity.getString(R.string.pin_continue)) { _, _ ->
           val pin = field.text?.toString().orEmpty()
           answer(JSObject().apply { if (pin.isNotEmpty()) put("pin", pin) })
         }
-        .setNegativeButton("Cancel") { _, _ -> answer(JSObject()) }
+        .setNegativeButton(activity.getString(R.string.cancel)) { _, _ -> answer(JSObject()) }
         .setOnCancelListener { answer(JSObject()) }
-      if (offerNoPin) builder.setNeutralButton("Key has no PIN") { _, _ -> answer(JSObject().apply { put("no_pin", true) }) }
+      if (offerNoPin) builder.setNeutralButton(activity.getString(R.string.pin_no_pin)) { _, _ -> answer(JSObject().apply { put("no_pin", true) }) }
       val dialog = builder.create()
       dialog.window?.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
       dialog.show()

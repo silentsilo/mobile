@@ -77,13 +77,10 @@ object PhoneKey {
     }
     if (invalidated) {
       onFailed(
-        Failure(
-          "The fingerprints or faces on this phone changed, so its silo key stopped working. Open the silo with your recovery code, then add this phone again.",
-          "invalidated",
-        )
+        Failure(activity.getString(R.string.phonekey_changed), "invalidated")
       )
     } else {
-      onFailed(Failure("This phone holds no key for this silo.", "absent"))
+      onFailed(Failure(activity.getString(R.string.phonekey_absent), "absent"))
     }
   }
 
@@ -126,8 +123,8 @@ object PhoneKey {
         .setTitle(title)
         .apply { if (subtitle != null) setSubtitle(subtitle) }
         .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_STRONG)
-        .setNegativeButton("Cancel", activity.mainExecutor) { _, _ ->
-          onFailed(Failure("Cancelled.", "cancelled"))
+        .setNegativeButton(activity.getString(R.string.cancel), activity.mainExecutor) { _, _ ->
+          onFailed(Failure(activity.getString(R.string.cancelled), "cancelled"))
         }
         .build()
       prompt.authenticate(

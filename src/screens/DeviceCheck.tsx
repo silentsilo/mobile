@@ -1,5 +1,6 @@
 import { CircleCheck, CircleX, TriangleAlert } from "lucide-react";
 import type { DeviceCheck as Check } from "../api";
+import { t, useLocale } from "../i18n";
 
 type Line = { ok: boolean | "warn"; title: string; detail: string };
 
@@ -13,50 +14,51 @@ function linesFor(check: Check): Line[] {
     {
       ok: check.android_supported,
       title: `Android ${check.android_release}`,
-      detail: check.android_supported ? "Supported." : "SilentSilo needs Android 12 or newer, where the phone's key storage can hold the silo key.",
+      detail: check.android_supported ? t("start.check_android_ok") : t("start.check_android_fail"),
     },
     {
       ok: check.secure_lock,
-      title: "Screen lock",
-      detail: check.secure_lock ? "Set." : "Set a PIN, pattern or password in the phone's security settings first.",
+      title: t("start.check_lock"),
+      detail: check.secure_lock ? t("start.check_lock_ok") : t("start.check_lock_fail"),
     },
     {
       ok: check.strong_biometric,
-      title: "Fingerprint",
-      detail: check.strong_biometric
-        ? "Set up."
-        : "Add a fingerprint in the phone's security settings. It is what unlocks the silo. Face unlock counts only where Android rates it as secure, and on most phones, Samsung included, it does not.",
+      title: t("start.check_biometric"),
+      detail: check.strong_biometric ? t("start.check_biometric_ok") : t("start.check_biometric_fail"),
     },
     {
       ok: check.keystore === "failed" ? false : true,
-      title: "Key storage",
+      title: t("start.check_keystore"),
       detail:
         check.keystore === "strongbox"
-          ? "Tested: the key is kept in the phone's dedicated security chip."
+          ? t("start.check_keystore_strongbox")
           : check.keystore === "tee"
-            ? "Tested: the key is kept in the phone's secure area. This phone has no dedicated security chip."
-            : "This phone's key storage refused to make the kind of key a silo needs. It cannot hold a silo key.",
+            ? t("start.check_keystore_tee")
+            : t("start.check_keystore_failed"),
     },
     {
       ok: check.webview_ok,
       title: "Android System WebView",
-      detail: check.webview_ok ? `Version ${check.webview_version}.` : `Version ${check.webview_version} is too old. Update Android System WebView from the Play Store.`,
+      detail: check.webview_ok
+        ? t("start.check_webview_ok", { version: check.webview_version })
+        : t("start.check_webview_fail", { version: check.webview_version }),
     },
     {
       ok: check.free_bytes < 500_000_000 ? "warn" : true,
-      title: "Free space",
-      detail: check.free_bytes < 500_000_000 ? "Under 500 MB free. Files you open from the silo need room on the phone." : "Enough.",
+      title: t("start.check_space"),
+      detail: check.free_bytes < 500_000_000 ? t("start.check_space_low") : t("start.check_space_ok"),
     },
   ];
 }
 
 export function DeviceCheck({ check, checking, onRetry }: { check: Check; checking: boolean; onRetry: () => void }) {
+  useLocale();
   return (
     <div className="screen">
       <div className="screen-body" style={{ paddingTop: 28 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h1 className="title">This phone is not ready yet</h1>
-          <p className="hint">SilentSilo tested what it needs on this phone. Fix what is marked below and check again.</p>
+          <h1 className="title">{t("start.check_title")}</h1>
+          <p className="hint">{t("start.check_body")}</p>
         </div>
         <div className="panel">
           {linesFor(check).map((line, i) => (
@@ -77,7 +79,7 @@ export function DeviceCheck({ check, checking, onRetry }: { check: Check; checki
         </div>
         <div className="spacer" />
         <button className="btn" aria-busy={checking} onClick={onRetry} disabled={checking}>
-          {checking ? "Checking" : "Check again"}
+          {checking ? t("start.checking") : t("start.check_again")}
         </button>
       </div>
     </div>

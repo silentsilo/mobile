@@ -82,7 +82,6 @@ object PasskeyCaller {
     return named ?: Uri.parse(origin).host ?: origin
   }
 
-  const val NOT_A_BROWSER = "Only a browser can use passkeys from SilentSilo for now."
 }
 
 // SilentSilo as a passkey provider (Android 14+). Offers to save a new
@@ -112,18 +111,18 @@ class PasskeyService : CredentialProviderService() {
     }
     val info = request.callingAppInfo
     if (info == null || !PasskeyCaller.of(this, info).privileged) {
-      callback.onError(CreateCredentialUnknownException(PasskeyCaller.NOT_A_BROWSER))
+      callback.onError(CreateCredentialUnknownException(getString(R.string.passkey_only_browser)))
       return
     }
     Thread {
       Native.start(applicationContext)
       val silo = JSONObject(Native.autofillSilo(applicationContext.dataDir.absolutePath))
       if (silo.optString("vaultId").isEmpty()) {
-        callback.onError(CreateCredentialUnknownException("There is no silo on this phone."))
+        callback.onError(CreateCredentialUnknownException(getString(R.string.passkey_no_silo)))
         return@Thread
       }
       val entry = CreateEntry.Builder(silo.optString("name", "SilentSilo"), intent(PasskeyCreateActivity::class.java) {})
-        .setDescription("Saved in your silo and synced to its backup")
+        .setDescription(getString(R.string.passkey_description))
         .build()
       callback.onResult(BeginCreateCredentialResponse.Builder().addCreateEntry(entry).build())
     }.start()
@@ -168,7 +167,7 @@ class PasskeyService : CredentialProviderService() {
         // that unlocks and then offers them.
         val entry = PublicKeyCredentialEntry.Builder(
           this,
-          "Passkey in ${overview.optString("name", "SilentSilo")}",
+          getString(R.string.passkey_in, overview.optString("name", "SilentSilo")),
           intent(PasskeyGetActivity::class.java) {},
           option,
         ).build()
@@ -197,11 +196,11 @@ private fun Activity.withSiloKey(
   Native.start(applicationContext)
   val silo = JSONObject(Native.autofillSilo(applicationContext.dataDir.absolutePath))
   val vaultId = silo.optString("vaultId")
-  if (vaultId.isEmpty()) return failed("There is no silo on this phone.", false)
+  if (vaultId.isEmpty()) return failed(getString(R.string.passkey_no_silo), false)
   val ids = silo.optJSONArray("credentialIds")
   val list = (0 until (ids?.length() ?: 0)).map { ids!!.getString(it) }
   PhoneKey.unlock(this, vaultId, list, title, onUnlocked = use, onFailed = {
-    failed(it.message ?: "Cancelled.", it.code == "cancelled")
+    failed(it.message ?: getString(R.string.cancelled), it.code == "cancelled")
   })
 }
 
@@ -222,12 +221,12 @@ class PasskeyCreateActivity : Activity() {
     val request = PendingIntentHandler.retrieveProviderCreateCredentialRequest(intent)
     val call = request?.callingRequest as? CreatePublicKeyCredentialRequest ?: return fail("Not a passkey request")
     val caller = PasskeyCaller.of(this, request.callingAppInfo)
-    if (!caller.privileged) return fail(PasskeyCaller.NOT_A_BROWSER)
+    if (!caller.privileged) return fail(getString(R.string.passkey_only_browser))
     val hash = PasskeyCaller.hex(call.clientDataHash)
     val dataDir = applicationContext.dataDir.absolutePath
     val site = PasskeyCaller.site(call.requestJson, caller.origin)
 
-    withSiloKey("Save a passkey for $site", use = { credentialId, wrapKey ->
+    withSiloKey(getString(R.string.passkey_save_for, site), use = { credentialId, wrapKey ->
       inBackground({
         JSONObject(Native.passkeyCreate(dataDir, credentialId, wrapKey, call.requestJson, caller.origin, caller.packageName, hash))
       }) { answer -> answered(answer) }
@@ -249,7 +248,7 @@ class PasskeyCreateActivity : Activity() {
       answer.optString("code") == "unsupported" -> finishWith(
         CreatePublicKeyCredentialDomException(NotSupportedError(), answer.optString("error"))
       )
-      else -> fail(answer.optString("error", "The passkey was not saved."))
+      else -> fail(answer.optString("error", getString(R.string.passkey_not_saved)))
     }
   }
 
@@ -277,19 +276,19 @@ class PasskeyGetActivity : Activity() {
     val option = request.credentialOptions.filterIsInstance<GetPublicKeyCredentialOption>().firstOrNull()
       ?: return fail("Not a passkey request")
     val caller = PasskeyCaller.of(this, request.callingAppInfo)
-    if (!caller.privileged) return fail(PasskeyCaller.NOT_A_BROWSER)
+    if (!caller.privileged) return fail(getString(R.string.passkey_only_browser))
     val hash = PasskeyCaller.hex(option.clientDataHash)
     val dataDir = applicationContext.dataDir.absolutePath
     val chosen = intent.getStringExtra(PASSKEY)
     val site = PasskeyCaller.site(option.requestJson, caller.origin)
 
-    withSiloKey("Sign in to $site", use = { credentialId, wrapKey ->
+    withSiloKey(getString(R.string.passkey_sign_in_to, site), use = { credentialId, wrapKey ->
       fun sign(passkeyId: String) = inBackground({
         JSONObject(Native.passkeyAssert(dataDir, credentialId, wrapKey, passkeyId, option.requestJson, caller.origin, caller.packageName, hash))
       }) { answer ->
         val response = answer.optString("response")
         if (response.isEmpty()) {
-          fail(answer.optString("error", "The sign-in was not signed."))
+          fail(answer.optString("error", getString(R.string.passkey_not_signed)))
         } else {
           val result = Intent()
           PendingIntentHandler.setGetCredentialResponse(result, GetCredentialResponse(PublicKeyCredential(response)))
@@ -305,8 +304,8 @@ class PasskeyGetActivity : Activity() {
       }) { found ->
         val passkeys = found.optJSONArray("passkeys")
         when {
-          passkeys == null -> fail(found.optString("error", "The silo did not open."))
-          passkeys.length() == 0 -> fail("The silo has no passkey for this site.")
+          passkeys == null -> fail(found.optString("error", getString(R.string.passkey_silo_not_open)))
+          passkeys.length() == 0 -> fail(getString(R.string.passkey_none_for_site))
           passkeys.length() == 1 -> sign(passkeys.getJSONObject(0).optString("id"))
           else -> pick(site, (0 until passkeys.length()).map { passkeys.getJSONObject(it) }) { sign(it) }
         }
@@ -316,11 +315,11 @@ class PasskeyGetActivity : Activity() {
 
   private fun pick(site: String, items: List<JSONObject>, chosen: (String) -> Unit) {
     val dialog = AlertDialog.Builder(this)
-      .setTitle("Choose a passkey for $site")
+      .setTitle(getString(R.string.passkey_choose_for, site))
       .setItems(items.map { it.optString("displayName").ifEmpty { it.optString("userName") } }.toTypedArray()) { _, which ->
         chosen(items[which].optString("id"))
       }
-      .setOnCancelListener { fail("Cancelled.", cancelled = true) }
+      .setOnCancelListener { fail(getString(R.string.cancelled), cancelled = true) }
       .create()
     // Account names stay out of screenshots, as in the activity.
     dialog.window?.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)

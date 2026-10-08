@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import { useBackLayer } from "./back";
 import { isIOS } from "./platform";
 import { haptic } from "./haptics";
+import { t, useLocale } from "../i18n";
 
 const nothing = () => undefined;
 
@@ -18,6 +19,7 @@ export function TopBar({
   title?: string;
   right?: ReactNode;
 }) {
+  useLocale();
   useBackLayer(!!onBack, onBack ?? nothing);
   return (
     <div className="top-bar">
@@ -28,7 +30,7 @@ export function TopBar({
             <span>{backLabel}</span>
           </button>
         ) : (
-          <button className="icon-btn" aria-label="Back" style={{ color: "var(--ink)" }} onClick={onBack}>
+          <button className="icon-btn" aria-label={t("common.back")} style={{ color: "var(--ink)" }} onClick={onBack}>
             <ArrowLeft size={22} />
           </button>
         ))}
@@ -40,15 +42,16 @@ export function TopBar({
 
 /** Where a setup flow is: making a silo has four steps, joining one three. */
 export function StepBar({ step, of, onBack }: { step: number; of: number; onBack: () => void }) {
+  useLocale();
   useBackLayer(true, onBack);
   return (
     <div className="top-bar">
-      <button className="icon-btn" aria-label="Back" style={{ color: "var(--ink)" }} onClick={onBack}>
+      <button className="icon-btn" aria-label={t("common.back")} style={{ color: "var(--ink)" }} onClick={onBack}>
         <ArrowLeft size={22} />
       </button>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingRight: 52 }}>
         <div className="muted caption" style={{ fontWeight: 600, textAlign: "center" }}>
-          Step {step} of {of}
+          {t("start.step", { step, of })}
         </div>
         <div className="step-track" aria-hidden>
           {Array.from({ length: of }, (_, i) => i + 1).map((i) => (
@@ -276,6 +279,7 @@ export function toastDuration(text: string): number {
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
+  useLocale();
   const [message, setMessage] = useState<{ text: string; action?: ToastAction } | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const show = useCallback<ToastApi>((text, action) => {
@@ -302,7 +306,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               <button className="toast-message" onClick={dismiss} aria-describedby="toast-dismiss">
                 {message.text}
                 <span id="toast-dismiss" className="visually-hidden">
-                  Tap to dismiss.
+                  {t("start.toast_dismiss")}
                 </span>
               </button>
               {message.action && (
@@ -332,6 +336,7 @@ export const useToast = () => useContext(ToastContext);
  * quick answer does not flash.
  */
 export function Skeleton({ rows = 6, avatar = true }: { rows?: number; avatar?: boolean }) {
+  useLocale();
   const [shown, setShown] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => setShown(true), 300);
@@ -339,7 +344,7 @@ export function Skeleton({ rows = 6, avatar = true }: { rows?: number; avatar?: 
   }, []);
   if (!shown) return null;
   return (
-    <div className="skeleton" aria-busy="true" aria-label="Loading">
+    <div className="skeleton" aria-busy="true" aria-label={t("start.loading")}>
       {Array.from({ length: rows }, (_, i) => (
         <div key={i} className="skeleton-row" aria-hidden>
           {avatar && <span className="skeleton-block" style={{ width: 40, height: 40 }} />}

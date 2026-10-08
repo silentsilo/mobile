@@ -21,7 +21,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"
-        android:text="Choose a login only if you meant to fill it here."
+        android:text="@string/autofill_pick_hint"
         android:textColor="@color/autofill_sub"
         android:textSize="14sp" />
 
@@ -30,7 +30,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
-        android:hint="Search the silo"
+        android:hint="@string/autofill_search_hint"
         android:importantForAutofill="no"
         android:inputType="text"
         android:maxLines="1"
@@ -51,5 +51,5 @@
         android:id="@+id/autofill_pick_cancel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Cancel" />
+        android:text="@string/cancel" />
 </LinearLayout>

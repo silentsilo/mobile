@@ -11,6 +11,7 @@ import { isIOS } from "../ui/platform";
 import { useSyncProgress } from "../ui/syncActivity";
 import { SiloHeader } from "./Passwords";
 import { haptic } from "../ui/haptics";
+import { t, useLocale } from "../i18n";
 
 type Crumb = { id: string; name: string };
 type Sort = "name" | "newest";
@@ -37,6 +38,7 @@ export function Files({
   reloadKey: number;
   onOpenFile: (file: FileEntry) => void;
 }) {
+  useLocale();
   const syncing = useSyncProgress();
   const [trail, setTrail] = useState<Crumb[]>([]);
   const [items, setItems] = useState<VaultEntry[] | null>(null);
@@ -148,7 +150,7 @@ export function Files({
     try {
       const files = await api.pickFiles();
       if (!files.length) return;
-      const summary = await addAll(files, here.id, (done) => setProgress(`Adding ${Math.min(done + 1, files.length)} of ${files.length}`));
+      const summary = await addAll(files, here.id, (done) => setProgress(t("files.adding_progress", { done: Math.min(done + 1, files.length), total: files.length })));
       toast(summary);
     } catch (e) {
       toast(formatAppError(e));
@@ -164,9 +166,9 @@ export function Files({
     try {
       const path = await api.takePhoto();
       if (!path) return;
-      setProgress("Adding the photo");
+      setProgress(t("files.adding_photo"));
       await api.importPhoto(path, photoName(), here.id);
-      toast("Photo added.");
+      toast(t("files.photo_added"));
     } catch (e) {
       toast(formatAppError(e));
     } finally {
@@ -194,7 +196,7 @@ export function Files({
     try {
       if (entry.kind === "folder") await api.trashFolder(entry.id);
       else await api.trashFile(entry.id);
-      toast("Moved to the trash.", { label: "Undo", run: () => void restore([entry]) });
+      toast(t("files.trashed_one"), { label: t("files.undo"), run: () => void restore([entry]) });
       setEdits((n) => n + 1);
       void load(here.id);
     } catch (e) {
@@ -209,7 +211,7 @@ export function Files({
         if (entry.kind === "folder") await api.restoreFolder(entry.id);
         else await api.restoreFile(entry.id);
       }
-      toast(entries.length === 1 ? "Restored." : `Restored ${entries.length} items.`);
+      toast(entries.length === 1 ? t("files.restored_one") : t("files.restored_count", { count: entries.length }));
     } catch (e) {
       toast(formatAppError(e));
     }
@@ -304,7 +306,7 @@ export function Files({
     let failed = 0;
     let reason = "";
     for (const [i, entry] of list.entries()) {
-      setProgress(`Moving ${i + 1} of ${list.length}`);
+      setProgress(t("files.moving_progress", { done: i + 1, total: list.length }));
       try {
         if (entry.kind === "folder") await api.moveFolder(entry.id, destination.id);
         else await api.moveFile(entry.id, destination.id);
@@ -320,10 +322,10 @@ export function Files({
       failed === list.length
         ? reason
         : failed
-          ? `Moved ${list.length - failed} of ${list.length}. ${reason}`
+          ? t("files.moved_partial", { done: list.length - failed, total: list.length, reason })
           : list.length === 1
-            ? "Moved."
-            : `Moved ${list.length} items.`,
+            ? t("files.moved_one")
+            : t("files.moved_count", { count: list.length }),
     );
     void load(here.id);
   };
@@ -350,11 +352,11 @@ export function Files({
       failed === list.length
         ? reason
         : failed
-          ? `Moved ${list.length - failed} of ${list.length} to the trash. ${reason}`
+          ? t("files.trashed_partial", { done: list.length - failed, total: list.length, reason })
           : list.length === 1
-            ? "Moved to the trash."
-            : `Moved ${list.length} items to the trash.`,
-      trashed.length > 0 ? { label: "Undo", run: () => void restore(trashed) } : undefined,
+            ? t("files.trashed_one")
+            : t("files.trashed_count", { count: list.length }),
+      trashed.length > 0 ? { label: t("files.undo"), run: () => void restore(trashed) } : undefined,
     );
     void load(here.id);
   };
@@ -375,14 +377,14 @@ export function Files({
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {selecting ? (
         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
-          <button className="icon-btn" aria-label="Clear the selection" onClick={() => setSelected(new Map())}>
+          <button className="icon-btn" aria-label={t("files.clear_selection")} onClick={() => setSelected(new Map())}>
             <X size={22} />
           </button>
-          <span style={{ flex: 1, fontWeight: 650 }}>{selected.size} selected</span>
-          <button className="icon-btn" aria-label="Move the selection" onClick={() => void startMove([...selected.values()])}>
+          <span style={{ flex: 1, fontWeight: 650 }}>{t("files.selected", { count: selected.size })}</span>
+          <button className="icon-btn" aria-label={t("files.move_selection")} onClick={() => void startMove([...selected.values()])}>
             <FolderInput size={22} />
           </button>
-          <button className="icon-btn" aria-label="Move the selection to the trash" onClick={() => void trashSelected()}>
+          <button className="icon-btn" aria-label={t("files.trash_selection")} onClick={() => void trashSelected()}>
             <Trash2 size={22} />
           </button>
         </div>
@@ -394,17 +396,17 @@ export function Files({
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px" }}>
         <div className="input" style={{ flex: 1 }}>
           <Search size={20} color="var(--text-dim)" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the silo" aria-label="Search the silo" autoCapitalize="none" autoCorrect="off" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("files.search")} aria-label={t("files.search")} autoCapitalize="none" autoCorrect="off" />
         </div>
         <button
           className="btn secondary inline small"
           style={{ padding: "0 12px" }}
-          aria-label={sort === "name" ? "Sorted by name. Sort by newest" : "Sorted by newest. Sort by name"}
+          aria-label={sort === "name" ? t("files.sorted_by_name_label") : t("files.sorted_by_newest_label")}
           onClick={() => setSort(sort === "name" ? "newest" : "name")}
         >
-          {sort === "name" ? "Name" : "Newest"}
+          {sort === "name" ? t("files.sort_name") : t("files.sort_newest")}
         </button>
-        {isIOS && <AddButton label="Add to this folder" disabled={!here || progress !== null} onClick={() => setAdding(true)} />}
+        {isIOS && <AddButton label={t("files.add_here")} disabled={!here || progress !== null} onClick={() => setAdding(true)} />}
       </div>
       {progress && <div className="notice" style={{ margin: "0 16px 10px" }}>{progress}</div>}
       <div className="list-area">
@@ -412,7 +414,7 @@ export function Files({
           {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
           {((searching && !hits) || (!searching && !items)) && !error && <Skeleton avatar={false} />}
           {searching && hits && hits.length === 0 && (
-            <EmptyState icon={<Search size={26} />} title="Nothing in the silo matches" hint="Search looks at file and folder names." />
+            <EmptyState icon={<Search size={26} />} title={t("files.no_match_silo")} hint={t("files.search_hint")} />
           )}
           {searching &&
             hits?.map((hit) => (
@@ -434,13 +436,13 @@ export function Files({
             items &&
             shown.length === 0 &&
             (query ? (
-              <EmptyState icon={<Search size={26} />} title="Nothing in this folder matches" />
+              <EmptyState icon={<Search size={26} />} title={t("files.no_match_folder")} />
             ) : (
               <EmptyState
                 icon={<Folder size={26} />}
-                title="This folder is empty"
-                hint="Add files from this phone, take a photo, or make a folder."
-                action={here && progress === null ? { label: "Add to this folder", onClick: () => setAdding(true) } : undefined}
+                title={t("files.empty_title")}
+                hint={t("files.empty_hint")}
+                action={here && progress === null ? { label: t("files.add_here"), onClick: () => setAdding(true) } : undefined}
               />
             ))}
           {!searching &&
@@ -465,39 +467,39 @@ export function Files({
                         <span className="row-sub">
                           {syncing?.file_id === item.id
                             ? syncing.phase === "uploading"
-                              ? "Uploading…"
-                              : "Downloading…"
+                              ? t("files.uploading")
+                              : t("files.downloading")
                             : `${formatBytes(item.size_bytes)} · ${formatDate(item.updated_at)}`}
                         </span>
                       )}
                     </span>
                   </button>
-                  <button className="icon-btn" aria-label={`More for ${item.name}`} onClick={() => setActing(item)}>
+                  <button className="icon-btn" aria-label={t("files.more_for", { name: item.name })} onClick={() => setActing(item)}>
                     <EllipsisVertical size={20} />
                   </button>
                 </div>
               );
             })}
         </div>
-        {!isIOS && !selecting && <AddButton label="Add to this folder" disabled={!here || progress !== null} onClick={() => setAdding(true)} />}
+        {!isIOS && !selecting && <AddButton label={t("files.add_here")} disabled={!here || progress !== null} onClick={() => setAdding(true)} />}
       </div>
 
-      <Sheet open={adding} onClose={() => setAdding(false)} title="Add to this folder">
+      <Sheet open={adding} onClose={() => setAdding(false)} title={t("files.add_here")}>
         <div className="panel">
           <button className="row" style={{ minHeight: 56 }} onClick={() => void chooseFiles()}>
             <FilePlus size={20} color="var(--accent-text)" />
-            <span className="row-title" style={{ flex: 1 }}>Files from this phone</span>
+            <span className="row-title" style={{ flex: 1 }}>{t("files.from_phone")}</span>
           </button>
           <button className="row divide" style={{ minHeight: 56 }} onClick={() => void takePhoto()}>
             <Camera size={20} color="var(--accent-text)" />
             <span className="row-text">
-              <span className="row-title">Take a photo</span>
-              <span className="row-sub">Goes into the silo, not the gallery</span>
+              <span className="row-title">{t("files.take_photo")}</span>
+              <span className="row-sub">{t("files.take_photo_hint")}</span>
             </span>
           </button>
           <button className="row divide" style={{ minHeight: 56 }} onClick={() => { setAdding(false); setNaming(true); }}>
             <FolderPlus size={20} color="var(--accent-text)" />
-            <span className="row-title" style={{ flex: 1 }}>New folder</span>
+            <span className="row-title" style={{ flex: 1 }}>{t("files.new_folder")}</span>
           </button>
         </div>
       </Sheet>
@@ -511,10 +513,10 @@ export function Files({
             setActing(null);
           }}
         >
-          Rename
+          {t("files.rename")}
         </button>
         <button className="btn secondary" onClick={() => acting && void startMove([acting])}>
-          Move to another folder
+          {t("files.move_elsewhere")}
         </button>
         <button
           className="btn secondary"
@@ -523,20 +525,20 @@ export function Files({
             setActing(null);
           }}
         >
-          Select several
+          {t("files.select_several")}
         </button>
         <button className="btn danger" onClick={() => acting && void trash(acting)}>
-          Move to trash
+          {t("files.move_to_trash")}
         </button>
       </Sheet>
 
       <Sheet
         open={moving !== null}
         onClose={() => setMoving(null)}
-        title={moving && moving.length === 1 ? `Move ${moving[0]!.name}` : `Move ${moving?.length ?? 0} items`}
+        title={moving && moving.length === 1 ? t("files.move_named", { name: moving[0]!.name }) : t("files.move_count", { count: moving?.length ?? 0 })}
       >
         {folders === null ? (
-          <p className="hint">Reading the folders…</p>
+          <p className="hint">{t("files.reading_folders")}</p>
         ) : (
           <div className="panel" style={{ maxHeight: "50vh", overflowY: "auto" }}>
             {destinations.map((f, i) => {
@@ -552,21 +554,21 @@ export function Files({
         )}
       </Sheet>
 
-      <Sheet open={renaming !== null} onClose={() => setRenaming(null)} title="Rename">
+      <Sheet open={renaming !== null} onClose={() => setRenaming(null)} title={t("files.rename")}>
         <div className="input">
           <input value={newName} onChange={(e) => setNewName(e.target.value)} autoFocus onKeyDown={(e) => e.key === "Enter" && void rename()} />
         </div>
         <button className="btn" disabled={!newName.trim()} onClick={() => void rename()}>
-          Save
+          {t("common.save")}
         </button>
       </Sheet>
 
-      <Sheet open={naming} onClose={() => setNaming(false)} title="New folder">
+      <Sheet open={naming} onClose={() => setNaming(false)} title={t("files.new_folder")}>
         <div className="input">
-          <input value={folderName} onChange={(e) => setFolderName(e.target.value)} placeholder="Folder name" autoFocus onKeyDown={(e) => e.key === "Enter" && void newFolder()} />
+          <input value={folderName} onChange={(e) => setFolderName(e.target.value)} placeholder={t("files.folder_name")} autoFocus onKeyDown={(e) => e.key === "Enter" && void newFolder()} />
         </div>
         <button className="btn" disabled={!folderName.trim()} onClick={() => void newFolder()}>
-          Create
+          {t("files.create")}
         </button>
       </Sheet>
     </div>

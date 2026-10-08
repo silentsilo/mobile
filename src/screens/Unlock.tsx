@@ -8,6 +8,7 @@ import { isIOS } from "../ui/platform";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 import { haptic } from "../ui/haptics";
+import { t, useLocale } from "../i18n";
 
 // What unlocks the phone's key: a fingerprint on Android; Face ID or Touch ID on iOS.
 const BiometricIcon = isIOS ? ScanFace : Fingerprint;
@@ -25,6 +26,7 @@ export function Unlock({
   onSentShared?: () => void;
   onUnlocked: () => void;
 }) {
+  useLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // The phone's key was retired by a fingerprint change. Nothing this screen
@@ -134,29 +136,23 @@ export function Unlock({
           <BiometricIcon size={64} strokeWidth={1.5} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center" }}>
-          <h1 className="title headline">
-            Locked
-          </h1>
+          <h1 className="title headline">{t("start.locked")}</h1>
           <p className="hint">
             {invalidated
-              ? "This phone's key stopped working"
+              ? t("start.unlock_hint_invalidated")
               : busy
-                ? "Waiting for your fingerprint or face"
-                : "Unlock with your fingerprint or face"}
+                ? t("start.waiting_biometric")
+                : t("start.unlock_hint")}
           </p>
         </div>
         {invalidated && (
           <Notice tone="warning" style={{ alignSelf: "stretch" }}>
-            <p className="hint small">
-              The fingerprints or faces on this phone changed, so its silo key was retired. Use your recovery code below, and
-              the app will offer to set this phone up again.
-            </p>
+            <p className="hint small">{t("start.unlock_invalidated_body")}</p>
           </Notice>
         )}
         {shared.length > 0 && (
           <div className="notice" style={{ alignSelf: "stretch" }}>
-            Unlock to choose where {shared.length === 1 ? "the shared file goes" : `the ${shared.length} shared files go`}, or send{" "}
-            {shared.length === 1 ? "it" : "them"} to Phone backup without unlocking.
+            {t("start.unlock_shared", { count: shared.length })}
           </div>
         )}
         {error && !recovering && !invalidated && (
@@ -169,44 +165,44 @@ export function Unlock({
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, alignSelf: "stretch" }}>
           {invalidated ? (
             <button className="btn" disabled={busy} onClick={openRecovery}>
-              Use recovery code
+              {t("start.use_recovery_code")}
             </button>
           ) : (
             <button className="btn" aria-busy={busy && !recovering} disabled={busy} onClick={unlock}>
               {!(busy && !recovering) && <BiometricIcon size={20} aria-hidden />}
-              Unlock
+              {t("start.unlock")}
             </button>
           )}
           {keyCount > 0 && (
             <button className="text-btn" disabled={busy} onClick={() => void unlockWithKey()}>
-              Use security key
+              {t("start.use_security_key")}
             </button>
           )}
           {shared.length > 0 && (
             <button className="text-btn" disabled={busy} onClick={() => void sendShared()}>
-              Send without unlocking
+              {t("start.send_without_unlocking")}
             </button>
           )}
           {!invalidated && (
             <button className="text-btn" disabled={busy} onClick={openRecovery}>
-              Use recovery code
+              {t("start.use_recovery_code")}
             </button>
           )}
         </div>
       </div>
 
-      <Sheet open={waitingForKey} onClose={() => void api.cancelSecurityKey()} title="Unlock with your security key">
+      <Sheet open={waitingForKey} onClose={() => void api.cancelSecurityKey()} title={t("start.unlock_key_title")}>
         <SecurityKeyWait />
         <button className="btn secondary" onClick={() => void api.cancelSecurityKey()}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </Sheet>
 
-      <Sheet open={recovering} onClose={() => setRecovering(false)} title="Unlock with your recovery code">
+      <Sheet open={recovering} onClose={() => setRecovering(false)} title={t("start.unlock_code_title")}>
         <RecoveryCodeInput value={code} onChange={setCode} disabled={busy} autoFocus />
         {error && <Notice tone="error">{error}</Notice>}
         <button className="btn" aria-busy={busy} disabled={!isComplete(code) || busy} onClick={unlockWithCode}>
-          {busy ? "Unlocking" : "Unlock"}
+          {busy ? t("start.unlocking") : t("start.unlock")}
         </button>
       </Sheet>
     </div>

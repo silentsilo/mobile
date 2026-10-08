@@ -1,4 +1,5 @@
-import { ChevronRight, Cloud, Fingerprint, HardDrive, HeartPulse, History, Images, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, ScrollText, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, Fingerprint, HardDrive, HeartPulse, History, Images, Languages, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, ScrollText, Smartphone, Trash2 } from "lucide-react";
+import { LOCALES, dateLocale, languagePreference, setLanguage, systemLocale, t, useLocale } from "../i18n";
 import { RecoveryCodeShow } from "../ui/RecoveryCodeShow";
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
@@ -14,23 +15,28 @@ import { haptic } from "../ui/haptics";
 import { useLeftOut } from "../ui/syncActivity";
 
 function historyLabel(policy: HistoryPolicy): string {
-  return policy === "fit" ? "As many as fit" : `Last ${policy}`;
+  return policy === "fit" ? t("silo.history_fit") : t("silo.history_last", { count: policy });
 }
 
-const LOCK_CHOICES = [
-  { seconds: 0, label: "Immediately" },
-  { seconds: 30, label: "After 30 seconds" },
-  { seconds: 60, label: "After 1 minute" },
-  { seconds: 300, label: "After 5 minutes" },
-  { seconds: 900, label: "After 15 minutes" },
-  { seconds: 1800, label: "After 30 minutes" },
-  { seconds: 3600, label: "After 1 hour" },
-];
+const LOCK_CHOICES = [0, 30, 60, 300, 900, 1800, 3600];
+
+function lockLabel(seconds: number): string {
+  if (seconds === 0) return t("silo.lock_immediately");
+  if (seconds < 60) return t("silo.lock_after_seconds", { count: seconds });
+  if (seconds < 3600) return t("silo.lock_after_minutes", { count: seconds / 60 });
+  return t("silo.lock_after_hours", { count: seconds / 3600 });
+}
 
 function shortLock(seconds: number) {
-  if (seconds === 0) return "Now";
-  if (seconds < 60) return `${seconds} s`;
-  return seconds === 3600 ? "1 h" : `${seconds / 60} min`;
+  if (seconds === 0) return t("silo.lock_short_now");
+  if (seconds < 60) return t("silo.lock_short_seconds", { count: seconds });
+  if (seconds < 3600) return t("silo.lock_short_minutes", { count: seconds / 60 });
+  return t("silo.lock_short_hours", { count: seconds / 3600 });
+}
+
+/** A language's name, marked beta until a native speaker has read it. */
+function languageLabel(l: (typeof LOCALES)[number]): string {
+  return l.reviewed ? l.name : t("silo.language_beta", { name: l.name });
 }
 
 export function Silo({
@@ -56,6 +62,9 @@ export function Silo({
   onStorage: () => void;
   onLocked: () => void;
 }) {
+  const lang = useLocale();
+  const [language, setLanguagePref] = useState(languagePreference);
+  const [choosingLanguage, setChoosingLanguage] = useState(false);
   const [keyCount, setKeyCount] = useState<number | null>(null);
   const [recovery, setRecovery] = useState<RecoveryStatus | null>(null);
   const [lockAfter, setLockAfter] = useState<number | null>(null);
@@ -114,16 +123,11 @@ export function Silo({
     setSyncing(true);
     try {
       const report = await api.syncNow();
-      if (report.needs_rejoin) toast("This phone was left out when the encryption key was replaced. Set it up again with the current recovery code.");
-      else if (report.key_material_replaced) toast("The silo's key in your backup storage was replaced. Nothing was sent. Check the backup storage from a computer.");
-      else if (report.skipped) toast("A sync is already running.");
-      else if (report.blobs_failed > 0)
-        toast(
-          report.blobs_failed === 1
-            ? "1 file could not be backed up. It is tried again on the next sync."
-            : `${report.blobs_failed} files could not be backed up. They are tried again on the next sync.`,
-        );
-      else toast(report.ops_pushed + report.ops_fetched > 0 ? "Synced." : "Already up to date.");
+      if (report.needs_rejoin) toast(t("silo.sync_left_out"));
+      else if (report.key_material_replaced) toast(t("silo.sync_key_replaced"));
+      else if (report.skipped) toast(t("silo.sync_already_running"));
+      else if (report.blobs_failed > 0) toast(t("silo.sync_files_failed", { count: report.blobs_failed }));
+      else toast(report.ops_pushed + report.ops_fetched > 0 ? t("silo.sync_done") : t("silo.sync_up_to_date"));
       api.auditStatus().then(setAudit, () => undefined);
       onSynced();
     } catch (e) {
@@ -190,53 +194,73 @@ export function Silo({
           <button className="panel row" style={{ minHeight: 48, gap: 10 }} onClick={() => setAboutAudit(true)}>
             <ScrollText size={18} color="var(--accent-text)" />
             <span style={{ flex: 1 }}>
-              {audit.organisation ? "Activity log, for the organisation" : "Activity log on"}
+              {audit.organisation ? t("silo.audit_banner_org") : t("silo.audit_banner_on")}
             </span>
           </button>
         )}
         {sync?.configured && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <span className="label" style={{ padding: "0 4px" }}>Backup</span>
+            <span className="label" style={{ padding: "0 4px" }}>{t("silo.section_backup")}</span>
             <div className="panel" style={{ gap: 12, padding: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <Cloud size={20} color={waiting || leftOut ? "var(--warning)" : "var(--success)"} />
                 <span style={{ flex: 1 }}>
                   {leftOut
-                    ? "Not syncing"
+                    ? t("silo.status_not_syncing")
                     : waiting
-                      ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to sync`
-                      : "Synced"}
+                      ? t("silo.status_waiting", { count: waiting })
+                      : t("silo.status_synced")}
                 </span>
               </div>
               <button className="btn secondary" aria-busy={syncing} onClick={syncNow} disabled={syncing}>
                 {!syncing && <RefreshCw size={18} />}
-                {syncing ? "Syncing" : "Sync now"}
+                {syncing ? t("silo.syncing") : t("silo.sync_now")}
               </button>
             </div>
           </div>
         )}
         {sync?.configured && (
-          <div className="panel">{navRow(Images, "Phone backup", backupOn === null ? "" : backupOn ? "On" : "Off", onBackup, true)}</div>
+          <div className="panel">
+            {navRow(Images, t("silo.row_phone_backup"), backupOn === null ? "" : backupOn ? t("silo.value_on") : t("silo.value_off"), onBackup, true)}
+          </div>
         )}
         <div className="panel">
-          {navRow(HardDrive, "Backup storage", sync?.configured ? "" : "Not set", onStorage, true)}
-          {navRow(Trash2, "Trash", "", onTrash)}
+          {navRow(HardDrive, t("silo.row_storage"), sync?.configured ? "" : t("silo.value_storage_not_set"), onStorage, true)}
+          {navRow(Trash2, t("silo.row_trash"), "", onTrash)}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <span className="label" style={{ padding: "0 4px" }}>Security</span>
+          <span className="label" style={{ padding: "0 4px" }}>{t("silo.section_security")}</span>
           <div className="panel">
-            {navRow(HeartPulse, "Password health", "", onHealth, true)}
-            {autofill?.supported && navRow(TextCursorInput, "Autofill", autofill.enabled ? "On" : "Off", () => setAboutAutofill(true))}
-            {passkeys?.supported && navRow(Fingerprint, "Passkeys", passkeys.enabled ? "On" : "Off", () => setAboutPasskeys(true))}
-            {navRow(KeyRound, "Keys", keyCount === null ? "" : String(keyCount), onKeys)}
-            {navRow(LockKeyhole, "Recovery code", recovery?.enabled ? "Active" : recovery ? "Not set" : "", () => setAboutRecovery(true))}
-            {navRow(ScrollText, "Activity log", audit === null ? "" : audit.organisation ? "Organisation" : audit.enabled ? "On" : "Off", () => setAboutAudit(true))}
-            {navRow(History, "Earlier versions", historyPolicy === null ? "" : historyLabel(historyPolicy), () => setChoosingHistory(true))}
-            {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
+            {navRow(HeartPulse, t("silo.row_health"), "", onHealth, true)}
+            {autofill?.supported &&
+              navRow(TextCursorInput, t("silo.row_autofill"), autofill.enabled ? t("silo.value_on") : t("silo.value_off"), () => setAboutAutofill(true))}
+            {passkeys?.supported &&
+              navRow(Fingerprint, t("silo.row_passkeys"), passkeys.enabled ? t("silo.value_on") : t("silo.value_off"), () => setAboutPasskeys(true))}
+            {navRow(KeyRound, t("silo.row_keys"), keyCount === null ? "" : keyCount.toLocaleString(dateLocale()), onKeys)}
+            {navRow(
+              LockKeyhole,
+              t("silo.row_recovery"),
+              recovery?.enabled ? t("silo.value_active") : recovery ? t("silo.value_recovery_none") : "",
+              () => setAboutRecovery(true),
+            )}
+            {navRow(
+              ScrollText,
+              t("silo.row_audit"),
+              audit === null
+                ? ""
+                : audit.organisation
+                  ? t("silo.value_organisation")
+                  : audit.enabled
+                    ? t("silo.value_on")
+                    : t("silo.value_off"),
+              () => setAboutAudit(true),
+            )}
+            {navRow(History, t("silo.row_history"), historyPolicy === null ? "" : historyLabel(historyPolicy), () => setChoosingHistory(true))}
+            {navRow(Smartphone, t("silo.row_lock_background"), lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
             {screenOff !== null && (
               <ToggleRow
                 icon={<MonitorOff size={20} color="var(--accent-text)" style={{ flex: "none" }} />}
-                label="Lock when the screen turns off"
+                label={t("silo.row_screen_off")}
                 checked={screenOff}
                 onChange={() => {
                   const next = !screenOff;
@@ -251,13 +275,13 @@ export function Silo({
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <span className="label" style={{ padding: "0 4px" }}>Appearance</span>
-          <div className="segmented" role="group" aria-label="Theme">
+          <span className="label" style={{ padding: "0 4px" }}>{t("silo.section_appearance")}</span>
+          <div className="segmented" role="group" aria-label={t("silo.theme")}>
             {(
               [
-                ["system", "System"],
-                ["dark", "Dark"],
-                ["light", "Light"],
+                ["system", t("silo.theme_system")],
+                ["dark", t("silo.theme_dark")],
+                ["light", t("silo.theme_light")],
               ] as const
             ).map(([choice, label]) => (
               <button
@@ -272,50 +296,79 @@ export function Silo({
               </button>
             ))}
           </div>
+          <div className="panel">
+            {navRow(
+              Languages,
+              t("silo.language"),
+              language === "system" ? t("silo.theme_system") : (LOCALES.find((l) => l.id === lang)?.name ?? ""),
+              () => setChoosingLanguage(true),
+              true,
+            )}
+          </div>
         </div>
         <div className="spacer" />
         <button className="btn secondary" onClick={lockNow}>
           <LockKeyhole size={18} />
-          Lock now
+          {t("silo.lock_now")}
         </button>
         <button className="text-btn danger" style={{ alignSelf: "center" }} onClick={() => setRemoving(true)}>
-          Remove this silo from the phone
+          {t("silo.remove_silo")}
         </button>
         <p className="hint" style={{ alignSelf: "center", margin: 0 }}>
           SilentSilo {__APP_VERSION__}
         </p>
       </div>
 
-      <Sheet open={choosingLock} onClose={() => setChoosingLock(false)} title="Lock in the background">
-        <p className="hint">
-          How long the silo stays open after you switch to another app. To lock from anywhere, add the Lock SilentSilo tile to
-          Quick Settings.
-        </p>
-        <div className="panel" role="radiogroup" aria-label="Lock in the background">
-          {LOCK_CHOICES.map((c, i) => (
-            <ChoiceRow key={c.seconds} first={i === 0} label={c.label} checked={lockAfter === c.seconds} onChoose={() => void chooseLock(c.seconds)} />
+      <Sheet open={choosingLanguage} onClose={() => setChoosingLanguage(false)} title={t("silo.language")}>
+        <p className="hint">{t("silo.language_hint")}</p>
+        <div className="panel" role="radiogroup" aria-label={t("silo.language")}>
+          {[
+            {
+              id: "system",
+              label: t("silo.language_system", { name: LOCALES.find((l) => l.id === systemLocale())?.name ?? "English" }),
+            },
+            ...LOCALES.map((l) => ({ id: l.id as string, label: languageLabel(l) })),
+          ].map((choice, i) => (
+            <ChoiceRow
+              key={choice.id}
+              first={i === 0}
+              label={choice.label}
+              checked={language === choice.id}
+              onChoose={() => {
+                setChoosingLanguage(false);
+                setLanguagePref(choice.id);
+                setLanguage(choice.id);
+              }}
+            />
           ))}
         </div>
       </Sheet>
 
-      <Sheet open={aboutAudit} onClose={() => setAboutAudit(false)} title="Activity log">
+      <Sheet open={choosingLock} onClose={() => setChoosingLock(false)} title={t("silo.row_lock_background")}>
+        <p className="hint">{t("silo.lock_hint")}</p>
+        <div className="panel" role="radiogroup" aria-label={t("silo.row_lock_background")}>
+          {LOCK_CHOICES.map((seconds, i) => (
+            <ChoiceRow
+              key={seconds}
+              first={i === 0}
+              label={lockLabel(seconds)}
+              checked={lockAfter === seconds}
+              onChoose={() => void chooseLock(seconds)}
+            />
+          ))}
+        </div>
+      </Sheet>
+
+      <Sheet open={aboutAudit} onClose={() => setAboutAudit(false)} title={t("silo.row_audit")}>
         {audit?.organisation ? (
-          <p className="hint">
-            This silo keeps an activity log for its organisation, and it stays on. Every device records what is done
-            with the silo; only an organisation key reads the log, on a computer.
-          </p>
+          <p className="hint">{t("silo.audit_org_hint")}</p>
         ) : (
           <>
-            <p className="hint">
-              A record of what is done with this silo: unlocking, showing or copying a secret, opening a file, and
-              changes to entries, files, keys and the recovery code. Each record is encrypted on the device that made
-              it. Anyone who can open this silo can read the log, on a computer. Filling with autofill is not recorded
-              yet.
-            </p>
+            <p className="hint">{t("silo.audit_hint")}</p>
             <div className="panel">
               <ToggleRow
                 first
-                label="Keep an activity log"
+                label={t("silo.audit_toggle")}
                 checked={audit?.enabled ?? false}
                 disabled={audit === null}
                 onChange={() => void setAuditLog(!(audit?.enabled ?? false))}
@@ -325,12 +378,9 @@ export function Silo({
         )}
       </Sheet>
 
-      <Sheet open={choosingHistory} onClose={() => setChoosingHistory(false)} title="Earlier versions">
-        <p className="hint">
-          Each time a password, a field or a note changes, the entry keeps the version before it. Old passwords stay in the
-          silo until an entry's history is cleared. As many as fit means up to 256 KB per entry. On this phone only.
-        </p>
-        <div className="panel" role="radiogroup" aria-label="Earlier versions">
+      <Sheet open={choosingHistory} onClose={() => setChoosingHistory(false)} title={t("silo.row_history")}>
+        <p className="hint">{t("silo.history_hint")}</p>
+        <div className="panel" role="radiogroup" aria-label={t("silo.row_history")}>
           {HISTORY_POLICIES.map((policy, i) => (
             <ChoiceRow
               key={String(policy)}
@@ -343,12 +393,8 @@ export function Silo({
         </div>
       </Sheet>
 
-      <Sheet open={aboutAutofill} onClose={() => setAboutAutofill(false)} title="Autofill">
-        <p className="hint">
-          {autofill?.enabled
-            ? "SilentSilo fills logins in other apps and in browsers. It asks for your fingerprint first, and offers the logins whose site or app matches."
-            : "Let SilentSilo fill logins in other apps and in browsers. Choose SilentSilo as the autofill service in Android's settings. In Chrome, also turn on Settings, Autofill services, Autofill using another service."}
-        </p>
+      <Sheet open={aboutAutofill} onClose={() => setAboutAutofill(false)} title={t("silo.row_autofill")}>
+        <p className="hint">{autofill?.enabled ? t("silo.autofill_on_hint") : t("silo.autofill_off_hint")}</p>
         <button
           className="btn"
           onClick={() => {
@@ -356,16 +402,12 @@ export function Silo({
             api.enableAutofill().catch((e) => toast(formatAppError(e)));
           }}
         >
-          {autofill?.enabled ? "Change in Android settings" : "Turn on in Android settings"}
+          {autofill?.enabled ? t("silo.android_change") : t("silo.android_turn_on")}
         </button>
       </Sheet>
 
-      <Sheet open={aboutPasskeys} onClose={() => setAboutPasskeys(false)} title="Passkeys">
-        <p className="hint">
-          {passkeys?.enabled
-            ? "Sites in your browser can save passkeys in this silo and sign in with them. Each use asks for your fingerprint. Passkeys sync to the silo's backup like its passwords."
-            : "Let sites in your browser save passkeys in this silo and sign in with them. Choose SilentSilo for passkeys in Android's settings."}
-        </p>
+      <Sheet open={aboutPasskeys} onClose={() => setAboutPasskeys(false)} title={t("silo.row_passkeys")}>
+        <p className="hint">{passkeys?.enabled ? t("silo.passkeys_on_hint") : t("silo.passkeys_off_hint")}</p>
         <button
           className="btn"
           onClick={() => {
@@ -373,27 +415,23 @@ export function Silo({
             api.enablePasskeys().catch((e) => toast(formatAppError(e)));
           }}
         >
-          {passkeys?.enabled ? "Change in Android settings" : "Turn on in Android settings"}
+          {passkeys?.enabled ? t("silo.android_change") : t("silo.android_turn_on")}
         </button>
       </Sheet>
 
-      <Sheet open={removing} onClose={() => setRemoving(false)} title={`Remove ${siloName} from this phone?`}>
+      <Sheet open={removing} onClose={() => setRemoving(false)} title={t("silo.remove_title", { name: siloName })}>
         {!sync || sync.configured ? (
-          <p className="hint">
-            The copy on this phone, this phone's key for it and its backup settings are deleted. The silo stays in its backup
-            storage and on your other devices, and setting it up here again takes the recovery code or one of its security keys.
-            To stop other devices listing this phone's key, remove it under Keys first.
-          </p>
+          <p className="hint">{t("silo.remove_hint")}</p>
         ) : (
           <Notice tone="error" quiet>
-            This silo has no backup storage, so this phone holds its only copy. Removing it deletes the silo for good.
+            {t("silo.remove_only_copy")}
           </Notice>
         )}
         {sync?.configured && waiting > 0 && (
           <Notice tone="warning">
             {leftOut
-              ? `${waiting === 1 ? "1 change" : `${waiting} changes`} made here since the key was replaced cannot reach backup storage any more and will be lost.`
-              : `${waiting === 1 ? "1 change has" : `${waiting} changes have`} not reached backup storage yet and would be lost. Sync first.`}
+              ? t("silo.remove_lost_left_out", { count: waiting })
+              : t("silo.remove_lost_waiting", { count: waiting })}
           </Notice>
         )}
         <button
@@ -410,19 +448,15 @@ export function Silo({
             }
           }}
         >
-          Remove from this phone
+          {t("silo.remove_confirm")}
         </button>
         <button className="btn secondary" onClick={() => setRemoving(false)}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </Sheet>
 
-      <Sheet open={aboutRecovery} onClose={() => { if (codeShown) return; setAboutRecovery(false); setMakingCode(false); }} title="Recovery code">
-        <p className="hint">
-          {recovery?.enabled
-            ? "This silo has a recovery code. It was shown once and cannot be shown again. Keep the paper safe: it opens the silo when every key is gone."
-            : "This silo has no recovery code. Without one, losing every key means losing the silo."}
-        </p>
+      <Sheet open={aboutRecovery} onClose={() => { if (codeShown) return; setAboutRecovery(false); setMakingCode(false); }} title={t("silo.row_recovery")}>
+        <p className="hint">{recovery?.enabled ? t("silo.recovery_on_hint") : t("silo.recovery_off_hint")}</p>
         {makingCode ? (
           <RecoveryCodeShow
             replacing={!!recovery?.enabled}
@@ -438,10 +472,10 @@ export function Silo({
         ) : (
           <>
             <button className={recovery?.enabled ? "btn secondary" : "btn"} onClick={() => setMakingCode(true)}>
-              {recovery?.enabled ? "Replace the code" : "Make a recovery code"}
+              {recovery?.enabled ? t("silo.recovery_replace") : t("silo.recovery_make")}
             </button>
             <button className="btn secondary" onClick={() => setAboutRecovery(false)}>
-              Close
+              {t("common.close")}
             </button>
           </>
         )}

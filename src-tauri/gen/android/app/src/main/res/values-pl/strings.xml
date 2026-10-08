@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_fill_from">Wypełnij z SilentSilo</string>
+    <string name="autofill_fill_title">Wypełnij dane logowania</string>
+    <string name="autofill_nothing_saved">Nic nie zapisano dla %1$s</string>
+    <string name="autofill_no_silo_save">Na tym telefonie nie ma silosu, w którym można zapisać.</string>
+    <string name="autofill_save_title">Zapisz dane logowania</string>
+    <string name="autofill_saved_new">Zapisano w SilentSilo.</string>
+    <string name="autofill_saved_updated">Zaktualizowano hasło w SilentSilo.</string>
+    <string name="autofill_saved_unchanged">SilentSilo ma już te dane logowania.</string>
+    <string name="autofill_save_failed">Nie udało się zapisać danych logowania.</string>
+    <string name="autofill_pick_hint">Wybierz dane logowania tylko wtedy, gdy chcesz je tu wypełnić.</string>
+    <string name="autofill_search_hint">Szukaj w silosie</string>
+    <string name="cancel">Anuluj</string>
+    <string name="cancelled">Anulowano.</string>
+    <string name="backup_channel">Kopia zapasowa czeka na silos</string>
+    <string name="backup_title">Otwórz SilentSilo, aby dokończyć kopię zapasową</string>
+    <string name="lock_tile">Zablokuj SilentSilo</string>
+    <string name="passkey_no_silo">Na tym telefonie nie ma silosu.</string>
+    <string name="passkey_description">Zapisany w silosie i synchronizowany z jego kopią zapasową</string>
+    <string name="passkey_in">Klucz dostępu w %1$s</string>
+    <string name="passkey_only_browser">Na razie tylko przeglądarka może używać kluczy dostępu z SilentSilo.</string>
+    <string name="passkey_save_for">Zapisz klucz dostępu dla %1$s</string>
+    <string name="passkey_sign_in_to">Zaloguj się do %1$s</string>
+    <string name="passkey_not_saved">Klucz dostępu nie został zapisany.</string>
+    <string name="passkey_not_signed">Logowanie nie zostało podpisane.</string>
+    <string name="passkey_silo_not_open">Silos się nie otworzył.</string>
+    <string name="passkey_none_for_site">Silos nie ma klucza dostępu dla tej witryny.</string>
+    <string name="passkey_choose_for">Wybierz klucz dostępu dla %1$s</string>
+    <string name="phonekey_changed">Odciski palców lub twarze na tym telefonie się zmieniły, więc jego klucz do silosu przestał działać. Otwórz silos kodem odzyskiwania, a potem dodaj ten telefon ponownie.</string>
+    <string name="phonekey_absent">Ten telefon nie ma klucza do tego silosu.</string>
+    <string name="pin_title">PIN klucza bezpieczeństwa</string>
+    <string name="pin_message">Klucz bezpieczeństwa z PIN-em potrzebuje go do otwarcia silosu, tak jak na komputerze. Trafia tylko do klucza i nie jest przechowywany.</string>
+    <string name="pin_continue">Dalej</string>
+    <string name="pin_no_pin">Klucz nie ma PIN-u</string>
+    <plurals name="backup_waiting">
+        <item quantity="one">%d element czeka na dodanie do silosu.</item>
+        <item quantity="few">%d elementy czekają na dodanie do silosu.</item>
+        <item quantity="many">%d elementów czeka na dodanie do silosu.</item>
+        <item quantity="other">%d elementu czeka na dodanie do silosu.</item>
+    </plurals>
+</resources>

@@ -227,7 +227,7 @@ class SiloAutofillService : AutofillService() {
       PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_MUTABLE,
     ).intentSender
     val response = FillResponse.Builder()
-      .setAuthentication(fields.ids, sender, AutofillUnlockActivity.row(this, "Fill from SilentSilo"))
+      .setAuthentication(fields.ids, sender, AutofillUnlockActivity.row(this, getString(R.string.autofill_fill_from)))
       .setSaveInfo(FormFields.saveInfo(fields))
       .build()
     callback.onSuccess(response)
@@ -316,7 +316,7 @@ class AutofillUnlockActivity : Activity() {
       this,
       vaultId,
       list,
-      "Fill a login",
+      getString(R.string.autofill_fill_title),
       asked,
       onUnlocked = { credentialId, wrapKey -> offer(Native.autofillLogins(dataDir, credentialId, wrapKey)) },
       onFailed = { finishWith(null) },
@@ -364,7 +364,7 @@ class AutofillUnlockActivity : Activity() {
   private fun search(logins: List<JSONObject>) {
     if (logins.isEmpty()) return finishWith(null)
     setContentView(R.layout.autofill_pick)
-    findViewById<TextView>(R.id.autofill_pick_title).text = "Nothing saved for $asked"
+    findViewById<TextView>(R.id.autofill_pick_title).text = getString(R.string.autofill_nothing_saved, asked)
     val list = findViewById<ListView>(R.id.autofill_pick_list)
     val sorted = logins.sortedBy { it.optString("service").lowercase() }
     var shown = sorted
@@ -491,14 +491,14 @@ class AutofillSaveActivity : Activity() {
 
     val silo = JSONObject(Native.autofillSilo(dataDir))
     val vaultId = silo.optString("vaultId")
-    if (vaultId.isEmpty()) return done("There is no silo on this phone to save to.")
+    if (vaultId.isEmpty()) return done(getString(R.string.autofill_no_silo_save))
 
     val ids = silo.optJSONArray("credentialIds")
     PhoneKey.unlock(
       this,
       vaultId,
       (0 until (ids?.length() ?: 0)).map { ids!!.getString(it) },
-      "Save the login",
+      getString(R.string.autofill_save_title),
       where,
       onUnlocked = { credentialId, wrapKey -> save(Native.autofillSave(dataDir, credentialId, wrapKey, login)) },
       onFailed = { if (it.code == "cancelled") done(null) else done(it.message) },
@@ -509,10 +509,10 @@ class AutofillSaveActivity : Activity() {
     val json = JSONObject(answer)
     done(
       when (json.optString("saved")) {
-        "new" -> "Saved to SilentSilo."
-        "updated" -> "Password updated in SilentSilo."
-        "unchanged" -> "SilentSilo already has this login."
-        else -> json.optString("error", "The login could not be saved.")
+        "new" -> getString(R.string.autofill_saved_new)
+        "updated" -> getString(R.string.autofill_saved_updated)
+        "unchanged" -> getString(R.string.autofill_saved_unchanged)
+        else -> json.optString("error", getString(R.string.autofill_save_failed))
       }
     )
   }

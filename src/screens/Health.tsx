@@ -1,11 +1,12 @@
 import { ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
-import { analyseHealth, type HealthFinding } from "../shared/health";
+import { analyseHealth, type HealthFinding, type SiloHealth } from "../shared/health";
 import { subtitleFor } from "../shared/passwordUtil";
 import type { PasswordEntry } from "../shared/types";
 import { EmptyState, Notice, Skeleton, TopBar } from "../ui/chrome";
+import { t, useLocale } from "../i18n";
 
 const COLOUR: Record<HealthFinding["severity"], string> = {
   high: "var(--danger)",
@@ -16,15 +17,19 @@ const COLOUR: Record<HealthFinding["severity"], string> = {
 /** What is wrong with the silo's passwords and setup, worked out on this
  * phone from what is already open. Nothing is sent anywhere. */
 export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry: PasswordEntry) => void }) {
-  const [findings, setFindings] = useState<HealthFinding[] | null>(null);
+  const locale = useLocale();
+  // What the findings are worked out from; they are worded at render time,
+  // so a language change rewrites them.
+  const [inputs, setInputs] = useState<{ entries: PasswordEntry[]; silo: SiloHealth } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([api.readPasswords(), api.syncStatus(), api.listKeys(), api.recoveryStatus()])
       .then(([entries, sync, keys, recovery]) =>
-        setFindings(
-          analyseHealth(entries, {
+        setInputs({
+          entries,
+          silo: {
             backupConfigured: sync.configured,
             // The phone keeps no record of a failed pass yet, and has no
             // backup test, so neither finding applies here.
@@ -35,24 +40,29 @@ export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry:
             // A phone's free space is not the silo's problem worth a finding.
             freeBytes: null,
             headroomBytes: 0,
-          }),
-        ),
+          },
+        }),
       )
       .catch((e) => setError(formatAppError(e)));
   }, []);
 
+  const findings = useMemo(
+    () => (inputs ? analyseHealth(inputs.entries, inputs.silo) : null),
+    [inputs, locale],
+  );
+
   return (
     <div className="screen">
-      <TopBar onBack={onBack} backLabel="Silo" />
+      <TopBar onBack={onBack} backLabel={t("pw.back_silo")} />
       <div className="screen-body tight" style={{ gap: 14 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
-          <h1 className="title">Password health</h1>
-          <p className="hint">Checked on this phone. No password leaves it for this.</p>
+          <h1 className="title">{t("pw.health_title")}</h1>
+          <p className="hint">{t("pw.health_local")}</p>
         </div>
         {error && <Notice tone="error">{error}</Notice>}
         {!findings && !error && <Skeleton avatar={false} rows={4} />}
         {findings?.length === 0 && (
-          <EmptyState icon={<ShieldCheck size={26} />} title="Nothing to fix" hint="Every password is unique and strong." />
+          <EmptyState icon={<ShieldCheck size={26} />} title={t("pw.health_nothing")} hint={t("pw.health_all_good")} />
         )}
         {findings?.map((finding) => {
           const expanded = open === finding.id;

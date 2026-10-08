@@ -1,6 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { formatBytes } from "../shared/format";
+import { t } from "../i18n";
 
 /** Where a running sync pass is. Gone once the pass reports its end. */
 export type SyncProgress = {
@@ -31,22 +32,26 @@ export const useLeftOut = () => useContext(LeftOut);
 
 /** What a status line says about a step, in a few words. */
 export function describeProgress(p: SyncProgress): string {
-  const count = p.total > 1 ? ` ${Math.min(p.done + 1, p.total)} of ${p.total}` : "";
+  const count =
+    p.total > 1 ? ` ${t("start.of", { done: Math.min(p.done + 1, p.total), total: p.total })}` : "";
   // Before the name, because the line is ellipsized and this is the part
   // that moves: on one large file the name tells you nothing new.
-  const bytes = p.bytes_total > 0 ? ` · ${formatBytes(p.bytes_done)} of ${formatBytes(p.bytes_total)}` : "";
+  const bytes =
+    p.bytes_total > 0
+      ? ` · ${t("start.of", { done: formatBytes(p.bytes_done), total: formatBytes(p.bytes_total) })}`
+      : "";
   const name = p.name ? ` · ${p.name}` : "";
   switch (p.phase) {
     case "sending-changes":
-      return `Sending changes${count}`;
+      return `${t("start.progress_sending")}${count}`;
     case "uploading":
-      return `Uploading${count}${bytes}${name}`;
+      return `${t("start.progress_uploading")}${count}${bytes}${name}`;
     case "fetching-changes":
-      return `Getting changes${count}`;
+      return `${t("start.progress_fetching")}${count}`;
     case "downloading":
-      return `Downloading${count}${bytes}${name}`;
+      return `${t("start.progress_downloading")}${count}${bytes}${name}`;
     case "importing":
-      return `Adding from phone backup${count}`;
+      return `${t("start.progress_importing")}${count}`;
   }
 }
 

@@ -10,8 +10,10 @@ import { describeProgress, useLeftOut, useSyncProgress } from "../ui/syncActivit
 import { ensureVerified } from "../ui/reverify";
 import { SiloSwitcher } from "./SiloSwitcher";
 import { haptic } from "../ui/haptics";
+import { t, useLocale } from "../i18n";
 
 export function SiloHeader({ siloName, sync, action }: { siloName: string; sync: SyncStatus | null; action?: React.ReactNode }) {
+  useLocale();
   const waiting = sync?.pending_ops ?? 0;
   const [switching, setSwitching] = useState(false);
   const progress = useSyncProgress();
@@ -23,7 +25,7 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
           className="text-btn"
           style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: "var(--fs-headline)", letterSpacing: "-0.03em", color: "var(--ink)", padding: 0 }}
           onClick={() => setSwitching(true)}
-          aria-label={`${siloName}, switch silo`}
+          aria-label={t("pw.switch_silo_label", { name: siloName })}
         >
           {siloName}
           <ChevronDown size={20} color="var(--text-muted)" />
@@ -40,10 +42,10 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
               {progress
                 ? describeProgress(progress)
                 : leftOut
-                  ? "Not syncing"
+                  ? t("pw.not_syncing")
                   : waiting
-                  ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to sync`
-                  : "Synced"}
+                  ? t("pw.sync_waiting", { count: waiting })
+                  : t("pw.synced")}
             </span>
           </div>
         )}
@@ -70,6 +72,7 @@ export function Passwords({
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  useLocale();
 
   useEffect(() => {
     api.readPasswords().then(
@@ -88,7 +91,7 @@ export function Passwords({
       await ensureVerified(entry);
       await api.copySecret(entry, entry.password, "password");
       haptic("confirm");
-      toast("Password copied. It clears from the clipboard after 45 seconds.");
+      toast(t("pw.password_copied"));
     } catch (e) {
       toast(formatAppError(e));
     }
@@ -99,7 +102,7 @@ export function Passwords({
       <SiloHeader
         siloName={siloName}
         sync={sync}
-        action={isIOS ? <AddButton label="New entry" onClick={onAdd} /> : undefined}
+        action={isIOS ? <AddButton label={t("pw.new_entry")} onClick={onAdd} /> : undefined}
       />
       <div style={{ padding: "0 16px 10px" }}>
         <div className="input">
@@ -107,8 +110,8 @@ export function Passwords({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={entries ? `Search ${entries.length} entries` : "Search"}
-            aria-label="Search passwords"
+            placeholder={entries ? t("pw.search_count", { count: entries.length }) : t("pw.search")}
+            aria-label={t("pw.search_label")}
             autoCapitalize="none"
             autoCorrect="off"
           />
@@ -120,13 +123,13 @@ export function Passwords({
           {!entries && !error && <Skeleton />}
           {entries && shown.length === 0 &&
             (query ? (
-              <EmptyState icon={<Search size={26} />} title="Nothing matches" hint="Try another word, or part of a site or username." />
+              <EmptyState icon={<Search size={26} />} title={t("pw.no_matches")} hint={t("pw.no_matches_hint")} />
             ) : (
               <EmptyState
                 icon={<KeyRound size={26} />}
-                title="No passwords yet"
-                hint="Add one here, or import them in SilentSilo on your computer."
-                action={{ label: "Add a password", onClick: onAdd }}
+                title={t("pw.empty_title")}
+                hint={t("pw.empty_hint")}
+                action={{ label: t("pw.add_password"), onClick: onAdd }}
               />
             ))}
           {shown.map((entry) => {
@@ -142,14 +145,14 @@ export function Passwords({
                     <span className="row-sub">{subtitleFor(entry)}</span>
                   </span>
                 </button>
-                <button className="icon-btn" aria-label={`Copy the ${entry.service} password`} onClick={() => copyPassword(entry)}>
+                <button className="icon-btn" aria-label={t("pw.copy_password_of", { name: entry.service })} onClick={() => copyPassword(entry)}>
                   <Copy size={20} />
                 </button>
               </div>
             );
           })}
         </div>
-        {!isIOS && <AddButton label="New entry" onClick={onAdd} />}
+        {!isIOS && <AddButton label={t("pw.new_entry")} onClick={onAdd} />}
       </div>
     </div>
   );

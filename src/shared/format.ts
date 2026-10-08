@@ -1,14 +1,29 @@
 // Copied from silentsilo/desktop src/lib/format.ts (audit 1.2); keep in step.
+import { dateLocale, t } from "../i18n";
 import type { BreadcrumbSeg } from "./types";
 
+/** The unit names, in the language in use: French writes octets. */
+const units = () => [
+  t("start.unit_b"),
+  t("start.unit_kb"),
+  t("start.unit_mb"),
+  t("start.unit_gb"),
+  t("start.unit_tb"),
+];
+
 export function formatBytes(n: number): string {
-  if (n === 0) return "0 B";
-  if (n < 0) return "0 B";
+  const sizes = units();
+  if (n <= 0) return `0 ${sizes[0]}`;
   const k = 1024;
-  const sizes = ["B", "KB", "MB", "GB", "TB"];
   const i = Math.floor(Math.log(n) / Math.log(k));
   const p = Math.min(i, sizes.length - 1);
-  return `${parseFloat((n / Math.pow(k, p)).toFixed(1))} ${sizes[p]}`;
+  // One decimal at most, with the language's own decimal mark and no
+  // thousands separator, the shape "1.5 MB" always had.
+  const value = new Intl.NumberFormat(dateLocale(), {
+    maximumFractionDigits: 1,
+    useGrouping: false,
+  }).format(parseFloat((n / Math.pow(k, p)).toFixed(1)));
+  return `${value} ${sizes[p]}`;
 }
 
 /**
@@ -30,10 +45,10 @@ export function breadcrumbSegments(folderPath: string, rootLabel: string): Bread
 }
 
 /**
- * One date shape everywhere, day first: "15 Nov 2023, 14:00". British, like
- * the spelling; the system locale answered "Nov 15, 2023" next to it.
+ * One date shape everywhere, day first: "15 Nov 2023, 14:00". The language's
+ * own shape once one is chosen; English keeps the British day-first form.
  */
-const DATE_LOCALE = "en-GB";
+const DATE_LOCALE = () => dateLocale();
 
 /**
  * A timestamp, with the year shown only when it isn't this one.
@@ -47,7 +62,7 @@ export function formatDate(ts: number): string {
   const ms = ts > 1e12 ? ts : ts * 1000;
   const date = new Date(ms);
   const sameYear = date.getFullYear() === new Date().getFullYear();
-  return date.toLocaleString(DATE_LOCALE, {
+  return date.toLocaleString(DATE_LOCALE(), {
     year: sameYear ? undefined : "numeric",
     month: "short",
     day: "numeric",
@@ -70,7 +85,7 @@ export function formatDay(ts: number): string {
   const ms = ts > 1e12 ? ts : ts * 1000;
   const date = new Date(ms);
   const sameYear = date.getFullYear() === new Date().getFullYear();
-  return date.toLocaleDateString(DATE_LOCALE, {
+  return date.toLocaleDateString(DATE_LOCALE(), {
     year: sameYear ? undefined : "numeric",
     month: "short",
     day: "numeric",
@@ -80,13 +95,13 @@ export function formatDay(ts: number): string {
 /** How long ago a Unix ms instant was, in the words a status line uses. */
 export function formatAge(at: number): string {
   const seconds = Math.round((Date.now() - at) / 1000);
-  if (seconds < 45) return "just now";
+  if (seconds < 45) return t("start.age_just_now");
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes} min ago`;
+  if (minutes < 60) return t("start.age_minutes", { count: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return hours === 1 ? "an hour ago" : `${hours} hours ago`;
+  if (hours < 24) return t("start.age_hours", { count: hours });
   // "49 hours ago" made the reader do arithmetic to learn it was the day
   // before yesterday.
   const days = Math.round(hours / 24);
-  return days === 1 ? "yesterday" : `${days} days ago`;
+  return days === 1 ? t("start.age_yesterday") : t("start.age_days", { count: days });
 }

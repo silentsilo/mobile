@@ -6,19 +6,23 @@ import type { SecurityKeyInfo } from "../shared/types";
 import { Field, Notice, Sheet, Skeleton, TopBar } from "../ui/chrome";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 import { haptic } from "../ui/haptics";
+import { t, useLocale } from "../i18n";
 
 function describe(key: SecurityKeyInfo) {
   switch (key.kind ?? "fido2") {
     case "android-keystore":
-      return { Icon: Smartphone, detail: "Android phone" };
+      return { Icon: Smartphone, detail: t("silo.key_kind_phone") };
     case "secure-enclave":
       return { Icon: ScanFace, detail: "Touch ID" };
     default:
-      return key.platform ? { Icon: ScanFace, detail: "Windows Hello or Touch ID" } : { Icon: KeyRound, detail: "Security key" };
+      return key.platform
+        ? { Icon: ScanFace, detail: t("silo.key_kind_builtin") }
+        : { Icon: KeyRound, detail: t("silo.key_kind_security") };
   }
 }
 
 export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => void }) {
+  useLocale();
   const [keys, setKeys] = useState<SecurityKeyInfo[] | null>(null);
   const [chosen, setChosen] = useState<SecurityKeyInfo | null>(null);
   const [busy, setBusy] = useState(false);
@@ -26,7 +30,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
   // Adding a security key: its name, then the key. A PIN, when the key has
   // one, is asked in Android's own dialog.
   const [adding, setAdding] = useState<"name" | "key" | null>(null);
-  const [label, setLabel] = useState("Security key");
+  const [label, setLabel] = useState(() => t("silo.key_kind_security"));
   const [addError, setAddError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -75,11 +79,11 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
 
   return (
     <div className="screen">
-      <TopBar onBack={onBack} backLabel="Silo" />
+      <TopBar onBack={onBack} backLabel={t("silo.tab_name")} />
       <div className="screen-body tight" style={{ gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
-          <h1 className="title">Keys</h1>
-          <p className="hint">Each key opens this silo on its own.</p>
+          <h1 className="title">{t("silo.row_keys")}</h1>
+          <p className="hint">{t("silo.keys_intro")}</p>
         </div>
         {error && !chosen && <Notice tone="error">{error}</Notice>}
         {!keys && !error && <Skeleton rows={2} />}
@@ -96,7 +100,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
                     <span className="row-title">{key.label || detail}</span>
                     <span className="row-sub">{detail}</span>
                   </span>
-                  <button className="icon-btn" aria-label={`Options for ${key.label || detail}`} onClick={() => { setError(null); setChosen(key); }}>
+                  <button className="icon-btn" aria-label={t("silo.key_options", { name: key.label || detail })} onClick={() => { setError(null); setChosen(key); }}>
                     <EllipsisVertical size={20} />
                   </button>
                 </div>
@@ -108,29 +112,26 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
           className="btn secondary"
           onClick={() => {
             setAddError(null);
-            setLabel("Security key");
+            setLabel(t("silo.key_kind_security"));
             setAdding("name");
           }}
         >
-          Add security key
+          {t("silo.key_add")}
         </button>
       </div>
 
-      <Sheet open={adding !== null} onClose={closeAdding} title="Add a security key">
+      <Sheet open={adding !== null} onClose={closeAdding} title={t("silo.key_add_title")}>
         {adding === "name" && (
           <>
-            <p className="hint">
-              A YubiKey or another security key with NFC or USB-C. It opens this silo here and on your computers. Keep it
-              apart from the phone.
-            </p>
-            <Field label="Name this key">
+            <p className="hint">{t("silo.key_add_hint")}</p>
+            <Field label={t("silo.key_name_label")}>
               <div className="input">
                 <input value={label} onChange={(e) => setLabel(e.target.value)} />
               </div>
             </Field>
             {addError && <Notice tone="error">{addError}</Notice>}
             <button className="btn" onClick={() => void addKey()}>
-              Continue
+              {t("silo.continue")}
             </button>
           </>
         )}
@@ -138,31 +139,28 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
           <>
             <SecurityKeyWait touches={2} />
             <button className="btn secondary" onClick={closeAdding}>
-              Cancel
+              {t("common.cancel")}
             </button>
           </>
         )}
       </Sheet>
 
-      <Sheet open={chosen !== null} onClose={() => setChosen(null)} title={chosen ? `Remove ${chosen.label || describe(chosen).detail}?` : undefined}>
+      <Sheet open={chosen !== null} onClose={() => setChosen(null)} title={chosen ? t("silo.key_remove_title", { name: chosen.label || describe(chosen).detail }) : undefined}>
         {chosen?.this_phone && (
           <Notice tone="error" quiet>
-            This is this phone&apos;s own key. Once it is removed, this phone opens the silo only with the recovery code or
-            another key, and asks you to add a key again.
+            {t("silo.key_remove_own")}
           </Notice>
         )}
         <p className="hint">
-          It stops opening this silo.
-          {(sync?.archive_targets ?? 0) > 0 && " A never-delete copy keeps the old key, and it still opens what is stored there."}{" "}
-          If the key was lost or stolen, also replace the encryption key from SilentSilo on your computer, so it cannot open
-          anything saved from then on.
+          {t("silo.key_remove_stops")}
+          {(sync?.archive_targets ?? 0) > 0 && ` ${t("silo.key_remove_archive")}`} {t("silo.key_remove_lost")}
         </p>
         {error && <Notice tone="error">{error}</Notice>}
         <button className="btn danger" aria-busy={busy} onClick={remove} disabled={busy}>
-          {busy ? "Removing" : "Remove key"}
+          {busy ? t("silo.key_removing") : t("silo.key_remove")}
         </button>
         <button className="btn secondary" onClick={() => setChosen(null)} disabled={busy}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </Sheet>
     </div>

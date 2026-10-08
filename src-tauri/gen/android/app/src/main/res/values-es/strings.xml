@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_fill_from">Rellenar desde SilentSilo</string>
+    <string name="autofill_fill_title">Rellenar un inicio de sesión</string>
+    <string name="autofill_nothing_saved">Nada guardado para %1$s</string>
+    <string name="autofill_no_silo_save">No hay ningún silo en este teléfono donde guardar.</string>
+    <string name="autofill_save_title">Guardar el inicio de sesión</string>
+    <string name="autofill_saved_new">Guardado en SilentSilo.</string>
+    <string name="autofill_saved_updated">Contraseña actualizada en SilentSilo.</string>
+    <string name="autofill_saved_unchanged">SilentSilo ya tiene este inicio de sesión.</string>
+    <string name="autofill_save_failed">No se pudo guardar el inicio de sesión.</string>
+    <string name="autofill_pick_hint">Elige un inicio de sesión solo si querías rellenarlo aquí.</string>
+    <string name="autofill_search_hint">Buscar en el silo</string>
+    <string name="cancel">Cancelar</string>
+    <string name="cancelled">Cancelado.</string>
+    <string name="backup_channel">Copia de seguridad a la espera del silo</string>
+    <string name="backup_title">Abre SilentSilo para terminar la copia de seguridad</string>
+    <string name="lock_tile">Bloquear SilentSilo</string>
+    <string name="passkey_no_silo">No hay ningún silo en este teléfono.</string>
+    <string name="passkey_description">Guardada en tu silo y sincronizada con su copia de seguridad</string>
+    <string name="passkey_in">Llave de acceso en %1$s</string>
+    <string name="passkey_only_browser">Por ahora solo un navegador puede usar las llaves de acceso de SilentSilo.</string>
+    <string name="passkey_save_for">Guardar una llave de acceso para %1$s</string>
+    <string name="passkey_sign_in_to">Iniciar sesión en %1$s</string>
+    <string name="passkey_not_saved">La llave de acceso no se guardó.</string>
+    <string name="passkey_not_signed">El inicio de sesión no se firmó.</string>
+    <string name="passkey_silo_not_open">El silo no se abrió.</string>
+    <string name="passkey_none_for_site">El silo no tiene ninguna llave de acceso para este sitio.</string>
+    <string name="passkey_choose_for">Elige una llave de acceso para %1$s</string>
+    <string name="phonekey_changed">Las huellas o las caras de este teléfono cambiaron, así que su llave del silo dejó de funcionar. Abre el silo con tu código de recuperación y vuelve a añadir este teléfono.</string>
+    <string name="phonekey_absent">Este teléfono no tiene ninguna llave para este silo.</string>
+    <string name="pin_title">PIN de la llave de seguridad</string>
+    <string name="pin_message">Una llave de seguridad con PIN lo necesita para abrir el silo, como en tu ordenador. Solo va a la llave y no se guarda.</string>
+    <string name="pin_continue">Continuar</string>
+    <string name="pin_no_pin">La llave no tiene PIN</string>
+    <plurals name="backup_waiting">
+        <item quantity="one">%d elemento espera a añadirse a tu silo.</item>
+        <item quantity="many">%d de elementos esperan a añadirse a tu silo.</item>
+        <item quantity="other">%d elementos esperan a añadirse a tu silo.</item>
+    </plurals>
+</resources>

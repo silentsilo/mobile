@@ -2,10 +2,12 @@ import { useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { Field, Notice, StepBar } from "../ui/chrome";
+import { t, useLocale } from "../i18n";
 
 /** A new silo, made on this phone. Its key, recovery code and storage come next. */
 export function CreateSilo({ onBack, onCreated }: { onBack: () => void; onCreated: () => void }) {
-  const [name, setName] = useState("Personal");
+  useLocale();
+  const [name, setName] = useState(() => t("start.default_name"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -27,13 +29,10 @@ export function CreateSilo({ onBack, onCreated }: { onBack: () => void; onCreate
       <StepBar step={1} of={4} onBack={onBack} />
       <div className="screen-body">
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h1 className="title">Make a new silo</h1>
-          <p className="hint">
-            Passwords and files, encrypted on this phone before they go anywhere. Next come this phone's key, a recovery code
-            and the backup storage it syncs to.
-          </p>
+          <h1 className="title">{t("start.create")}</h1>
+          <p className="hint">{t("start.create_body")}</p>
         </div>
-        <Field label="Name">
+        <Field label={t("start.create_name_label")}>
           <div className="input">
             <input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </div>
@@ -41,7 +40,7 @@ export function CreateSilo({ onBack, onCreated }: { onBack: () => void; onCreate
         {error && <Notice tone="error">{error}</Notice>}
         <div className="spacer" />
         <button className="btn" aria-busy={busy} disabled={!name.trim() || busy} onClick={() => void create()}>
-          {busy ? "Making the silo" : "Continue"}
+          {busy ? t("start.creating") : t("start.continue")}
         </button>
       </div>
     </div>

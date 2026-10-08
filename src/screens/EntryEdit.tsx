@@ -9,6 +9,7 @@ import { useBackLayer } from "../ui/back";
 import { Field, Notice, Sheet } from "../ui/chrome";
 import { GeneratorSheet } from "../ui/GeneratorSheet";
 import { haptic } from "../ui/haptics";
+import { t, useLocale, type Key } from "../i18n";
 
 function blankEntry(): PasswordEntry {
   const now = Date.now();
@@ -28,6 +29,7 @@ export function EntryEdit({
   onSaved: (entry: PasswordEntry) => void;
   onDeleted: () => void;
 }) {
+  useLocale();
   const [original] = useState(() => entry ?? blankEntry());
   const [service, setService] = useState(original.service);
   const [username, setUsername] = useState(original.username);
@@ -42,7 +44,7 @@ export function EntryEdit({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // A field's own problem, shown under it.
-  const [fieldError, setFieldError] = useState<{ field: "name" | "totp"; message: string } | null>(null);
+  const [fieldError, setFieldError] = useState<{ field: "name" | "totp"; message: Key } | null>(null);
   // The field at fault comes into view with the caret in it.
   useEffect(() => {
     if (fieldError) document.querySelector<HTMLInputElement>('[aria-invalid="true"]')?.focus();
@@ -53,7 +55,7 @@ export function EntryEdit({
   const save = async () => {
     setFieldError(null);
     if (!service.trim()) {
-      setFieldError({ field: "name", message: "Give the entry a name." });
+      setFieldError({ field: "name", message: "pw.need_name" });
       return;
     }
     // A row left with neither a name nor a value was added and never used.
@@ -70,7 +72,7 @@ export function EntryEdit({
     if (totp.trim()) {
       const params = parseTotpInput(totp.trim());
       if (!params) {
-        setFieldError({ field: "totp", message: "That one-time code setup key is not valid." });
+        setFieldError({ field: "totp", message: "pw.totp_setup_invalid" });
         return;
       }
       changes.totp_secret = params.secret;
@@ -128,27 +130,27 @@ export function EntryEdit({
       />
     </div>
   );
-  const errorFor = (field: "name" | "totp") => (invalid(field) ? fieldError!.message : null);
+  const errorFor = (field: "name" | "totp") => (invalid(field) ? t(fieldError!.message) : null);
 
   return (
     <div className="screen">
       <div className="top-bar">
         <button className="text-btn" style={{ fontWeight: 600 }} onClick={onCancel} disabled={busy}>
-          Cancel
+          {t("common.cancel")}
         </button>
-        <div style={{ fontWeight: 700 }}>{entry ? "Edit entry" : "New entry"}</div>
+        <div style={{ fontWeight: 700 }}>{entry ? t("pw.edit_entry") : t("pw.new_entry")}</div>
         <button className="text-btn" style={{ fontWeight: 700 }} onClick={save} disabled={busy}>
-          Save
+          {t("common.save")}
         </button>
       </div>
       <div className="screen-body" style={{ gap: 16 }}>
         {/* Up here, next to Save: what went wrong with the save itself. */}
         {error && <Notice tone="error">{error}</Notice>}
-        <Field label="Name" error={errorFor("name")} errorId="name-error">
+        <Field label={t("pw.field_name")} error={errorFor("name")} errorId="name-error">
           {input(service, setService, { autoCapitalize: "words", autoFocus: !entry }, "name")}
         </Field>
-        <Field label="Username">{input(username, setUsername, { inputMode: "email" })}</Field>
-        <Field label="Password">
+        <Field label={t("pw.field_username")}>{input(username, setUsername, { inputMode: "email" })}</Field>
+        <Field label={t("pw.field_password")}>
           <div style={{ display: "flex", gap: 8 }}>
             <div className="input" style={{ flex: 1 }}>
               <input
@@ -157,20 +159,20 @@ export function EntryEdit({
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
               />
-              <button className="icon-btn" aria-label={showPassword ? "Hide password" : "Show password"} onClick={(e) => { e.preventDefault(); setShowPassword(!showPassword); }}>
+              <button className="icon-btn" aria-label={showPassword ? t("pw.hide_password") : t("pw.show_password")} onClick={(e) => { e.preventDefault(); setShowPassword(!showPassword); }}>
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
-            <button className="icon-btn framed accent" aria-label="Generate a password" onClick={(e) => { e.preventDefault(); setGenerating(true); }}>
+            <button className="icon-btn framed accent" aria-label={t("pw.generate_password")} onClick={(e) => { e.preventDefault(); setGenerating(true); }}>
               <WandSparkles size={20} />
             </button>
           </div>
         </Field>
-        <Field label="Website">{input(url, setUrl, { inputMode: "url", placeholder: "example.com" })}</Field>
-        <Field label="One-time code setup key" error={errorFor("totp")} errorId="totp-error">
-          {input(totp, setTotp, { placeholder: "Optional" }, "totp")}
+        <Field label={t("pw.field_website")}>{input(url, setUrl, { inputMode: "url", placeholder: "example.com" })}</Field>
+        <Field label={t("pw.totp_setup_key")} error={errorFor("totp")} errorId="totp-error">
+          {input(totp, setTotp, { placeholder: t("pw.optional") }, "totp")}
         </Field>
-        <Field label="Custom fields">
+        <Field label={t("pw.field_custom_fields")}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {fields.map((field, i) => {
               const update = (change: Partial<CustomField>) =>
@@ -179,9 +181,9 @@ export function EntryEdit({
                 <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <div style={{ display: "flex", gap: 8 }}>
                     <div className="input" style={{ flex: 1 }}>
-                      <input value={field.name} placeholder="Name" aria-label="Field name" onChange={(e) => update({ name: e.target.value })} />
+                      <input value={field.name} placeholder={t("pw.field_name")} aria-label={t("pw.custom_name_label")} onChange={(e) => update({ name: e.target.value })} />
                     </div>
-                    <button className="icon-btn" aria-label="Remove field" onClick={(e) => { e.preventDefault(); setFields((all) => all.filter((_, j) => j !== i)); }}>
+                    <button className="icon-btn" aria-label={t("pw.custom_remove")} onClick={(e) => { e.preventDefault(); setFields((all) => all.filter((_, j) => j !== i)); }}>
                       <Trash2 size={20} />
                     </button>
                   </div>
@@ -189,8 +191,8 @@ export function EntryEdit({
                     <input
                       type={field.hidden && !showPassword ? "password" : "text"}
                       value={field.value}
-                      placeholder="Value"
-                      aria-label={`Value of ${field.name || "this field"}`}
+                      placeholder={t("pw.custom_value")}
+                      aria-label={field.name ? t("pw.custom_value_label", { name: field.name }) : t("pw.custom_value_label_unnamed")}
                       autoCapitalize="none"
                       autoCorrect="off"
                       spellCheck={false}
@@ -199,27 +201,27 @@ export function EntryEdit({
                   </div>
                   <label className="hint small check-label">
                     <input type="checkbox" checked={field.hidden} onChange={(e) => update({ hidden: e.target.checked })} />
-                    Hidden, masked like the password
+                    {t("pw.custom_hidden")}
                   </label>
                 </div>
               );
             })}
             <button className="btn secondary" onClick={(e) => { e.preventDefault(); setFields((all) => [...all, { name: "", value: "", hidden: false }]); }}>
               <Plus size={20} />
-              Add a field
+              {t("pw.custom_add")}
             </button>
           </div>
         </Field>
-        <Field label="Notes">
+        <Field label={t("pw.field_notes")}>
           <div className="input">
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Optional" />
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("pw.optional")} />
           </div>
         </Field>
         <div className="spacer" />
         {entry && (
           <button className="btn danger" onClick={() => setConfirmDelete(true)} disabled={busy}>
             <Trash2 size={20} />
-            Delete entry
+            {t("pw.delete_entry")}
           </button>
         )}
       </div>
@@ -234,17 +236,16 @@ export function EntryEdit({
         }}
       />
 
-      <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title={`Delete ${original.service} for good?`}>
+      <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t("pw.delete_title", { name: original.service })}>
         <p className="hint">
-          {sync?.configured ? "It is removed from every device on the next sync." : "It is removed from this silo."} Entries
-          deleted here do not go to the trash.
-          {sync?.configured && sync.archive_targets > 0 && " A never-delete copy keeps the entry until that storage's own rules remove it."}
+          {sync?.configured ? t("pw.delete_synced") : t("pw.delete_local")} {t("pw.delete_no_trash")}
+          {sync?.configured && sync.archive_targets > 0 && ` ${t("pw.delete_archive")}`}
         </p>
         <button className="btn danger" onClick={remove} disabled={busy}>
-          Delete for good
+          {t("pw.delete_for_good")}
         </button>
         <button className="btn secondary" onClick={() => setConfirmDelete(false)} disabled={busy}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </Sheet>
     </div>

@@ -13,6 +13,7 @@ import { formatBytes } from "./format";
 import { passwordStrength, typeOf } from "./passwordUtil";
 import type { PasswordEntry } from "./types";
 import { reusesOldPassword } from "./entryHistory";
+import { t } from "../i18n";
 
 /** Fields that say where an entry lives or when it was touched, not what it
  * holds. From desktop src/lib/passwordImport.ts. */
@@ -111,10 +112,6 @@ function collide(
     .sort((a, b) => b.length - a.length);
 }
 
-function plural(n: number, one: string, many: string): string {
-  return `${n} ${n === 1 ? one : many}`;
-}
-
 export function analyseHealth(
   entries: PasswordEntry[],
   silo: SiloHealth,
@@ -128,9 +125,8 @@ export function analyseHealth(
     findings.push({
       id: "reused",
       severity: "high",
-      title: `${plural(reused.length, "password is", "passwords are")} used more than once`,
-      detail:
-        "If one site leaks it, every account with the same password is exposed. Change these first.",
+      title: t("pw.health_reused_title", { count: reused.length }),
+      detail: t("pw.health_reused_detail"),
       entries: affected,
       groups: reused,
     });
@@ -141,9 +137,8 @@ export function analyseHealth(
     findings.push({
       id: "reused-old",
       severity: "medium",
-      title: `${plural(backToOld.length, "entry is", "entries are")} back on an earlier password`,
-      detail:
-        "The password in use is one the entry had before. If it was changed because it leaked, it is exposed again.",
+      title: t("pw.health_reused_old_title", { count: backToOld.length }),
+      detail: t("pw.health_reused_old_detail"),
       entries: backToOld,
     });
   }
@@ -153,9 +148,8 @@ export function analyseHealth(
     findings.push({
       id: "duplicates",
       severity: "info",
-      title: `${plural(duplicates.length, "entry is", "entries are")} stored twice`,
-      detail:
-        "Identical copies, usually left by an import. Deleting the spare loses nothing.",
+      title: t("pw.health_duplicates_title", { count: duplicates.length }),
+      detail: t("pw.health_duplicates_detail"),
       entries: duplicates.flat(),
       groups: duplicates,
     });
@@ -168,8 +162,8 @@ export function analyseHealth(
     findings.push({
       id: "weak",
       severity: "high",
-      title: `${plural(weak.length, "password is", "passwords are")} weak`,
-      detail: "Short, or made of one kind of character. Use the generator in the editor to replace them.",
+      title: t("pw.health_weak_title", { count: weak.length }),
+      detail: t("pw.health_weak_detail"),
       entries: weak,
     });
   }
@@ -181,9 +175,8 @@ export function analyseHealth(
     findings.push({
       id: "stale",
       severity: "medium",
-      title: `${plural(stale.length, "password has", "passwords have")} not changed in two years`,
-      detail:
-        "Not wrong by itself, but an old password is more likely to have leaked somewhere.",
+      title: t("pw.health_stale_title", { count: stale.length }),
+      detail: t("pw.health_stale_detail"),
       entries: stale,
     });
   }
@@ -195,9 +188,8 @@ export function analyseHealth(
     findings.push({
       id: "no-totp",
       severity: "info",
-      title: `${plural(noTotp.length, "login has", "logins have")} no two-factor code`,
-      detail:
-        "Where the site offers it, a code here means a stolen password alone does not get anyone in.",
+      title: t("pw.health_no_totp_title", { count: noTotp.length }),
+      detail: t("pw.health_no_totp_detail"),
       entries: noTotp,
     });
   }
@@ -206,9 +198,8 @@ export function analyseHealth(
     findings.push({
       id: "no-recovery",
       severity: "high",
-      title: "This silo has no recovery code",
-      detail:
-        "If you lose every key, nothing can open this silo again.",
+      title: t("pw.health_no_recovery_title"),
+      detail: t("pw.health_no_recovery_detail"),
       entries: [],
       fix: "recovery",
     });
@@ -219,11 +210,8 @@ export function analyseHealth(
       id: "single-key",
       severity: "medium",
       title:
-        silo.securityKeyCount === 1
-          ? "Only one key can open this silo"
-          : "No key is enrolled",
-      detail:
-        "Keep a second key somewhere else, so a lost or broken key does not leave the recovery code as the only way in.",
+        silo.securityKeyCount === 1 ? t("pw.health_one_key_title") : t("pw.health_no_key_title"),
+      detail: t("pw.health_spare_key_detail"),
       entries: [],
       fix: "keys",
     });
@@ -233,9 +221,8 @@ export function analyseHealth(
     findings.push({
       id: "no-backup",
       severity: "high",
-      title: "Not backed up. This silo is only on this phone.",
-      detail:
-        "If the phone is lost, the silo goes with it. Backup keeps an encrypted copy in backup storage you control.",
+      title: t("pw.health_no_backup_title"),
+      detail: t("pw.health_no_backup_detail"),
       entries: [],
       fix: "backup",
     });
@@ -243,10 +230,10 @@ export function analyseHealth(
     findings.push({
       id: "backup-failing",
       severity: "high",
-      title: "Backup is failing",
+      title: t("pw.health_backup_failing_title"),
       detail: silo.backupError
-        ? `The last sync did not reach backup storage: ${silo.backupError}`
-        : "The last sync did not reach backup storage, so recent changes are only on this phone.",
+        ? t("pw.health_backup_failing_error", { error: silo.backupError })
+        : t("pw.health_backup_failing_detail"),
       entries: [],
       fix: "backup",
     });
@@ -262,10 +249,9 @@ export function analyseHealth(
       severity: "info",
       title:
         silo.lastTestedAt === null
-          ? "The backup has never been tested from this computer"
-          : "The backup has not been tested for three months",
-      detail:
-        "A test reads the backup and compares it with this silo, so a backup that stopped working is found before you need it.",
+          ? t("pw.health_untested_never_title")
+          : t("pw.health_untested_old_title"),
+      detail: t("pw.health_untested_detail"),
       entries: [],
       fix: "verify",
     });
@@ -280,10 +266,8 @@ export function analyseHealth(
     findings.push({
       id: "low-disk-space",
       severity: critical ? "high" : "medium",
-      title: critical ? "This phone is nearly full" : "Not much room left on this phone",
-      detail:
-        `${formatBytes(silo.freeBytes)} free where this silo lives. Adding or downloading ` +
-        "files stops partway once the disk is full.",
+      title: critical ? t("pw.health_disk_full_title") : t("pw.health_disk_low_title"),
+      detail: t("pw.health_disk_detail", { free: formatBytes(silo.freeBytes) }),
       entries: [],
     });
   }

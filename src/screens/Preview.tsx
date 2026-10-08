@@ -6,6 +6,7 @@ import type { FileEntry } from "../shared/types";
 import { formatAppError } from "../shared/errors";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
 import { fileIcon } from "./Files";
+import { t, useLocale } from "../i18n";
 
 type Kind = "image" | "text" | "pdf" | "other";
 
@@ -34,6 +35,7 @@ type Shown =
   | { at: "failed"; message: string };
 
 export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void }) {
+  useLocale();
   const kind = kindOf(file);
   const url = api.fileUrl(file.id);
   const [shown, setShown] = useState<Shown>({ at: "loading" });
@@ -55,7 +57,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
         const { pages } = (await response.json()) as { pages: number };
         setShown({ at: "pdf", pages });
       })
-      .catch(() => !cancelled && setShown({ at: "failed", message: "This PDF could not be opened." }));
+      .catch(() => !cancelled && setShown({ at: "failed", message: t("files.pdf_failed") }));
     return () => {
       cancelled = true;
     };
@@ -86,7 +88,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
         if (cancelled) return;
         setShown(response.ok ? { at: "text", text: body } : { at: "failed", message: body });
       })
-      .catch(() => !cancelled && setShown({ at: "failed", message: "This file could not be opened." }));
+      .catch(() => !cancelled && setShown({ at: "failed", message: t("files.file_failed") }));
     return () => {
       cancelled = true;
     };
@@ -121,7 +123,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
         onBack={onBack}
         title={file.name}
         right={
-          <button className="icon-btn" aria-label="Open with another app" disabled={opening} onClick={() => setConfirmOpen(true)}>
+          <button className="icon-btn" aria-label={t("files.open_with")} disabled={opening} onClick={() => setConfirmOpen(true)}>
             <ExternalLink size={22} />
           </button>
         }
@@ -133,7 +135,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
               src={url}
               alt={file.name}
               onLoad={() => setShown({ at: "image" })}
-              onError={() => setShown({ at: "failed", message: "This image could not be shown here." })}
+              onError={() => setShown({ at: "failed", message: t("files.image_failed") })}
               style={{
                 maxWidth: "100%",
                 maxHeight: "100%",
@@ -154,37 +156,34 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
                 <img
                   key={i}
                   src={api.pdfPageUrl(file.id, i, pageWidth)}
-                  alt={`Page ${i + 1} of ${shown.pages}`}
+                  alt={t("files.page_of", { page: i + 1, pages: shown.pages })}
                   loading="lazy"
                   style={{ width: "100%", borderRadius: "var(--r-xs)", background: "#fff", minHeight: 120 }}
                 />
               ))}
             </div>
           )}
-          {kind === "other" && placeholder("This kind of file cannot be shown here. Open it with another app from the top right.")}
-          {kind !== "other" && shown.at === "loading" && placeholder("Decrypting…")}
+          {kind === "other" && placeholder(t("files.cannot_preview"))}
+          {kind !== "other" && shown.at === "loading" && placeholder(t("files.decrypting"))}
           {shown.at === "failed" && placeholder(shown.message)}
         </div>
         {opening && (
           <div className="notice" role="status">
-            Getting {file.name} ready for the other app ({formatBytes(file.size_bytes)}). A large file can take a minute.
+            {t("files.getting_ready", { name: file.name, size: formatBytes(file.size_bytes) })}
           </div>
         )}
         <div className="muted caption" style={{ textAlign: "center" }}>
-          {formatBytes(file.size_bytes)} · modified {formatDate(file.updated_at)}
+          {t("files.size_modified", { size: formatBytes(file.size_bytes), date: formatDate(file.updated_at) })}
         </div>
       </div>
 
-      <Sheet open={confirmOpen} onClose={() => setConfirmOpen(false)} title="Open with another app">
-        <p className="hint">
-          The other app gets this file unencrypted and may keep its own copy. SilentSilo removes its copy when you come back to
-          it.
-        </p>
+      <Sheet open={confirmOpen} onClose={() => setConfirmOpen(false)} title={t("files.open_with")}>
+        <p className="hint">{t("files.open_with_text")}</p>
         <button className="btn" onClick={() => void openWith()}>
-          Open
+          {t("files.open")}
         </button>
         <button className="btn secondary" onClick={() => setConfirmOpen(false)}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </Sheet>
     </div>

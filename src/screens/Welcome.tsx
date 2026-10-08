@@ -1,11 +1,13 @@
 import { Cloud, LockKeyhole, ScanFace } from "lucide-react";
 import icon from "../assets/icon.svg";
+import { t, useLocale } from "../i18n";
 
 export function Welcome({ onStart, onCreate }: { onStart: () => void; onCreate: () => void }) {
+  useLocale();
   const needs = [
-    { Icon: Cloud, text: "The details of your silo's backup storage" },
-    { Icon: LockKeyhole, text: "Your recovery code" },
-    { Icon: ScanFace, text: "A fingerprint or face set up on this phone" },
+    { Icon: Cloud, text: t("start.welcome_need_storage") },
+    { Icon: LockKeyhole, text: t("start.welcome_need_code") },
+    { Icon: ScanFace, text: t("start.welcome_need_biometric") },
   ];
   return (
     <div className="screen">
@@ -15,17 +17,12 @@ export function Welcome({ onStart, onCreate }: { onStart: () => void; onCreate: 
           <span className="brand">SilentSilo</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <h1 className="title display">
-            Open your silo on this phone
-          </h1>
-          <p className="hint">
-            Set up a silo you already have from its backup storage, or make a new one here.
-            The silo is encrypted on this phone, and your fingerprint or face unlocks it.
-          </p>
+          <h1 className="title display">{t("start.welcome_title")}</h1>
+          <p className="hint">{t("start.welcome_body")}</p>
         </div>
         <div className="panel">
           <div className="label" style={{ padding: "16px 16px 4px" }}>
-            What you need
+            {t("start.welcome_needs")}
           </div>
           {needs.map(({ Icon, text }, i) => (
             <div key={text} className={`row${i > 0 ? " divide" : ""}`}>
@@ -37,10 +34,10 @@ export function Welcome({ onStart, onCreate }: { onStart: () => void; onCreate: 
         <div className="spacer" />
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <button className="btn" onClick={onStart}>
-            Set up from backup storage
+            {t("start.join")}
           </button>
           <button className="btn secondary" onClick={onCreate}>
-            Make a new silo
+            {t("start.create")}
           </button>
         </div>
       </div>

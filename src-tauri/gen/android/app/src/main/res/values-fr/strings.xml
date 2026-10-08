@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_fill_from">Remplir depuis SilentSilo</string>
+    <string name="autofill_fill_title">Remplir un identifiant</string>
+    <string name="autofill_nothing_saved">Rien d’enregistré pour %1$s</string>
+    <string name="autofill_no_silo_save">Il n’y a aucun silo sur ce téléphone où enregistrer.</string>
+    <string name="autofill_save_title">Enregistrer l’identifiant</string>
+    <string name="autofill_saved_new">Enregistré dans SilentSilo.</string>
+    <string name="autofill_saved_updated">Mot de passe mis à jour dans SilentSilo.</string>
+    <string name="autofill_saved_unchanged">SilentSilo a déjà cet identifiant.</string>
+    <string name="autofill_save_failed">L’identifiant n’a pas pu être enregistré.</string>
+    <string name="autofill_pick_hint">Choisissez un identifiant seulement si vous vouliez le remplir ici.</string>
+    <string name="autofill_search_hint">Rechercher dans le silo</string>
+    <string name="cancel">Annuler</string>
+    <string name="cancelled">Annulé.</string>
+    <string name="backup_channel">Sauvegarde en attente du silo</string>
+    <string name="backup_title">Ouvrez SilentSilo pour terminer la sauvegarde</string>
+    <string name="lock_tile">Verrouiller SilentSilo</string>
+    <string name="passkey_no_silo">Il n’y a aucun silo sur ce téléphone.</string>
+    <string name="passkey_description">Enregistrée dans votre silo et synchronisée avec sa sauvegarde</string>
+    <string name="passkey_in">Clé d’accès dans %1$s</string>
+    <string name="passkey_only_browser">Pour l’instant, seul un navigateur peut utiliser les clés d’accès de SilentSilo.</string>
+    <string name="passkey_save_for">Enregistrer une clé d’accès pour %1$s</string>
+    <string name="passkey_sign_in_to">Se connecter à %1$s</string>
+    <string name="passkey_not_saved">La clé d’accès n’a pas été enregistrée.</string>
+    <string name="passkey_not_signed">La connexion n’a pas été signée.</string>
+    <string name="passkey_silo_not_open">Le silo ne s’est pas ouvert.</string>
+    <string name="passkey_none_for_site">Le silo n’a aucune clé d’accès pour ce site.</string>
+    <string name="passkey_choose_for">Choisissez une clé d’accès pour %1$s</string>
+    <string name="phonekey_changed">Les empreintes ou les visages de ce téléphone ont changé, sa clé de silo ne fonctionne donc plus. Ouvrez le silo avec votre code de récupération, puis ajoutez à nouveau ce téléphone.</string>
+    <string name="phonekey_absent">Ce téléphone n’a aucune clé pour ce silo.</string>
+    <string name="pin_title">PIN de la clé de sécurité</string>
+    <string name="pin_message">Une clé de sécurité protégée par un PIN en a besoin pour ouvrir le silo, comme sur votre ordinateur. Il ne va qu’à la clé et n’est pas conservé.</string>
+    <string name="pin_continue">Continuer</string>
+    <string name="pin_no_pin">La clé n’a pas de PIN</string>
+    <plurals name="backup_waiting">
+        <item quantity="one">%d élément attend d’être ajouté à votre silo.</item>
+        <item quantity="many">%d d’éléments attendent d’être ajoutés à votre silo.</item>
+        <item quantity="other">%d éléments attendent d’être ajoutés à votre silo.</item>
+    </plurals>
+</resources>

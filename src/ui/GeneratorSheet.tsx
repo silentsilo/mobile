@@ -2,8 +2,10 @@ import { RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
 import { DEFAULT_GEN_OPTIONS, generatePassword, passwordStrength, type PasswordGenOptions } from "../shared/passwordUtil";
 import { Sheet, ToggleRow } from "./chrome";
+import { t, useLocale } from "../i18n";
 
 export function GeneratorSheet({ open, onClose, onUse }: { open: boolean; onClose: () => void; onUse: (password: string) => void }) {
+  useLocale();
   const [opts, setOpts] = useState<PasswordGenOptions>(DEFAULT_GEN_OPTIONS);
   const [value, setValue] = useState(() => generatePassword(DEFAULT_GEN_OPTIONS));
 
@@ -13,18 +15,18 @@ export function GeneratorSheet({ open, onClose, onUse }: { open: boolean; onClos
 
   const strength = passwordStrength(value);
   const toggles: { key: "upper" | "digits" | "symbols"; label: string }[] = [
-    { key: "upper", label: "Uppercase letters" },
-    { key: "digits", label: "Digits" },
-    { key: "symbols", label: "Symbols" },
+    { key: "upper", label: t("pw.gen_upper") },
+    { key: "digits", label: t("pw.gen_digits") },
+    { key: "symbols", label: t("pw.gen_symbols") },
   ];
 
   return (
-    <Sheet open={open} onClose={onClose} title="Generate a password">
+    <Sheet open={open} onClose={onClose} title={t("pw.generate_password")}>
       <div className="panel" style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: "6px 6px 6px 16px", background: "var(--surface-2)" }}>
         <span className="mono" style={{ flex: 1, fontSize: "var(--fs-heading)", fontWeight: 600, wordBreak: "break-all" }}>
           {value}
         </span>
-        <button className="icon-btn" aria-label="Generate another" onClick={() => setValue(generatePassword(opts))}>
+        <button className="icon-btn" aria-label={t("pw.gen_another")} onClick={() => setValue(generatePassword(opts))}>
           <RefreshCw size={20} />
         </button>
       </div>
@@ -38,7 +40,7 @@ export function GeneratorSheet({ open, onClose, onUse }: { open: boolean; onClos
       </div>
       <label style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-          <span className="label">Length</span>
+          <span className="label">{t("pw.gen_length")}</span>
           <span style={{ fontWeight: 700 }}>{opts.length}</span>
         </span>
         <input
@@ -56,7 +58,7 @@ export function GeneratorSheet({ open, onClose, onUse }: { open: boolean; onClos
         ))}
       </div>
       <button className="btn" onClick={() => onUse(value)}>
-        Use this password
+        {t("pw.gen_use")}
       </button>
     </Sheet>
   );

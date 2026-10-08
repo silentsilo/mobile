@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_fill_from">Aus SilentSilo ausfüllen</string>
+    <string name="autofill_fill_title">Zugangsdaten ausfüllen</string>
+    <string name="autofill_nothing_saved">Nichts gespeichert für %1$s</string>
+    <string name="autofill_no_silo_save">Auf diesem Telefon gibt es kein Silo zum Speichern.</string>
+    <string name="autofill_save_title">Zugangsdaten speichern</string>
+    <string name="autofill_saved_new">In SilentSilo gespeichert.</string>
+    <string name="autofill_saved_updated">Passwort in SilentSilo aktualisiert.</string>
+    <string name="autofill_saved_unchanged">SilentSilo hat diese Zugangsdaten bereits.</string>
+    <string name="autofill_save_failed">Die Zugangsdaten konnten nicht gespeichert werden.</string>
+    <string name="autofill_pick_hint">Wähle Zugangsdaten nur, wenn du sie hier ausfüllen wolltest.</string>
+    <string name="autofill_search_hint">Im Silo suchen</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="cancelled">Abgebrochen.</string>
+    <string name="backup_channel">Sicherung wartet auf das Silo</string>
+    <string name="backup_title">Öffne SilentSilo, um die Sicherung abzuschließen</string>
+    <string name="lock_tile">SilentSilo sperren</string>
+    <string name="passkey_no_silo">Auf diesem Telefon gibt es kein Silo.</string>
+    <string name="passkey_description">Im Silo gespeichert und mit seiner Sicherung synchronisiert</string>
+    <string name="passkey_in">Passkey in %1$s</string>
+    <string name="passkey_only_browser">Vorerst kann nur ein Browser Passkeys aus SilentSilo verwenden.</string>
+    <string name="passkey_save_for">Passkey für %1$s speichern</string>
+    <string name="passkey_sign_in_to">Bei %1$s anmelden</string>
+    <string name="passkey_not_saved">Der Passkey wurde nicht gespeichert.</string>
+    <string name="passkey_not_signed">Die Anmeldung wurde nicht signiert.</string>
+    <string name="passkey_silo_not_open">Das Silo wurde nicht geöffnet.</string>
+    <string name="passkey_none_for_site">Das Silo hat keinen Passkey für diese Website.</string>
+    <string name="passkey_choose_for">Passkey für %1$s auswählen</string>
+    <string name="phonekey_changed">Die Fingerabdrücke oder Gesichter auf diesem Telefon haben sich geändert, deshalb funktioniert sein Silo-Schlüssel nicht mehr. Öffne das Silo mit deinem Wiederherstellungscode und füge dieses Telefon dann erneut hinzu.</string>
+    <string name="phonekey_absent">Dieses Telefon hat keinen Schlüssel für dieses Silo.</string>
+    <string name="pin_title">PIN des Sicherheitsschlüssels</string>
+    <string name="pin_message">Ein Sicherheitsschlüssel mit PIN braucht sie, um das Silo zu öffnen, wie auf deinem Computer. Sie geht nur an den Schlüssel und wird nicht gespeichert.</string>
+    <string name="pin_continue">Weiter</string>
+    <string name="pin_no_pin">Schlüssel hat keine PIN</string>
+    <plurals name="backup_waiting">
+        <item quantity="one">%d Element wartet darauf, ins Silo aufgenommen zu werden.</item>
+        <item quantity="other">%d Elemente warten darauf, ins Silo aufgenommen zu werden.</item>
+    </plurals>
+</resources>

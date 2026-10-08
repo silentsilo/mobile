@@ -6,6 +6,7 @@ import { isComplete } from "../shared/recoveryCode";
 import { Field, Notice, Sheet, StepBar, useToast } from "../ui/chrome";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
+import { t, useLocale } from "../i18n";
 
 export function JoinCode({
   config,
@@ -18,8 +19,9 @@ export function JoinCode({
   onBack: () => void;
   onJoined: () => void;
 }) {
+  useLocale();
   const [code, setCode] = useState("");
-  const [name, setName] = useState("Personal");
+  const [name, setName] = useState(() => t("start.default_name"));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [waitingForKey, setWaitingForKey] = useState(false);
@@ -30,7 +32,7 @@ export function JoinCode({
     setError(null);
     setWaitingForKey(true);
     try {
-      await api.joinWithSecurityKey(config, name.trim() || "Personal");
+      await api.joinWithSecurityKey(config, name.trim() || t("start.default_name"));
       setWaitingForKey(false);
       onJoined();
     } catch (e) {
@@ -43,7 +45,7 @@ export function JoinCode({
     try {
       setCode(await navigator.clipboard.readText());
     } catch {
-      toast("Long-press a box and paste there instead.");
+      toast(t("start.paste_failed"));
     }
   };
 
@@ -51,7 +53,7 @@ export function JoinCode({
     setBusy(true);
     setError(null);
     try {
-      await api.joinWithRecovery(config, code, name.trim() || "Personal");
+      await api.joinWithRecovery(config, code, name.trim() || t("start.default_name"));
       onJoined();
     } catch (e) {
       setError(formatAppError(e));
@@ -65,18 +67,18 @@ export function JoinCode({
       <StepBar step={2} of={3} onBack={onBack} />
       <div className="screen-body" style={{ gap: 22 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          <h1 className="title">Enter your recovery code</h1>
-          <p className="hint">The code you wrote down when the silo was made. Type it group by group, the way it is printed.</p>
+          <h1 className="title">{t("start.join_code_title")}</h1>
+          <p className="hint">{t("start.join_code_body")}</p>
           {preview.key_labels.length > 0 && (
-            <p className="hint small">Keys that already open this silo: {preview.key_labels.join(", ")}.</p>
+            <p className="hint small">{t("start.join_code_keys", { keys: preview.key_labels.join(", ") })}</p>
           )}
         </div>
         <RecoveryCodeInput value={code} onChange={setCode} disabled={busy} autoFocus />
         <button className="btn secondary" onClick={paste} disabled={busy}>
           <ClipboardPaste size={20} />
-          Paste from clipboard
+          {t("start.paste")}
         </button>
-        <Field label="Name for this silo on the phone">
+        <Field label={t("start.join_name_label")}>
           <div className="input">
             <input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
@@ -84,19 +86,19 @@ export function JoinCode({
         {error && <Notice tone="error">{error}</Notice>}
         <div className="spacer" />
         <button className="btn" aria-busy={busy} disabled={!isComplete(code) || busy} onClick={join}>
-          {busy ? "Opening the silo" : "Continue"}
+          {busy ? t("start.joining") : t("start.continue")}
         </button>
         {preview.key_labels.length > 0 && (
           <button className="btn secondary" disabled={busy} onClick={() => void joinWithKey()}>
-            Use a security key instead
+            {t("start.join_with_key")}
           </button>
         )}
       </div>
 
-      <Sheet open={waitingForKey} onClose={() => void api.cancelSecurityKey()} title="Open the silo with a security key">
+      <Sheet open={waitingForKey} onClose={() => void api.cancelSecurityKey()} title={t("start.join_key_title")}>
         <SecurityKeyWait />
         <button className="btn secondary" onClick={() => void api.cancelSecurityKey()}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </Sheet>
     </div>

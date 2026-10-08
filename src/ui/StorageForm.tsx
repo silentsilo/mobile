@@ -4,20 +4,44 @@ import { api, type CloudKind, type StorageView, type StoreConfigInput } from "..
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import { Field, Notice, Sheet } from "./chrome";
+import { dateLocale, t, useLocale, type Key } from "../i18n";
 
 type Kind = StoreConfigInput["kind"];
 
-const KINDS: { kind: Kind; label: string }[] = [
-  { kind: "s3", label: "S3 bucket" },
-  { kind: "web-dav", label: "WebDAV" },
-  { kind: "sftp", label: "SFTP" },
+const KINDS: { kind: Kind; label: () => string }[] = [
+  { kind: "s3", label: () => t("silo.kind_s3") },
+  { kind: "web-dav", label: () => "WebDAV" },
+  { kind: "sftp", label: () => "SFTP" },
 ];
 
-const CLOUD: Record<CloudKind, { name: string; company: string; place: string }> = {
-  onedrive: { name: "OneDrive", company: "Microsoft", place: "Apps/SilentSilo on your OneDrive" },
-  dropbox: { name: "Dropbox", company: "Dropbox", place: "Apps/SilentSilo in your Dropbox" },
-  "google-drive": { name: "Google Drive", company: "Google", place: "the SilentSilo folder of your Google Drive" },
+/** Each provider's name, its company, and the texts that say where its folder is. */
+const CLOUD: Record<CloudKind, { name: string; company: string; noSilo: Key; folderHint: Key }> = {
+  onedrive: {
+    name: "OneDrive",
+    company: "Microsoft",
+    noSilo: "silo.cloud_no_silo_onedrive",
+    folderHint: "silo.cloud_folder_hint_onedrive",
+  },
+  dropbox: {
+    name: "Dropbox",
+    company: "Dropbox",
+    noSilo: "silo.cloud_no_silo_dropbox",
+    folderHint: "silo.cloud_folder_hint_dropbox",
+  },
+  "google-drive": {
+    name: "Google Drive",
+    company: "Google",
+    noSilo: "silo.cloud_no_silo_google",
+    folderHint: "silo.cloud_folder_hint_google",
+  },
 };
+
+/** Free space with the language's decimal separator: "12,5 GB" in Romanian. */
+function freeSpace(bytes: number): string {
+  const [value, unit] = formatBytes(bytes).split(" ");
+  const n = Number(value);
+  return Number.isFinite(n) && unit ? `${n.toLocaleString(dateLocale())} ${unit}` : formatBytes(bytes);
+}
 
 function isCloud(kind: string): kind is CloudKind {
   return kind in CLOUD;
@@ -26,10 +50,10 @@ function isCloud(kind: string): kind is CloudKind {
 /** The rule core applies, said before anything is sent. */
 function folderProblem(folder: string): string | null {
   const name = folder.trim();
-  if (!name) return "Give the folder a name.";
+  if (!name) return t("silo.folder_empty");
   // eslint-disable-next-line no-control-regex
   if (name.length > 100 || /["*:<>?/\\|\u0000-\u001f]/.test(name) || name.startsWith(".") || name.endsWith(".")) {
-    return 'Use a plain folder name: no slashes, none of " * : < > ? |, no dot at either end.';
+    return t("silo.folder_invalid");
   }
   return null;
 }
@@ -54,6 +78,7 @@ export function StorageForm({
   /** Joining a silo: a cloud account lists the silos it holds. */
   joining?: boolean;
 }) {
+  useLocale();
   const known = current?.configured && current.kind !== "folder" ? (current.kind as Kind) : null;
   const [kind, setKind] = useState<Kind>(known ?? "s3");
   const [f, setF] = useState({
@@ -248,10 +273,10 @@ export function StorageForm({
         type={showSecret ? "text" : "password"}
         value={f[key]}
         onChange={set(key)}
-        placeholder={secretKept ? "Unchanged" : undefined}
+        placeholder={secretKept ? t("silo.unchanged") : undefined}
         autoComplete="off"
       />
-      <button className="icon-btn" aria-label={showSecret ? "Hide" : "Show"} onClick={(e) => { e.preventDefault(); setShowSecret(!showSecret); }}>
+      <button className="icon-btn" aria-label={showSecret ? t("silo.hide") : t("silo.show")} onClick={(e) => { e.preventDefault(); setShowSecret(!showSecret); }}>
         {showSecret ? <EyeOff size={20} /> : <Eye size={20} />}
       </button>
     </div>
@@ -280,21 +305,21 @@ export function StorageForm({
     <>
       {clouds.length > 0 && (
         <>
-          <p className="hint small">An account you already have</p>
-          <div className="segmented" role="group" aria-label="Account">
+          <p className="hint small">{t("silo.group_accounts")}</p>
+          <div className="segmented" role="group" aria-label={t("silo.account")}>
             {clouds.map((k) => (
               <button key={k} aria-pressed={kind === k} onClick={() => choose(k)}>
                 {CLOUD[k].name}
               </button>
             ))}
           </div>
-          <p className="hint small">Storage you run or rent</p>
+          <p className="hint small">{t("silo.group_own")}</p>
         </>
       )}
-      <div className="segmented" role="group" aria-label="Storage type">
+      <div className="segmented" role="group" aria-label={t("silo.storage_type")}>
         {KINDS.map((k) => (
           <button key={k.kind} aria-pressed={kind === k.kind} onClick={() => choose(k.kind)}>
-            {k.label}
+            {k.label()}
           </button>
         ))}
       </div>
@@ -305,37 +330,35 @@ export function StorageForm({
               <>
                 <p className="hint">
                   {back
-                    ? `Finishing the sign-in with ${CLOUD[kind].name}…`
-                    : `Finish signing in to ${CLOUD[kind].name} in your browser, then come back here.`}
+                    ? t("silo.cloud_finishing", { provider: CLOUD[kind].name })
+                    : t("silo.cloud_finish_sign_in", { provider: CLOUD[kind].name })}
                 </p>
                 <button className="btn secondary" onClick={() => void api.cloudCancelSignIn().catch(() => undefined)}>
-                  Cancel
+                  {t("common.cancel")}
                 </button>
               </>
             ) : cloud.account ? (
               <>
                 <div className="notice">
-                  Connected as {cloud.account}
-                  {cloud.freeBytes !== null ? `, ${formatBytes(cloud.freeBytes)} free` : ""}
+                  {cloud.freeBytes !== null
+                    ? t("silo.cloud_connected_as_free", { account: cloud.account, size: freeSpace(cloud.freeBytes) })
+                    : t("silo.cloud_connected_as", { account: cloud.account })}
                 </div>
                 <button className="btn secondary" disabled={busy} onClick={() => void signIn()}>
-                  Use another account
+                  {t("silo.cloud_other_account")}
                 </button>
               </>
             ) : (
               <>
                 <button className="btn" disabled={busy} onClick={() => void signIn()}>
-                  Connect {CLOUD[kind].name}
+                  {t("silo.cloud_connect", { provider: CLOUD[kind].name })}
                 </button>
-                <p className="hint small">
-                  Opens {CLOUD[kind].company}&apos;s sign-in page in your browser. SilentSilo never sees your password,
-                  and gets access only to its own folder.
-                </p>
+                <p className="hint small">{t("silo.cloud_connect_hint", { company: CLOUD[kind].company })}</p>
               </>
             )}
             {joining ? (
               found === null ? null : found.length > 0 ? (
-                <Field label="Silo folder">
+                <Field label={t("silo.cloud_silo_folder")}>
                   <div className="input">
                     <select
                       value={cloud.folder}
@@ -351,11 +374,11 @@ export function StorageForm({
                   </div>
                 </Field>
               ) : (
-                <Notice tone="error">There is no silo in {CLOUD[kind].place} yet. Sync once from your computer.</Notice>
+                <Notice tone="error">{t(CLOUD[kind].noSilo)}</Notice>
               )
             ) : (
               <>
-                <Field label="Folder name">
+                <Field label={t("silo.cloud_folder_name")}>
                   <div className="input">
                     <input
                       value={cloud.folder}
@@ -367,8 +390,7 @@ export function StorageForm({
                   </div>
                 </Field>
                 <p className="hint small">
-                  {folderProblem(cloud.folder) ??
-                    `In ${CLOUD[kind].place}. ${CLOUD[kind].company} sees this name. Your files inside are encrypted.`}
+                  {folderProblem(cloud.folder) ?? t(CLOUD[kind].folderHint)}
                 </p>
               </>
             )}
@@ -376,69 +398,60 @@ export function StorageForm({
         )}
         {kind === "s3" && (
           <>
-            <Field label="Endpoint">{text("endpoint", "https://s3.example.com", "url")}</Field>
-            <Field label="Region">{text("region", "auto")}</Field>
-            <Field label="Bucket">{text("bucket")}</Field>
-            <Field label="Folder in the bucket (optional)">{text("prefix")}</Field>
-            <Field label="Access key ID">{text("accessKeyId")}</Field>
-            <Field label="Secret access key">{secretInput("secret")}</Field>
+            <Field label={t("silo.field_endpoint")}>{text("endpoint", "https://s3.example.com", "url")}</Field>
+            <Field label={t("silo.field_region")}>{text("region", "auto")}</Field>
+            <Field label={t("silo.field_bucket")}>{text("bucket")}</Field>
+            <Field label={t("silo.field_prefix")}>{text("prefix")}</Field>
+            <Field label={t("silo.field_access_key_id")}>{text("accessKeyId")}</Field>
+            <Field label={t("silo.field_secret_key")}>{secretInput("secret")}</Field>
             <label className="check-label">
               <input type="checkbox" checked={pathStyle} onChange={(e) => setPathStyle(e.target.checked)} />
-              <span>Path-style addresses (MinIO and most self-hosted servers)</span>
+              <span>{t("silo.field_path_style")}</span>
             </label>
           </>
         )}
         {kind === "web-dav" && (
           <>
-            <Field label="URL">{text("url", "https://dav.example.com/silentsilo", "url")}</Field>
-            <Field label="Username">{text("username")}</Field>
-            <Field label="Password">{secretInput("password")}</Field>
+            <Field label={t("silo.field_url")}>{text("url", "https://dav.example.com/silentsilo", "url")}</Field>
+            <Field label={t("silo.field_username")}>{text("username")}</Field>
+            <Field label={t("silo.field_password")}>{secretInput("password")}</Field>
           </>
         )}
         {kind === "sftp" && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 96px", gap: 8 }}>
-              <Field label="Host">{text("host", "nas.example.com")}</Field>
-              <Field label="Port">{text("port", "22", "numeric")}</Field>
+              <Field label={t("silo.field_host")}>{text("host", "nas.example.com")}</Field>
+              <Field label={t("silo.field_port")}>{text("port", "22", "numeric")}</Field>
             </div>
-            <Field label="Username">{text("username")}</Field>
-            <Field label="Folder on the server">{text("path", "/backups/silentsilo")}</Field>
-            <Field label={keyKept ? "Password (blank keeps the stored private key)" : "Password"}>{secretInput("password")}</Field>
+            <Field label={t("silo.field_username")}>{text("username")}</Field>
+            <Field label={t("silo.field_sftp_folder")}>{text("path", "/backups/silentsilo")}</Field>
+            <Field label={keyKept ? t("silo.field_password_keeps_key") : t("silo.field_password")}>{secretInput("password")}</Field>
           </>
         )}
       </div>
       {plainHttp && (
-        <Notice tone="warning">
-          Plain HTTP. Your files are still encrypted, but the password or access key for this storage travels readable on the
-          network, public Wi-Fi included. Use https://.
-        </Notice>
+        <Notice tone="warning">{t("silo.plain_http")}</Notice>
       )}
-      <p className="hint small">The silo is encrypted on this phone before it is sent. These details stay on this phone.</p>
+      <p className="hint small">{t("silo.encrypted_here")}</p>
       {error && <Notice tone="error">{error}</Notice>}
       <div className="spacer" />
       <button className="btn" aria-busy={busy} disabled={!ready || busy} onClick={onContinue}>
         {busy ? busyLabel : submitLabel}
       </button>
 
-      <Sheet open={fingerprint !== null} onClose={() => setFingerprint(null)} title="Check the server's fingerprint">
-        <p className="hint">
-          Compare this with the fingerprint your server shows. If they differ, someone may be between this phone and your
-          server.
-        </p>
+      <Sheet open={fingerprint !== null} onClose={() => setFingerprint(null)} title={t("silo.fp_title")}>
+        <p className="hint">{t("silo.fp_hint")}</p>
         <div className="panel mono small" style={{ padding: 14, wordBreak: "break-all" }}>
           {fingerprint}
         </div>
         {rekeyed && (
-          <Notice tone="error">
-            This is not the key this server had before. If you did not change the server, someone may be between this phone
-            and it. The saved password is not sent to it: type the password again to trust the new key.
-          </Notice>
+          <Notice tone="error">{t("silo.fp_changed")}</Notice>
         )}
         <button className="btn" disabled={rekeyed && !f.password} onClick={() => { const fp = fingerprint; setFingerprint(null); void submit(fp); }}>
-          They match, continue
+          {t("silo.fp_match")}
         </button>
         <button className="btn secondary" onClick={() => setFingerprint(null)}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </Sheet>
     </>

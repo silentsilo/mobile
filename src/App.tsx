@@ -24,6 +24,7 @@ import { Silo } from "./screens/Silo";
 import { Unlock } from "./screens/Unlock";
 import { Welcome } from "./screens/Welcome";
 import { formatAppError } from "./shared/errors";
+import { t, useLocale } from "./i18n";
 import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
 import icon from "./assets/icon.svg";
 import { EmptyState, Notice, ToastProvider, useToast } from "./ui/chrome";
@@ -60,6 +61,7 @@ function phaseFor(boot: Bootstrap, autoPrompt = true): Phase {
 }
 
 export default function App() {
+  useLocale();
   const [phase, setPhase] = useState<Phase>({ at: "loading" });
   // Files another app shared, waiting for the silo to be open.
   const [shared, setShared] = useState<Offered[]>([]);
@@ -180,7 +182,7 @@ export default function App() {
                   void start();
                 }}
               >
-                Try again
+                {t("start.try_again")}
               </button>
             </div>
           </div>
@@ -261,6 +263,7 @@ export default function App() {
 
 /** The app's mark while the phone is checked, after 300 ms so a quick start does not flash. */
 function Starting() {
+  useLocale();
   const [shown, setShown] = useState(false);
   useEffect(() => {
     const timer = window.setTimeout(() => setShown(true), 300);
@@ -270,7 +273,7 @@ function Starting() {
     <div className="screen" aria-busy="true">
       {shown && (
         <div className="empty-detail">
-          <img src={icon} alt="SilentSilo is starting" width={64} height={64} style={{ borderRadius: "22%" }} />
+          <img src={icon} alt={t("start.starting")} width={64} height={64} style={{ borderRadius: "22%" }} />
         </div>
       )}
     </div>
@@ -328,6 +331,7 @@ function OpenSiloScreens({
   refreshSync: () => void;
   changed: () => void;
 }) {
+  useLocale();
   const [tab, setTab] = useState<Tab>("passwords");
   const [detail, setDetail] = useState<Detail | null>(null);
   const toast = useToast();
@@ -376,7 +380,7 @@ function OpenSiloScreens({
             onDeleted={() => {
               changed();
               setDetail(null);
-              toast("Entry deleted for good.");
+              toast(t("start.entry_deleted"));
             }}
           />
         );
@@ -410,18 +414,16 @@ function OpenSiloScreens({
   if (detail && !wide && !parksList) return detailScreen();
 
   const tabs: { id: Tab; label: string; Icon: typeof KeyRound }[] = [
-    { id: "passwords", label: "Passwords", Icon: KeyRound },
-    { id: "files", label: "Files", Icon: Folder },
-    { id: "silo", label: "Silo", Icon: ShieldCheck },
+    { id: "passwords", label: t("start.tab_passwords"), Icon: KeyRound },
+    { id: "files", label: t("start.tab_files"), Icon: Folder },
+    { id: "silo", label: t("start.tab_silo"), Icon: ShieldCheck },
   ];
 
   const tabScreen = (
     <>
       {leftOut && (
         <Notice tone="warning" style={{ margin: "10px 16px 0" }}>
-          <strong>This phone no longer syncs with this silo.</strong> Its encryption key was replaced on another device
-          without keeping this phone, so changes made here do not reach backup storage. To get back in, remove the silo
-          from this phone under Silo, then add it again with the new recovery code.
+          <strong>{t("start.left_out_title")}</strong> {t("start.left_out_body")}
         </Notice>
       )}
       {tab === "passwords" && (
@@ -475,8 +477,14 @@ function OpenSiloScreens({
               <div className="empty-detail">
                 <EmptyState
                   icon={tab === "passwords" ? <KeyRound size={26} /> : tab === "files" ? <Folder size={26} /> : <ShieldCheck size={26} />}
-                  title={tab === "passwords" ? "Choose an entry" : tab === "files" ? "Choose a file" : "Choose a setting"}
-                  hint="It opens here, beside the list."
+                  title={
+                    tab === "passwords"
+                      ? t("start.choose_entry")
+                      : tab === "files"
+                        ? t("start.choose_file")
+                        : t("start.choose_setting")
+                  }
+                  hint={t("start.choose_hint")}
                 />
               </div>
             </div>

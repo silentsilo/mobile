@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="autofill_fill_from">Preencher pelo SilentSilo</string>
+    <string name="autofill_fill_title">Preencher um login</string>
+    <string name="autofill_nothing_saved">Nada salvo para %1$s</string>
+    <string name="autofill_no_silo_save">Não há nenhum silo neste celular para salvar.</string>
+    <string name="autofill_save_title">Salvar o login</string>
+    <string name="autofill_saved_new">Salvo no SilentSilo.</string>
+    <string name="autofill_saved_updated">Senha atualizada no SilentSilo.</string>
+    <string name="autofill_saved_unchanged">O SilentSilo já tem este login.</string>
+    <string name="autofill_save_failed">Não foi possível salvar o login.</string>
+    <string name="autofill_pick_hint">Escolha um login só se você queria preenchê-lo aqui.</string>
+    <string name="autofill_search_hint">Pesquisar no silo</string>
+    <string name="cancel">Cancelar</string>
+    <string name="cancelled">Cancelado.</string>
+    <string name="backup_channel">Backup aguardando o silo</string>
+    <string name="backup_title">Abra o SilentSilo para concluir o backup</string>
+    <string name="lock_tile">Bloquear o SilentSilo</string>
+    <string name="passkey_no_silo">Não há nenhum silo neste celular.</string>
+    <string name="passkey_description">Salva no seu silo e sincronizada com o backup dele</string>
+    <string name="passkey_in">Chave de acesso em %1$s</string>
+    <string name="passkey_only_browser">Por enquanto, só um navegador pode usar as chaves de acesso do SilentSilo.</string>
+    <string name="passkey_save_for">Salvar uma chave de acesso para %1$s</string>
+    <string name="passkey_sign_in_to">Entrar em %1$s</string>
+    <string name="passkey_not_saved">A chave de acesso não foi salva.</string>
+    <string name="passkey_not_signed">O login não foi assinado.</string>
+    <string name="passkey_silo_not_open">O silo não abriu.</string>
+    <string name="passkey_none_for_site">O silo não tem chave de acesso para este site.</string>
+    <string name="passkey_choose_for">Escolha uma chave de acesso para %1$s</string>
+    <string name="phonekey_changed">As digitais ou os rostos deste celular mudaram, então a chave dele para o silo parou de funcionar. Abra o silo com seu código de recuperação e adicione este celular de novo.</string>
+    <string name="phonekey_absent">Este celular não tem chave para este silo.</string>
+    <string name="pin_title">PIN da chave de segurança</string>
+    <string name="pin_message">Uma chave de segurança com PIN precisa dele para abrir o silo, como no seu computador. Ele vai só para a chave e não é guardado.</string>
+    <string name="pin_continue">Continuar</string>
+    <string name="pin_no_pin">A chave não tem PIN</string>
+    <plurals name="backup_waiting">
+        <item quantity="one">%d item está aguardando para ser adicionado ao seu silo.</item>
+        <item quantity="many">%d de itens estão aguardando para ser adicionados ao seu silo.</item>
+        <item quantity="other">%d itens estão aguardando para ser adicionados ao seu silo.</item>
+    </plurals>
+</resources>

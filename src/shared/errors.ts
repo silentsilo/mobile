@@ -1,6 +1,47 @@
 // Copied from silentsilo/desktop src/lib/errors.ts (audit 1.2); keep in step.
 // Differs in three places: the phone wording, the biometric key prompts,
 // and the Kotlin "[code] - " prefix.
+import { hasKey, t } from "../i18n";
+
+/** What separates a backend error's English from its code (`silentsilo_core::coded`). */
+const SEP = "\u001f";
+
+export type DecodedError = {
+  /** The English the backend wrote, as a log shows it. */
+  message: string;
+  /** The catalog key it is translated by, when the backend gave one. */
+  code: string | null;
+  params: Record<string, string>;
+};
+
+/** A key and, when it has values, their JSON, each after the separator. */
+const CODE_TAIL = new RegExp(String.raw`${SEP}[\w.]+(${SEP}\{[^}]*\})?`, "g");
+
+/** Text the backend built around errors (a list of failed items, "name:
+ * reason"), with each coded error's key taken out so only the English
+ * shows. Whole errors go through `formatAppError`, which translates. */
+export function plainError(text: string): string {
+  return text.replace(CODE_TAIL, "");
+}
+
+/** Splits a backend error into its English and its code. A plain string
+ * comes back as the message alone. */
+export function decodeAppError(err: unknown): DecodedError {
+  const raw = String(err ?? "");
+  const at = raw.indexOf(SEP);
+  if (at < 0) return { message: raw, code: null, params: {} };
+  const [code = "", json = ""] = raw.slice(at + 1).split(SEP);
+  let params: Record<string, string> = {};
+  if (json) {
+    try {
+      params = JSON.parse(json) as Record<string, string>;
+    } catch {
+      params = {};
+    }
+  }
+  return { message: raw.slice(0, at), code: code || null, params };
+}
+
 /**
  * Whether this is a command that failed only because the silo locked.
  *
@@ -10,28 +51,24 @@
  * several of them at once.
  */
 export function isLockedError(err: unknown): boolean {
-  return String(err ?? "")
-    .toLowerCase()
-    .includes("vault is locked");
+  return decodeAppError(err).message.toLowerCase().includes("vault is locked");
 }
 
-/** Core puts a translation key after an error's English, behind a unit
- * separator (`silentsilo_core::coded`). Until this app translates, the
- * English alone is shown. */
-const SEP = "\u001f";
-const CODE_TAIL = new RegExp(String.raw`${SEP}[\w.]+(${SEP}\{[^}]*\})?`, "g");
-
-export function plainError(text: string): string {
-  return text.replace(CODE_TAIL, "");
-}
-
-/** Map raw Tauri errors to short human-readable copy. */
+/** Map raw Tauri errors to short human-readable copy. The sentences written
+ * here are translated; whatever the backend sent and is passed through
+ * stays as it came. */
 export function formatAppError(err: unknown): string {
-  const msg = plainError(String(err ?? "Unknown error"));
+  if (err === null || err === undefined) return t("app.err_unknown");
+  const decoded = decodeAppError(err);
+  // A coded error says it in the language in use. A code this build has no
+  // text for falls through to the English, read like any other.
+  if (decoded.code && hasKey(decoded.code)) return t(decoded.code, decoded.params);
+  // A coded error inside a longer text (a Kotlin wrapper, a list) loses its key.
+  const msg = plainError(decoded.message);
   const lower = msg.toLowerCase();
 
   if (msg.includes("CloudNotConfigured") || lower.includes("no backup storage is connected")) {
-    return "Not backed up. This silo is only on this phone.";
+    return t("app.err_not_backed_up");
   }
   // "Unlock the silo first", "enrol a key before unlocking" and friends
   // already say the right thing, so they go back unchanged. Checked before
@@ -52,13 +89,13 @@ export function formatAppError(err: unknown): string {
       ]
     : null;
   if (cloudName && lower.includes("sign in to") && lower.includes(" again")) {
-    return `${cloudName} no longer accepts this phone's sign-in. Connect it again under Backup storage.`;
+    return t("app.err_cloud_sign_in_again", { cloud: cloudName });
   }
   if (cloudName && lower.includes("is full")) {
-    return `${cloudName} is full. Free some space there, or keep this silo somewhere else too.`;
+    return t("app.err_cloud_full", { cloud: cloudName });
   }
   if (lower.includes("sign-in was cancelled")) {
-    return "The sign-in was cancelled in the browser.";
+    return t("app.err_sign_in_cancelled");
   }
   if (
     lower.includes("sign-in") ||
@@ -79,13 +116,13 @@ export function formatAppError(err: unknown): string {
     lower.includes("cancelled") || lower.includes("canceled") || lower.includes("user_cancelled");
   const timedOut = lower.includes("timeout") || lower.includes("timed out");
   if (fromKey && cancelled) {
-    return "The key prompt was cancelled.";
+    return t("app.err_key_cancelled");
   }
   if (fromKey && timedOut) {
-    return "The key prompt timed out. Try again.";
+    return t("app.err_key_timed_out");
   }
   if (timedOut) {
-    return "Your backup storage did not answer in time. Check your connection and try again.";
+    return t("app.err_storage_timed_out");
   }
   if (
     lower.includes("connection refused") ||
@@ -93,22 +130,22 @@ export function formatAppError(err: unknown): string {
     lower.includes("error sending request") ||
     lower.includes("tcp connect error")
   ) {
-    return "Cannot reach your backup storage. Check your connection and the address.";
+    return t("app.err_storage_unreachable");
   }
   // The bare numbers are matched as whole words. "401" as a substring
   // appears in file names, key ids and byte counts, and any of those turned
   // an unrelated failure into advice about storage credentials.
   if (lower.includes("unauthorized") || /\b(401|403)\b/.test(lower)) {
-    return "Your backup storage refused the sign-in. Check the username and password, or the access key.";
+    return t("app.err_storage_refused");
   }
   if (lower.includes("nosuchbucket") || lower.includes("bucket does not exist")) {
-    return "That bucket does not exist. Check its name and region.";
+    return t("app.err_no_bucket");
   }
   if (lower.includes("not enrolled") || lower.includes("no security key")) {
-    return "No key enrolled yet.";
+    return t("app.err_no_key");
   }
   if (lower.includes("already enrolled")) {
-    return "That key is already enrolled.";
+    return t("app.err_key_already_enrolled");
   }
   // Narrowed to the phrases this app writes, the current one and the older
   // "security key" wording. "at least one" alone matched sentences about
@@ -117,7 +154,7 @@ export function formatAppError(err: unknown): string {
     lower.includes("keep at least one key") ||
     lower.includes("keep at least one security key")
   ) {
-    return "Keep at least one key on the silo.";
+    return t("app.err_keep_one_key");
   }
 
   // Strip common Rust/Tauri wrappers. The "[code] - " prefix is how Tauri
@@ -130,5 +167,5 @@ export function formatAppError(err: unknown): string {
     .replace(/^\[[a-z0-9_-]+\]\s*-\s*/i, "")
     .trim();
 
-  return cleaned || "Something went wrong.";
+  return cleaned || t("app.err_generic");
 }

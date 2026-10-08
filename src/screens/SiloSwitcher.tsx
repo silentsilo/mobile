@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { ChoiceRow, Sheet, useToast } from "../ui/chrome";
+import { t, useLocale } from "../i18n";
 
 type Choice = { id: string; name: string; active: boolean; unlocked: boolean };
 
@@ -12,6 +13,7 @@ export function announceSilo(what: "switched" | "add" | "create") {
 }
 
 export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useLocale();
   const [silos, setSilos] = useState<Choice[] | null>(null);
   const toast = useToast();
 
@@ -31,8 +33,8 @@ export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Switch silo">
-      <div className="panel" role="radiogroup" aria-label="Silos on this phone">
+    <Sheet open={open} onClose={onClose} title={t("start.switch_title")}>
+      <div className="panel" role="radiogroup" aria-label={t("start.switch_list")}>
         {silos?.map((silo, i) => (
           <ChoiceRow
             key={silo.id}
@@ -40,7 +42,7 @@ export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => 
             label={silo.name}
             checked={silo.active}
             onChoose={() => void choose(silo)}
-            extra={!silo.unlocked && <LockKeyhole size={16} color="var(--text-dim)" aria-label="Locked" style={{ flex: "none" }} />}
+            extra={!silo.unlocked && <LockKeyhole size={16} color="var(--text-dim)" aria-label={t("start.locked")} style={{ flex: "none" }} />}
           />
         ))}
       </div>
@@ -52,7 +54,7 @@ export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => 
         }}
       >
         <Plus size={18} />
-        Set up from backup storage
+        {t("start.join")}
       </button>
       <button
         className="btn secondary"
@@ -62,7 +64,7 @@ export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => 
         }}
       >
         <Plus size={18} />
-        Make a new silo
+        {t("start.create")}
       </button>
     </Sheet>
   );
