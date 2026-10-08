@@ -15,9 +15,19 @@ export function isLockedError(err: unknown): boolean {
     .includes("vault is locked");
 }
 
+/** Core puts a translation key after an error's English, behind a unit
+ * separator (`silentsilo_core::coded`). Until this app translates, the
+ * English alone is shown. */
+const SEP = "\u001f";
+const CODE_TAIL = new RegExp(String.raw`${SEP}[\w.]+(${SEP}\{[^}]*\})?`, "g");
+
+export function plainError(text: string): string {
+  return text.replace(CODE_TAIL, "");
+}
+
 /** Map raw Tauri errors to short human-readable copy. */
 export function formatAppError(err: unknown): string {
-  const msg = String(err ?? "Unknown error");
+  const msg = plainError(String(err ?? "Unknown error"));
   const lower = msg.toLowerCase();
 
   if (msg.includes("CloudNotConfigured") || lower.includes("no backup storage is connected")) {
