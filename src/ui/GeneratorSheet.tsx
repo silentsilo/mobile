@@ -20,8 +20,8 @@ export function GeneratorSheet({ open, onClose, onUse }: { open: boolean; onClos
 
   return (
     <Sheet open={open} onClose={onClose} title="Generate a password">
-      <div className="panel" style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: "6px 6px 6px 16px", background: "var(--field-bg)" }}>
-        <span className="mono" style={{ flex: 1, fontSize: "1.12rem", fontWeight: 600, wordBreak: "break-all" }}>
+      <div className="panel" style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: "6px 6px 6px 16px", background: "var(--surface-2)" }}>
+        <span className="mono" style={{ flex: 1, fontSize: "var(--fs-heading)", fontWeight: 600, wordBreak: "break-all" }}>
           {value}
         </span>
         <button className="icon-btn" aria-label="Generate another" onClick={() => setValue(generatePassword(opts))}>
@@ -31,10 +31,10 @@ export function GeneratorSheet({ open, onClose, onUse }: { open: boolean; onClos
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 4 }}>
           {[1, 2, 3, 4].map((i) => (
-            <span key={i} style={{ height: 4, borderRadius: 2, background: i <= strength.score ? strength.color : "var(--surface-muted)" }} />
+            <span key={i} style={{ height: 4, borderRadius: 2, background: i <= strength.score ? strength.color : "var(--surface-2)" }} />
           ))}
         </div>
-        <span style={{ fontSize: "0.82rem", fontWeight: 650, color: strength.color }}>{strength.label}</span>
+        <span className="caption" style={{ fontWeight: 650, color: strength.color }}>{strength.label}</span>
       </div>
       <label style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <span style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>

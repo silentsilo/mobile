@@ -1,95 +1,131 @@
-/* Values lifted from silentsilo/desktop src/styles.css. Touch sizing is the
-   only deliberate change: 48px controls and 64px rows. */
+/* The desktop's tokens, sized for a finger: 48px targets and 64px rows.
+   Dark is the default; src/ui/theme.ts sets data-theme to the theme on
+   screen, whether chosen in the app or followed from the phone. */
 :root {
   --bg: #0a0e1a;
   --bg-deep: #05070e;
+  --glow: rgba(139, 92, 246, 0.15);
   --surface: #12182a;
-  --surface-muted: #0e1422;
-  --bg-hover: #1a2238;
+  --surface-2: #182036;
+  --field: #0c1120;
   --border: rgba(139, 92, 246, 0.22);
   --border-subtle: rgba(139, 92, 246, 0.12);
+  --border-strong: #667093;
   --ink: #f8fafc;
   --text-muted: #98a3c2;
-  --text-dim: #7a84a3;
+  --text-dim: #8a94b1;
   --accent: #8b5cf6;
-  --accent-hover: #a78bfa;
+  --accent-text: #a78bfa;
+  --accent-solid: #6d28d9;
+  --accent-solid-pressed: #5b21b6;
+  --on-accent: #ffffff;
+  --accent-soft: rgba(139, 92, 246, 0.16);
+  --halo: rgba(139, 92, 246, 0.06);
   --success: #10b981;
+  --success-text: #34d399;
+  --success-soft: rgba(16, 185, 129, 0.1);
   --warning: #f59e0b;
+  --warning-text: #fbbf24;
+  --warning-soft: rgba(245, 158, 11, 0.08);
+  --warning-border: rgba(245, 158, 11, 0.3);
   --danger: #ef4444;
-  --danger-on-dark: #f87171;
+  --danger-text: #f87171;
+  --danger-soft: rgba(239, 68, 68, 0.1);
+  --danger-border: rgba(239, 68, 68, 0.35);
   --strength-weak: #f59e0b;
   --strength-fair: #eab308;
   --strength-good: #84cc16;
-  --field-bg: rgba(0, 0, 0, 0.4);
-  --panel-bg: rgba(255, 255, 255, 0.02);
-  --tabbar-bg: rgba(10, 14, 26, 0.94);
-  --sheet-bg: #12182a;
-  --scrim: rgba(3, 5, 12, 0.55);
-  --radius: 10px;
-  --radius-sm: 7px;
+  --switch-on: #8b5cf6;
+  --switch-thumb-off: #98a3c2;
+  --focus: #c4b5fd;
+  --pressed: rgba(255, 255, 255, 0.08);
+  --scrim: rgba(3, 5, 12, 0.6);
+  --tabbar-bg: #0d1221;
+  --inverse-surface: #e2e8f0;
+  --on-inverse: #0f172a;
+  --inverse-accent: #6d28d9;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 24px 56px rgba(0, 0, 0, 0.55);
+
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-full: 999px;
+
+  --fs-display: 1.875rem;
+  --fs-title: 1.625rem;
+  --fs-headline: 1.375rem;
+  --fs-heading: 1.0625rem;
+  --fs-body: 1rem;
+  --fs-small: 0.9375rem;
+  --fs-caption: 0.8125rem;
+  --fs-label: 0.75rem;
+  --fs-code: 1.5rem;
+
+  --dur-1: 90ms;
+  --dur-2: 200ms;
+  --dur-3: 260ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* 48 on Android; iOS takes 44 when it comes. */
+  --target: 48px;
   --control: 48px;
   --row: 64px;
   --font: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, sans-serif;
-  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, monospace;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  accent-color: var(--accent-solid);
   color-scheme: dark;
 }
 
-/* Light: chosen in the app, or followed from the phone when nothing was
-   chosen. Dark is the default above. */
 :root[data-theme="light"] {
   --bg: #f8fafc;
   --bg-deep: #f1f5f9;
+  --glow: transparent;
   --surface: #ffffff;
-  --surface-muted: #e2e8f0;
-  --bg-hover: #f1f5f9;
+  --surface-2: #eef1f6;
+  --field: #ffffff;
   --border: rgba(124, 58, 237, 0.14);
-  --border-subtle: rgba(124, 58, 237, 0.08);
+  --border-subtle: #e2e8f0;
+  --border-strong: #7f8a9c;
   --ink: #0f172a;
   --text-muted: #475569;
-  --text-dim: #64748b;
+  --text-dim: #5b6678;
   --accent: #7c3aed;
-  --accent-hover: #6d28d9;
+  --accent-text: #6d28d9;
+  --accent-soft: rgba(124, 58, 237, 0.1);
+  --halo: rgba(124, 58, 237, 0.06);
   --success: #047857;
+  --success-text: #047857;
+  --success-soft: #ecfdf5;
   --warning: #b45309;
-  --danger-on-dark: #dc2626;
+  --warning-text: #a14a06;
+  --warning-soft: #fffbeb;
+  --warning-border: rgba(180, 83, 9, 0.3);
+  --danger: #dc2626;
+  --danger-text: #b91c1c;
+  --danger-soft: #fef2f2;
+  --danger-border: rgba(220, 38, 38, 0.3);
   --strength-weak: #b45309;
   --strength-fair: #a16207;
   --strength-good: #4d7c0f;
-  --field-bg: #ffffff;
-  --panel-bg: #ffffff;
-  --tabbar-bg: rgba(255, 255, 255, 0.94);
-  --sheet-bg: #ffffff;
-  --scrim: rgba(15, 23, 42, 0.35);
+  --switch-on: #6d28d9;
+  --switch-thumb-off: #475569;
+  --focus: #6d28d9;
+  --pressed: rgba(15, 23, 42, 0.06);
+  --scrim: rgba(15, 23, 42, 0.4);
+  --tabbar-bg: #ffffff;
+  --inverse-surface: #1e293b;
+  --on-inverse: #f8fafc;
+  --inverse-accent: #c4b5fd;
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 24px 56px rgba(15, 23, 42, 0.16);
   color-scheme: light;
-}
-
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #f8fafc;
-    --bg-deep: #f1f5f9;
-    --surface: #ffffff;
-    --surface-muted: #e2e8f0;
-    --bg-hover: #f1f5f9;
-    --border: rgba(124, 58, 237, 0.14);
-    --border-subtle: rgba(124, 58, 237, 0.08);
-    --ink: #0f172a;
-    --text-muted: #475569;
-    --text-dim: #64748b;
-    --accent: #7c3aed;
-    --accent-hover: #6d28d9;
-    --success: #047857;
-    --warning: #b45309;
-    --danger-on-dark: #dc2626;
-    --strength-weak: #b45309;
-    --strength-fair: #a16207;
-    --strength-good: #4d7c0f;
-    --field-bg: #ffffff;
-    --panel-bg: #ffffff;
-    --tabbar-bg: rgba(255, 255, 255, 0.94);
-    --sheet-bg: #ffffff;
-    --scrim: rgba(15, 23, 42, 0.35);
-    color-scheme: light;
-  }
 }

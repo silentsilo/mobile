@@ -103,15 +103,15 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
         alignItems: "center",
         justifyContent: "center",
         gap: 8,
-        borderRadius: "var(--radius)",
-        border: "1px dashed var(--border)",
-        background: "var(--surface-muted)",
+        borderRadius: "var(--r-md)",
+        border: "1px dashed var(--border-strong)",
+        background: "var(--surface-2)",
         padding: 16,
         textAlign: "center",
       }}
     >
       {fileIcon(file, 40)}
-      <span style={{ fontSize: "0.85rem" }}>{text}</span>
+      <span className="caption">{text}</span>
     </div>
   );
 
@@ -138,13 +138,13 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
                 maxWidth: "100%",
                 maxHeight: "100%",
                 objectFit: "contain",
-                borderRadius: "var(--radius)",
+                borderRadius: "var(--r-md)",
                 visibility: shown.at === "image" ? "visible" : "hidden",
               }}
             />
           )}
           {kind === "text" && shown.at === "text" && (
-            <pre className="panel" style={{ position: "absolute", inset: 0, margin: 0, padding: 14, overflow: "auto", whiteSpace: "pre-wrap", fontSize: "0.85rem" }}>
+            <pre className="panel" style={{ position: "absolute", inset: 0, margin: 0, padding: 14, overflow: "auto", whiteSpace: "pre-wrap", fontSize: "var(--fs-caption)" }}>
               {shown.text}
             </pre>
           )}
@@ -156,7 +156,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
                   src={api.pdfPageUrl(file.id, i, pageWidth)}
                   alt={`Page ${i + 1} of ${shown.pages}`}
                   loading="lazy"
-                  style={{ width: "100%", borderRadius: 6, background: "#fff", minHeight: 120 }}
+                  style={{ width: "100%", borderRadius: "var(--r-xs)", background: "#fff", minHeight: 120 }}
                 />
               ))}
             </div>
@@ -170,7 +170,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
             Getting {file.name} ready for the other app ({formatBytes(file.size_bytes)}). A large file can take a minute.
           </div>
         )}
-        <div className="muted" style={{ fontSize: "0.88rem", textAlign: "center" }}>
+        <div className="muted caption" style={{ textAlign: "center" }}>
           {formatBytes(file.size_bytes)} · modified {formatDate(file.updated_at)}
         </div>
       </div>

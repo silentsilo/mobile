@@ -23,19 +23,7 @@ export function SecurityKeyWait({ touches = 1 }: { touches?: 1 | 2 }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 14, padding: "8px 0", textAlign: "center" }}>
-      <div
-        className="key-pulse"
-        style={{
-          width: 88,
-          height: 88,
-          borderRadius: "50%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "rgba(139, 92, 246, 0.1)",
-          color: "var(--accent-hover)",
-        }}
-      >
+      <div className="hero-icon small key-pulse">
         <Nfc size={40} strokeWidth={1.6} />
       </div>
       {second ? (

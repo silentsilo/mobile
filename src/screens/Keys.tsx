@@ -90,7 +90,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
                     <Icon size={20} />
                   </span>
                   <span className="row-text" style={{ gap: 3 }}>
-                    <span className="row-title" style={{ fontSize: "0.98rem" }}>{key.label || detail}</span>
+                    <span className="row-title">{key.label || detail}</span>
                     <span className="row-sub">{detail}</span>
                   </span>
                   <button className="icon-btn" aria-label={`Options for ${key.label || detail}`} onClick={() => { setError(null); setChosen(key); }}>

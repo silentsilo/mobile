@@ -3,6 +3,8 @@ import { api } from "../api";
 export type ThemeChoice = "system" | "dark" | "light";
 
 const KEY = "theme";
+const phoneLight = window.matchMedia("(prefers-color-scheme: light)");
+let current: ThemeChoice = "system";
 
 export function readTheme(): ThemeChoice {
   try {
@@ -13,11 +15,20 @@ export function readTheme(): ThemeChoice {
   }
 }
 
+// The page always carries the theme on screen, so the stylesheet needs one
+// light block, whether the theme was chosen or followed from the phone.
+function paint() {
+  document.documentElement.dataset.theme = current === "system" ? (phoneLight.matches ? "light" : "dark") : current;
+}
+
+phoneLight.addEventListener("change", () => {
+  if (current === "system") paint();
+});
+
 /** Sets the theme on the page. "system" follows the phone's setting. */
 export function applyTheme(choice: ThemeChoice) {
-  const root = document.documentElement;
-  if (choice === "system") delete root.dataset.theme;
-  else root.dataset.theme = choice;
+  current = choice;
+  paint();
   try {
     if (choice === "system") localStorage.removeItem(KEY);
     else localStorage.setItem(KEY, choice);

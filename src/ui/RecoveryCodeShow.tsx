@@ -50,7 +50,7 @@ function CodeOnPaper({ code, onKept }: { code: string; onKept: () => void }) {
   const [kept, setKept] = useState(false);
   return (
     <>
-      <div className="panel mono" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10, padding: 16, fontSize: "1.2rem", textAlign: "center" }}>
+      <div className="panel mono code-on-paper">
         {toGroups(code).map((group, i) => (
           <span key={i}>{group}</span>
         ))}
@@ -58,7 +58,7 @@ function CodeOnPaper({ code, onKept }: { code: string; onKept: () => void }) {
       <p className="hint small">There is no copy button: other apps can read the clipboard.</p>
       <label className="row" style={{ minHeight: 56, gap: 12 }}>
         <input type="checkbox" checked={kept} onChange={(e) => setKept(e.target.checked)} style={{ width: 22, height: 22 }} />
-        <span style={{ fontSize: "0.95rem" }}>I wrote the code down and keep it apart from this phone</span>
+        <span className="small">I wrote the code down and keep it apart from this phone</span>
       </label>
       <button className="btn" disabled={!kept} onClick={onKept}>
         Continue

@@ -371,11 +371,11 @@ export function Files({
         <SiloHeader siloName={siloName} sync={sync} />
       )}
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px" }}>
-        <div className="input" style={{ flex: 1, background: "var(--surface-muted)" }}>
+        <div className="input" style={{ flex: 1 }}>
           <Search size={20} color="var(--text-dim)" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the silo" autoCapitalize="none" autoCorrect="off" />
         </div>
-        <button className="btn secondary inline" style={{ padding: "0 12px", fontSize: "0.9rem" }} onClick={() => setSort(sort === "name" ? "newest" : "name")}>
+        <button className="btn secondary inline small" style={{ padding: "0 12px" }} onClick={() => setSort(sort === "name" ? "newest" : "name")}>
           {sort === "name" ? "Name" : "Newest"}
         </button>
         <button className="btn inline" style={{ padding: "0 12px" }} aria-label="Add" disabled={!here || progress !== null} onClick={() => setAdding(true)}>
@@ -451,18 +451,18 @@ export function Files({
       <Sheet open={adding} onClose={() => setAdding(false)} title="Add to this folder">
         <div className="panel">
           <button className="row" style={{ minHeight: 56 }} onClick={() => void chooseFiles()}>
-            <FilePlus size={20} color="var(--accent-hover)" />
+            <FilePlus size={20} color="var(--accent-text)" />
             <span className="row-title" style={{ flex: 1 }}>Files from this phone</span>
           </button>
           <button className="row divide" style={{ minHeight: 56 }} onClick={() => void takePhoto()}>
-            <Camera size={20} color="var(--accent-hover)" />
+            <Camera size={20} color="var(--accent-text)" />
             <span className="row-text">
               <span className="row-title">Take a photo</span>
               <span className="row-sub">Goes into the silo, not the gallery</span>
             </span>
           </button>
           <button className="row divide" style={{ minHeight: 56 }} onClick={() => { setAdding(false); setNaming(true); }}>
-            <FolderPlus size={20} color="var(--accent-hover)" />
+            <FolderPlus size={20} color="var(--accent-text)" />
             <span className="row-title" style={{ flex: 1 }}>New folder</span>
           </button>
         </div>
@@ -509,7 +509,7 @@ export function Files({
               const depth = f.path === "/" ? 0 : f.path.split("/").length - 1;
               return (
                 <button key={f.id} className={`row${i ? " divide" : ""}`} style={{ minHeight: 52, paddingLeft: 16 + depth * 16 }} onClick={() => void moveTo(f)}>
-                  <Folder size={18} color="var(--accent-hover)" />
+                  <Folder size={18} color="var(--accent-text)" />
                   <span className="row-title" style={{ flex: 1 }}>{f.path === "/" ? siloName : f.name}</span>
                 </button>
               );

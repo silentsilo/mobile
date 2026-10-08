@@ -15,7 +15,7 @@ export function Welcome({ onStart, onCreate }: { onStart: () => void; onCreate: 
           <span className="brand">SilentSilo</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <h1 className="title" style={{ fontSize: "2rem" }}>
+          <h1 className="title display">
             Open your silo on this phone
           </h1>
           <p className="hint">
@@ -29,8 +29,8 @@ export function Welcome({ onStart, onCreate }: { onStart: () => void; onCreate: 
           </div>
           {needs.map(({ Icon, text }, i) => (
             <div key={text} className={`row${i > 0 ? " divide" : ""}`}>
-              <Icon size={22} color="var(--accent-hover)" />
-              <span style={{ fontSize: "0.95rem" }}>{text}</span>
+              <Icon size={22} color="var(--accent-text)" />
+              <span className="small">{text}</span>
             </div>
           ))}
         </div>

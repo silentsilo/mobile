@@ -251,11 +251,11 @@ export function passwordStrength(pw: string): PasswordStrength {
   if (/[^A-Za-z0-9]/.test(pw)) score++;
   const capped = Math.min(score, 4) as 0 | 1 | 2 | 3 | 4;
   const levels: [string, string][] = [
-    ["Very weak", "var(--danger-on-dark)"],
+    ["Very weak", "var(--danger-text)"],
     ["Weak", "var(--strength-weak)"],
     ["Fair", "var(--strength-fair)"],
     ["Good", "var(--strength-good)"],
-    ["Strong", "var(--success)"],
+    ["Strong", "var(--success-text)"],
   ];
   const [label, color] = levels[capped]!;
   return { score: capped, label, color };

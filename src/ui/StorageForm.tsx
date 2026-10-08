@@ -425,7 +425,7 @@ export function StorageForm({
           Compare this with the fingerprint your server shows. If they differ, someone may be between this phone and your
           server.
         </p>
-        <div className="panel mono" style={{ padding: 14, wordBreak: "break-all", fontSize: "0.9rem" }}>
+        <div className="panel mono small" style={{ padding: 14, wordBreak: "break-all" }}>
           {fingerprint}
         </div>
         {rekeyed && (

@@ -18,7 +18,7 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
         <button
           className="text-btn"
-          style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: "1.5rem", letterSpacing: "-0.03em", color: "var(--ink)", padding: 0 }}
+          style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700, fontSize: "var(--fs-headline)", letterSpacing: "-0.03em", color: "var(--ink)", padding: 0 }}
           onClick={() => setSwitching(true)}
           aria-label={`${siloName}, switch silo`}
         >
@@ -27,9 +27,9 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
         </button>
         <SiloSwitcher open={switching} onClose={() => setSwitching(false)} />
         {sync?.configured && (
-          <div className="muted" style={{ display: "flex", alignItems: "center", gap: 7, fontSize: "0.82rem", minWidth: 0 }}>
+          <div className="muted caption" style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
             {progress ? (
-              <RefreshCw size={12} className="spin" color="var(--accent-hover)" style={{ flex: "none" }} />
+              <RefreshCw size={12} className="spin" color="var(--accent-text)" style={{ flex: "none" }} />
             ) : (
               <span style={{ width: 7, height: 7, borderRadius: "50%", flex: "none", background: waiting ? "var(--warning)" : "var(--success)" }} />
             )}
@@ -100,7 +100,7 @@ export function Passwords({
         }
       />
       <div style={{ padding: "0 16px 10px" }}>
-        <div className="input" style={{ background: "var(--surface-muted)" }}>
+        <div className="input">
           <Search size={20} color="var(--text-dim)" />
           <input
             value={query}

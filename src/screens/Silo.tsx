@@ -172,9 +172,9 @@ export function Silo({
   const waiting = sync?.pending_ops ?? 0;
   const navRow = (Icon: typeof KeyRound, title: string, value: string, onClick: () => void, first = false) => (
     <button className={`row${first ? "" : " divide"}`} style={{ minHeight: 60 }} onClick={onClick}>
-      <Icon size={20} color="var(--accent-hover)" />
-      <span style={{ flex: 1, fontSize: "1rem" }}>{title}</span>
-      <span className="muted" style={{ fontSize: "0.9rem" }}>{value}</span>
+      <Icon size={20} color="var(--accent-text)" />
+      <span style={{ flex: 1 }}>{title}</span>
+      <span className="muted small">{value}</span>
       <ChevronRight size={18} color="var(--text-dim)" />
     </button>
   );
@@ -185,7 +185,7 @@ export function Silo({
       <div className="screen-body tight" style={{ paddingTop: 0, gap: 18 }}>
         {audit?.enabled && (
           <button className="panel row" style={{ minHeight: 48, gap: 10 }} onClick={() => setAboutAudit(true)}>
-            <ScrollText size={18} color="var(--accent-hover)" />
+            <ScrollText size={18} color="var(--accent-text)" />
             <span style={{ flex: 1 }}>
               {audit.organisation ? "Activity log, for the organisation" : "Activity log on"}
             </span>
@@ -226,8 +226,8 @@ export function Silo({
             {navRow(Smartphone, "Lock in the background", lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
             {screenOff !== null && (
               <div className="row divide" style={{ minHeight: 60 }}>
-                <MonitorOff size={20} color="var(--accent-hover)" />
-                <span style={{ flex: 1, fontSize: "1rem" }}>Lock when the screen turns off</span>
+                <MonitorOff size={20} color="var(--accent-text)" />
+                <span style={{ flex: 1 }}>Lock when the screen turns off</span>
                 <button
                   className="switch"
                   role="switch"
@@ -274,7 +274,7 @@ export function Silo({
           <LockKeyhole size={18} />
           Lock now
         </button>
-        <button className="text-btn" style={{ alignSelf: "center", color: "var(--danger)" }} onClick={() => setRemoving(true)}>
+        <button className="text-btn danger" style={{ alignSelf: "center" }} onClick={() => setRemoving(true)}>
           Remove this silo from the phone
         </button>
         <p className="hint" style={{ alignSelf: "center", margin: 0 }}>
@@ -291,7 +291,7 @@ export function Silo({
           {LOCK_CHOICES.map((c, i) => (
             <button key={c.seconds} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void chooseLock(c.seconds)} aria-pressed={lockAfter === c.seconds}>
               <span style={{ flex: 1 }}>{c.label}</span>
-              {lockAfter === c.seconds && <span style={{ color: "var(--accent-hover)", fontWeight: 700 }}>Selected</span>}
+              {lockAfter === c.seconds && <span style={{ color: "var(--accent-text)", fontWeight: 700 }}>Selected</span>}
             </button>
           ))}
         </div>
@@ -313,7 +313,7 @@ export function Silo({
             </p>
             <div className="panel">
               <div className="row" style={{ minHeight: 60 }}>
-                <span style={{ flex: 1, fontSize: "1rem" }}>Keep an activity log</span>
+                <span style={{ flex: 1 }}>Keep an activity log</span>
                 <button
                   className="switch"
                   role="switch"
@@ -337,7 +337,7 @@ export function Silo({
           {HISTORY_POLICIES.map((policy, i) => (
             <button key={String(policy)} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void chooseHistory(policy)} aria-pressed={historyPolicy === policy}>
               <span style={{ flex: 1 }}>{historyLabel(policy)}</span>
-              {historyPolicy === policy && <span style={{ color: "var(--accent-hover)", fontWeight: 700 }}>Selected</span>}
+              {historyPolicy === policy && <span style={{ color: "var(--accent-text)", fontWeight: 700 }}>Selected</span>}
             </button>
           ))}
         </div>

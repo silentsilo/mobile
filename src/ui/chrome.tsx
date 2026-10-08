@@ -43,7 +43,7 @@ export function StepBar({ step, onBack }: { step: 1 | 2 | 3; onBack: () => void 
         <ArrowLeft size={22} />
       </button>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingRight: 52 }}>
-        <div className="muted" style={{ fontSize: "0.82rem", fontWeight: 600, textAlign: "center" }}>
+        <div className="muted caption" style={{ fontWeight: 600, textAlign: "center" }}>
           Step {step} of 3
         </div>
         <div className="step-track" aria-hidden>
@@ -73,7 +73,7 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
       <div className="scrim" onClick={onClose} />
       <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
         <div className="sheet-grabber" />
-        {title && <div style={{ fontWeight: 700, fontSize: "1.15rem" }}>{title}</div>}
+        {title && <div style={{ fontWeight: 700, fontSize: "var(--fs-heading)" }}>{title}</div>}
         {children}
       </div>
     </>

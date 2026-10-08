@@ -66,7 +66,7 @@ export function DeviceCheck({ check, checking, onRetry }: { check: Check; checki
               ) : line.ok === "warn" ? (
                 <TriangleAlert size={22} color="var(--warning)" style={{ flex: "none" }} />
               ) : (
-                <CircleX size={22} color="var(--danger-on-dark)" style={{ flex: "none" }} />
+                <CircleX size={22} color="var(--danger-text)" style={{ flex: "none" }} />
               )}
               <span className="row-text" style={{ gap: 3 }}>
                 <span style={{ fontWeight: 650 }}>{line.title}</span>

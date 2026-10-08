@@ -80,7 +80,7 @@ export function SaveShared({ files, siloName, onDone }: { files: Offered[]; silo
                 void load(f.id);
               }}
             >
-              <Folder size={20} color="var(--accent-hover)" />
+              <Folder size={20} color="var(--accent-text)" />
               <span className="row-title" style={{ flex: 1 }}>{f.name}</span>
               <ChevronRight size={18} color="var(--text-dim)" />
             </button>

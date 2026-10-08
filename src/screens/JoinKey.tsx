@@ -54,19 +54,7 @@ export function JoinKey({
       {rekey ? <TopBar /> : <StepBar step={step} onBack={onBack} />}
       <div className="screen-body">
         <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
-          <div
-            style={{
-              width: 112,
-              height: 112,
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "rgba(139, 92, 246, 0.1)",
-              border: "1px solid var(--border)",
-              color: "var(--accent-hover)",
-            }}
-          >
+          <div className="hero-icon">
             <ScanFace size={52} strokeWidth={1.6} />
           </div>
         </div>
@@ -80,7 +68,7 @@ export function JoinKey({
         </div>
         <div className="notice warning">
           <LockKeyhole size={20} style={{ flex: "none", marginTop: 1 }} />
-          <p className="hint" style={{ fontSize: "0.88rem" }}>
+          <p className="hint small">
             Adding or removing a fingerprint later retires this key. You would then unlock with your recovery code and set
             the phone up again.
           </p>

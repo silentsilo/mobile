@@ -206,14 +206,14 @@ export function Entry({
       />
       <div className="screen-body tight" style={{ gap: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 4px" }}>
-          <span className="avatar" style={{ width: 56, height: 56, borderRadius: 12, fontSize: "1rem", background: bg, color: inkOn(bg) }}>
+          <span className="avatar large" style={{ background: bg, color: inkOn(bg) }}>
             {serviceInitials(entry.service)}
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
-            <h1 className="title" style={{ fontSize: "1.5rem" }}>
+            <h1 className="title headline">
               {entry.service}
             </h1>
-            {entry.url && <span className="muted" style={{ fontSize: "0.9rem" }}>{entry.url.replace(/^https?:\/\//, "")}</span>}
+            {entry.url && <span className="muted small">{entry.url.replace(/^https?:\/\//, "")}</span>}
           </div>
         </div>
 
@@ -248,18 +248,18 @@ export function Entry({
                 <span className="label" style={{ color: "var(--text-dim)", letterSpacing: "0.03em" }}>
                   One-time code
                 </span>
-                <span className="mono" style={{ fontSize: "1.4rem", fontWeight: 700, letterSpacing: "0.14em" }}>
+                <span className="mono" style={{ fontSize: "var(--fs-code)", fontWeight: 700, letterSpacing: "0.14em" }}>
                   {verified ? spaced(totp.code) : "••• •••"}
                 </span>
               </div>
               <svg width="30" height="30" viewBox="0 0 30 30" aria-label={`${totp.left} seconds left`} style={{ flex: "none" }}>
-                <circle cx="15" cy="15" r="12" fill="none" stroke="rgba(139, 92, 246, 0.18)" strokeWidth="3" />
+                <circle cx="15" cy="15" r="12" fill="none" stroke="var(--surface-2)" strokeWidth="3" />
                 <circle
                   cx="15"
                   cy="15"
                   r="12"
                   fill="none"
-                  stroke="var(--accent-hover)"
+                  stroke="var(--accent-text)"
                   strokeWidth="3"
                   strokeLinecap="round"
                   strokeDasharray={circumference}
@@ -284,10 +284,10 @@ export function Entry({
                 <span className="label" style={{ color: "var(--text-dim)", letterSpacing: "0.03em" }}>
                   Passkey
                 </span>
-                <span style={{ fontSize: "1rem" }}>
+                <span>
                   {entry.passkey.user_name || entry.passkey.user_display_name || "Account"} on {entry.passkey.rp_id}
                 </span>
-                <span className="muted" style={{ fontSize: "0.85rem" }}>
+                <span className="muted caption">
                   Added {formatDay(entry.passkey.created_at)}
                 </span>
               </div>
@@ -312,7 +312,7 @@ export function Entry({
                   <div key={key} className="row divide" style={{ minHeight: 68, paddingRight: 6, alignItems: "center" }}>
                     <div className="row-text" style={{ gap: 4 }}>
                       <span>{formatDate(version.saved_at)}</span>
-                      <span className="muted" style={{ fontSize: "0.85rem" }}>
+                      <span className="muted caption">
                         {changed.length > 0 ? `Next change: ${changed.join(", ")}` : "No change"}
                       </span>
                       {version.password && (
@@ -333,7 +333,7 @@ export function Entry({
                 );
               })}
             {historyOpen && (
-              <button className="row divide text-btn" style={{ minHeight: 52, color: "var(--danger)" }} disabled={busy} onClick={() => setConfirmClear(true)}>
+              <button className="row divide text-btn danger" style={{ minHeight: 52 }} disabled={busy} onClick={() => setConfirmClear(true)}>
                 Clear history
               </button>
             )}

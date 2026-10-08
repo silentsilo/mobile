@@ -117,24 +117,11 @@ export function Unlock({
           {siloName}
         </div>
         <div className="spacer" />
-        <div
-          style={{
-            width: 148,
-            height: 148,
-            borderRadius: "50%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(139, 92, 246, 0.08)",
-            boxShadow: "0 0 0 14px rgba(139, 92, 246, 0.05)",
-            border: "1px solid var(--border)",
-            color: "var(--accent-hover)",
-          }}
-        >
+        <div className="hero-icon halo">
           <ScanFace size={64} strokeWidth={1.5} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center" }}>
-          <h1 className="title" style={{ fontSize: "1.5rem" }}>
+          <h1 className="title headline">
             Locked
           </h1>
           <p className="hint">
@@ -147,7 +134,7 @@ export function Unlock({
         </div>
         {invalidated && (
           <div className="notice warning" style={{ alignSelf: "stretch" }}>
-            <p className="hint" style={{ fontSize: "0.88rem" }}>
+            <p className="hint small">
               The fingerprints or faces on this phone changed, so its silo key was retired. Use your recovery code below, and
               the app will offer to set this phone up again.
             </p>

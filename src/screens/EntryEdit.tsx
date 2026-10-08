@@ -129,7 +129,7 @@ export function EntryEdit({
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
-            <button className="icon-btn framed" style={{ width: 48, height: 48, color: "var(--accent-hover)" }} aria-label="Generate a password" onClick={(e) => { e.preventDefault(); setGenerating(true); }}>
+            <button className="icon-btn framed accent" aria-label="Generate a password" onClick={(e) => { e.preventDefault(); setGenerating(true); }}>
               <WandSparkles size={20} />
             </button>
           </div>

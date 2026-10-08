@@ -37,7 +37,7 @@ export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => 
           <button key={silo.id} className={`row${i ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void choose(silo)}>
             <span className="row-title" style={{ flex: 1 }}>{silo.name}</span>
             {!silo.unlocked && <LockKeyhole size={16} color="var(--text-dim)" aria-label="Locked" />}
-            {silo.active && <Check size={20} color="var(--accent-hover)" aria-label="Current" />}
+            {silo.active && <Check size={20} color="var(--accent-text)" aria-label="Current" />}
           </button>
         ))}
       </div>
