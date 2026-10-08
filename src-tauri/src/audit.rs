@@ -154,6 +154,11 @@ pub async fn file_opened(app: &AppHandle, file_id: Uuid, how: &str) -> Result<()
 /// the silo already, so this is never refused.
 pub fn file_added(app: &AppHandle, file: &silentsilo_core::FileEntry) {
     let mut added = event(codes::FILE_ADDED).on(file.id.to_string(), file.name.clone());
+    // A name already taken: `add_file` replaced that file's content and kept
+    // its creation time, as on desktop.
+    if file.created_at < file.updated_at {
+        added = added.with("replaced", true);
+    }
     if let Ok(folder) = app
         .state::<AppState>()
         .with_vfs(|_session, vfs| vfs.get_folder(file.folder_id).map(|f| f.path))
