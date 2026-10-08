@@ -181,7 +181,7 @@ pub async fn vault_import_offered(
         })
         .await
         .map_err(|e| e.to_string())??;
-        crate::audit::files_added(&app, 1);
+        crate::audit::file_added(&app, &entry);
         let _ = app.emit("vault-changed", ());
         Ok(entry)
     }
@@ -236,19 +236,26 @@ pub async fn vault_import_photo(
     .map_err(|e| e.to_string());
     let _ = std::fs::remove_file(&path);
     let entry = result??;
-    crate::audit::files_added(&app, 1);
+    crate::audit::file_added(&app, &entry);
     let _ = app.emit("vault-changed", ());
     Ok(entry)
 }
 
 #[tauri::command]
 pub fn vault_create_folder(
+    app: AppHandle,
     state: State<'_, AppState>,
     parent_id: String,
     name: String,
 ) -> Result<silentsilo_core::FolderEntry, String> {
     let parent_id = Uuid::parse_str(&parent_id).map_err(|e| e.to_string())?;
-    state.with_vfs(|_session, vfs| vfs.create_folder(parent_id, name.trim()))
+    let folder = state.with_vfs(|_session, vfs| vfs.create_folder(parent_id, name.trim()))?;
+    let _ = crate::audit::record(
+        &app,
+        crate::audit::event(crate::audit::codes::FOLDER_CREATED)
+            .on(folder.id.to_string(), folder.path.clone()),
+    );
+    Ok(folder)
 }
 
 /// Sends a shared file to the inbox without opening the silo, when this

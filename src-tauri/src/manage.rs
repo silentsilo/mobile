@@ -14,44 +14,91 @@ fn id(raw: &str) -> Result<Uuid, String> {
     Uuid::parse_str(raw).map_err(|e| e.to_string())
 }
 
+// Renames are logged before, like a trash; moves, restores and new folders
+// after, since they are done by then.
+
 #[tauri::command]
 pub fn vault_rename_file(
+    app: AppHandle,
     state: State<'_, AppState>,
     file_id: String,
     new_name: String,
 ) -> Result<FileEntry, String> {
     let file_id = id(&file_id)?;
-    state.with_vfs(|_session, vfs| vfs.rename_file(file_id, new_name.trim()))
+    let new_name = new_name.trim();
+    let old = state.with_vfs(|_session, vfs| vfs.get_file(file_id).map(|f| f.name))?;
+    if old != new_name {
+        crate::audit::record(
+            &app,
+            crate::audit::event(crate::audit::codes::FILE_RENAMED)
+                .on(file_id.to_string(), new_name.to_string())
+                .with("from", old),
+        )?;
+    }
+    state.with_vfs(|_session, vfs| vfs.rename_file(file_id, new_name))
 }
 
 #[tauri::command]
 pub fn vault_rename_folder(
+    app: AppHandle,
     state: State<'_, AppState>,
     folder_id: String,
     new_name: String,
 ) -> Result<FolderEntry, String> {
     let folder_id = id(&folder_id)?;
-    state.with_vfs(|_session, vfs| vfs.rename_folder(folder_id, new_name.trim()))
+    let new_name = new_name.trim();
+    let old = state.with_vfs(|_session, vfs| vfs.get_folder(folder_id).map(|f| f.name))?;
+    if old != new_name {
+        crate::audit::record(
+            &app,
+            crate::audit::event(crate::audit::codes::FILE_RENAMED)
+                .on(folder_id.to_string(), new_name.to_string())
+                .with("from", old)
+                .with("folder", true),
+        )?;
+    }
+    state.with_vfs(|_session, vfs| vfs.rename_folder(folder_id, new_name))
 }
 
 #[tauri::command]
 pub fn vault_move_file(
+    app: AppHandle,
     state: State<'_, AppState>,
     file_id: String,
     folder_id: String,
 ) -> Result<FileEntry, String> {
     let (file_id, folder_id) = (id(&file_id)?, id(&folder_id)?);
-    state.with_vfs(|_session, vfs| vfs.move_file(file_id, folder_id))
+    let (file, to) = state.with_vfs(|_session, vfs| {
+        let file = vfs.move_file(file_id, folder_id)?;
+        Ok((file, vfs.get_folder(folder_id)?.path))
+    })?;
+    log_moved(&app, &file.name, &to);
+    Ok(file)
 }
 
 #[tauri::command]
 pub fn vault_move_folder(
+    app: AppHandle,
     state: State<'_, AppState>,
     folder_id: String,
     parent_id: String,
 ) -> Result<FolderEntry, String> {
     let (folder_id, parent_id) = (id(&folder_id)?, id(&parent_id)?);
-    state.with_vfs(|_session, vfs| vfs.move_folder(folder_id, parent_id))
+    let (folder, to) = state.with_vfs(|_session, vfs| {
+        let folder = vfs.move_folder(folder_id, parent_id)?;
+        Ok((folder, vfs.get_folder(parent_id)?.path))
+    })?;
+    log_moved(&app, &folder.name, &to);
+    Ok(folder)
+}
+
+fn log_moved(app: &AppHandle, name: &str, to: &str) {
+    let _ = crate::audit::record(
+        app,
+        crate::audit::event(crate::audit::codes::FILE_MOVED)
+            .with("to", to)
+            .with("name", name),
+    );
 }
 
 /// Every live folder, for choosing where to move something.
@@ -103,20 +150,34 @@ pub fn vault_list_trash(state: State<'_, AppState>) -> Result<Vec<TrashItem>, St
 
 #[tauri::command]
 pub fn vault_restore_file(
+    app: AppHandle,
     state: State<'_, AppState>,
     file_id: String,
 ) -> Result<FileEntry, String> {
     let file_id = id(&file_id)?;
-    state.with_vfs(|_session, vfs| vfs.restore_file(file_id))
+    let file = state.with_vfs(|_session, vfs| vfs.restore_file(file_id))?;
+    let _ = crate::audit::record(
+        &app,
+        crate::audit::event(crate::audit::codes::FILE_RESTORED)
+            .on(file.id.to_string(), file.name.clone()),
+    );
+    Ok(file)
 }
 
 #[tauri::command]
 pub fn vault_restore_folder(
+    app: AppHandle,
     state: State<'_, AppState>,
     folder_id: String,
 ) -> Result<FolderEntry, String> {
     let folder_id = id(&folder_id)?;
-    state.with_vfs(|_session, vfs| vfs.restore_folder(folder_id))
+    let folder = state.with_vfs(|_session, vfs| vfs.restore_folder(folder_id))?;
+    let _ = crate::audit::record(
+        &app,
+        crate::audit::event(crate::audit::codes::FILE_RESTORED)
+            .on(folder.id.to_string(), folder.path.clone()),
+    );
+    Ok(folder)
 }
 
 /// Deletes trashed entries for good: every one when `ids` is empty. The

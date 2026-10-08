@@ -95,11 +95,17 @@ pub async fn file_opened(app: &AppHandle, file_id: Uuid, how: &str) -> Result<()
     .await
 }
 
-/// Files added, once per import and after it: they are in the silo already.
-pub fn files_added(app: &AppHandle, count: usize) {
-    if count > 0 {
-        let _ = record(app, event(codes::FILE_ADDED).with("count", count));
+/// A file added, by name and with its folder, after the import: it is in
+/// the silo already, so this is never refused.
+pub fn file_added(app: &AppHandle, file: &silentsilo_core::FileEntry) {
+    let mut added = event(codes::FILE_ADDED).on(file.id.to_string(), file.name.clone());
+    if let Ok(folder) = app
+        .state::<AppState>()
+        .with_vfs(|_session, vfs| vfs.get_folder(file.folder_id).map(|f| f.path))
+    {
+        added = added.with("folder", folder);
     }
+    let _ = record(app, added);
 }
 
 /// The events the app may report itself: what happens on screen, which no
