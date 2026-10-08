@@ -10,6 +10,7 @@ import { ChoiceRow, Notice, Sheet, ToggleRow, useToast } from "../ui/chrome";
 import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
 import { announceSilo } from "./SiloSwitcher";
+import { haptic } from "../ui/haptics";
 
 function historyLabel(policy: HistoryPolicy): string {
   return policy === "fit" ? "As many as fit" : `Last ${policy}`;
@@ -392,6 +393,7 @@ export function Silo({
             setRemoving(false);
             try {
               // The silo this screen shows, not whichever is in front by now.
+              haptic("heavy");
               await api.removeSilo(siloId);
               announceSilo("switched");
             } catch (e) {

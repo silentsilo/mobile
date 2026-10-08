@@ -1,11 +1,11 @@
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { analyseHealth, type HealthFinding } from "../shared/health";
 import { subtitleFor } from "../shared/passwordUtil";
 import type { PasswordEntry } from "../shared/types";
-import { Notice, TopBar } from "../ui/chrome";
+import { EmptyState, Notice, Skeleton, TopBar } from "../ui/chrome";
 
 const COLOUR: Record<HealthFinding["severity"], string> = {
   high: "var(--danger)",
@@ -50,7 +50,10 @@ export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry:
           <p className="hint">Checked on this phone. No password leaves it for this.</p>
         </div>
         {error && <Notice tone="error">{error}</Notice>}
-        {findings?.length === 0 && <div className="notice">Nothing to fix. Every password is unique and strong.</div>}
+        {!findings && !error && <Skeleton avatar={false} rows={4} />}
+        {findings?.length === 0 && (
+          <EmptyState icon={<ShieldCheck size={26} />} title="Nothing to fix" hint="Every password is unique and strong." />
+        )}
         {findings?.map((finding) => {
           const expanded = open === finding.id;
           return (

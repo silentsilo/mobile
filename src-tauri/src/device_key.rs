@@ -94,6 +94,9 @@ impl<R: Runtime> DeviceKey<R> {
     pub async fn set_theme(&self, _choice: &str) -> Result<(), String> {
         Ok(())
     }
+    pub async fn haptic(&self, _kind: &str) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 #[cfg(target_os = "android")]
@@ -187,6 +190,13 @@ impl<R: Runtime> DeviceKey<R> {
             .map(|_| ())
     }
 
+    /// A short vibration: `tick`, `confirm`, `reject` or `heavy`.
+    pub async fn haptic(&self, kind: &str) -> Result<(), String> {
+        self.call::<serde_json::Value>("haptic", serde_json::json!({ "kind": kind }))
+            .await
+            .map(|_| ())
+    }
+
     /// The theme chosen in the app, for the system bars and the window.
     pub async fn set_theme(&self, choice: &str) -> Result<(), String> {
         self.call::<serde_json::Value>("setTheme", serde_json::json!({ "choice": choice }))
@@ -272,4 +282,13 @@ pub async fn app_theme_set(app: tauri::AppHandle, choice: String) -> Result<(), 
     app.state::<DeviceKey<tauri::Wry>>()
         .set_theme(&choice)
         .await
+}
+
+/// Touch feedback for a copy, a switch, a destructive confirm or an unlock.
+#[tauri::command]
+pub async fn haptic(app: tauri::AppHandle, kind: String) -> Result<(), String> {
+    if !matches!(kind.as_str(), "tick" | "confirm" | "reject" | "heavy") {
+        return Err("Unknown haptic.".into());
+    }
+    app.state::<DeviceKey<tauri::Wry>>().haptic(&kind).await
 }

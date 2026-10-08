@@ -11,7 +11,7 @@ export function CreateRecovery({ made, onBack, onDone }: { made: boolean; onBack
   const [again, setAgain] = useState(false);
   return (
     <div className="screen">
-      <StepBar step={2} onBack={onBack} />
+      <StepBar step={3} of={4} onBack={onBack} />
       <div className="screen-body">
         <h1 className="title">Your recovery code</h1>
         {made && !again ? (

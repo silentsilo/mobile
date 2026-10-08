@@ -8,6 +8,7 @@ import type { CustomField, PasswordEntry } from "../shared/types";
 import { useBackLayer } from "../ui/back";
 import { Field, Notice, Sheet } from "../ui/chrome";
 import { GeneratorSheet } from "../ui/GeneratorSheet";
+import { haptic } from "../ui/haptics";
 
 function blankEntry(): PasswordEntry {
   const now = Date.now();
@@ -91,6 +92,7 @@ export function EntryEdit({
   };
 
   const remove = async () => {
+    haptic("heavy");
     setBusy(true);
     try {
       await api.deletePassword(original);

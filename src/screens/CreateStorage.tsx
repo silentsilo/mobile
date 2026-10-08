@@ -15,7 +15,7 @@ export function CreateStorage({ onBack, onDone }: { onBack: () => void; onDone: 
 
   return (
     <div className="screen">
-      <StepBar step={3} onBack={onBack} />
+      <StepBar step={4} of={4} onBack={onBack} />
       <div className="screen-body">
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <h1 className="title">Where should it back up?</h1>

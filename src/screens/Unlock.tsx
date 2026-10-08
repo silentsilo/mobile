@@ -1,11 +1,16 @@
-import { ScanFace } from "lucide-react";
+import { Fingerprint, ScanFace } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type Offered } from "../api";
 import { formatAppError } from "../shared/errors";
 import { isComplete } from "../shared/recoveryCode";
 import { Notice, Sheet } from "../ui/chrome";
+import { isIOS } from "../ui/platform";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
+import { haptic } from "../ui/haptics";
+
+// What unlocks the phone's key: a fingerprint on Android; Face ID or Touch ID on iOS.
+const BiometricIcon = isIOS ? ScanFace : Fingerprint;
 
 export function Unlock({
   siloName,
@@ -42,6 +47,7 @@ export function Unlock({
     try {
       await api.unlockWithSecurityKey();
       setWaitingForKey(false);
+      haptic("confirm");
       onUnlocked();
     } catch (e) {
       setWaitingForKey(false);
@@ -54,6 +60,7 @@ export function Unlock({
     setError(null);
     try {
       await api.unlock();
+      haptic("confirm");
       onUnlocked();
     } catch (e) {
       if (String(e).includes("[invalidated]")) setInvalidated(true);
@@ -86,12 +93,18 @@ export function Unlock({
     }
   };
 
+  const openRecovery = () => {
+    setError(null);
+    setRecovering(true);
+  };
+
   const unlockWithCode = async () => {
     setBusy(true);
     setError(null);
     try {
       await api.unlockWithRecovery(code);
       setRecovering(false);
+      haptic("confirm");
       onUnlocked();
     } catch (e) {
       setError(formatAppError(e));
@@ -118,7 +131,7 @@ export function Unlock({
         </div>
         <div className="spacer" />
         <div className="hero-icon halo">
-          <ScanFace size={64} strokeWidth={1.5} />
+          <BiometricIcon size={64} strokeWidth={1.5} />
         </div>
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, textAlign: "center" }}>
           <h1 className="title headline">
@@ -152,25 +165,33 @@ export function Unlock({
           </Notice>
         )}
         <div style={{ flex: 1.3 }} />
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, alignSelf: "stretch" }}>
-          {!invalidated && (
+        {/* One main action; the other ways in are quieter. */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, alignSelf: "stretch" }}>
+          {invalidated ? (
+            <button className="btn" disabled={busy} onClick={openRecovery}>
+              Use recovery code
+            </button>
+          ) : (
             <button className="btn" disabled={busy} onClick={unlock}>
+              <BiometricIcon size={20} aria-hidden />
               Unlock
             </button>
           )}
           {keyCount > 0 && (
-            <button className="btn secondary" disabled={busy} onClick={() => void unlockWithKey()}>
+            <button className="text-btn" disabled={busy} onClick={() => void unlockWithKey()}>
               Use security key
             </button>
           )}
           {shared.length > 0 && (
-            <button className="btn secondary" disabled={busy} onClick={() => void sendShared()}>
+            <button className="text-btn" disabled={busy} onClick={() => void sendShared()}>
               Send without unlocking
             </button>
           )}
-          <button className={invalidated ? "btn" : "btn secondary"} disabled={busy} onClick={() => { setError(null); setRecovering(true); }}>
-            Use recovery code
-          </button>
+          {!invalidated && (
+            <button className="text-btn" disabled={busy} onClick={openRecovery}>
+              Use recovery code
+            </button>
+          )}
         </div>
       </div>
 

@@ -73,6 +73,7 @@ pub fn run() {
             device_key::passkeys_status,
             device_key::passkeys_enable,
             device_key::app_theme_set,
+            device_key::haptic,
             commands::app_bootstrap,
             commands::sftp_probe_host_key,
             commands::vault_preview_join,

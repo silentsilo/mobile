@@ -62,7 +62,7 @@ export function JoinCode({
 
   return (
     <div className="screen">
-      <StepBar step={2} onBack={onBack} />
+      <StepBar step={2} of={3} onBack={onBack} />
       <div className="screen-body" style={{ gap: 22 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <h1 className="title">Enter your recovery code</h1>

@@ -1,13 +1,15 @@
-import { ChevronDown, Copy, Plus, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, Copy, KeyRound, RefreshCw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { avatarColor, inkOn, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
 import type { PasswordEntry } from "../shared/types";
-import { Notice, useToast } from "../ui/chrome";
+import { AddButton, EmptyState, Notice, Skeleton, useToast } from "../ui/chrome";
+import { isIOS } from "../ui/platform";
 import { describeProgress, useSyncProgress } from "../ui/syncActivity";
 import { ensureVerified } from "../ui/reverify";
 import { SiloSwitcher } from "./SiloSwitcher";
+import { haptic } from "../ui/haptics";
 
 export function SiloHeader({ siloName, sync, action }: { siloName: string; sync: SyncStatus | null; action?: React.ReactNode }) {
   const waiting = sync?.pending_ops ?? 0;
@@ -82,6 +84,7 @@ export function Passwords({
     try {
       await ensureVerified(entry);
       await api.copySecret(entry, entry.password, "password");
+      haptic("confirm");
       toast("Password copied. It clears from the clipboard after 45 seconds.");
     } catch (e) {
       toast(formatAppError(e));
@@ -93,11 +96,7 @@ export function Passwords({
       <SiloHeader
         siloName={siloName}
         sync={sync}
-        action={
-          <button className="icon-btn framed" aria-label="New entry" onClick={onAdd}>
-            <Plus size={22} />
-          </button>
-        }
+        action={isIOS ? <AddButton label="New entry" onClick={onAdd} /> : undefined}
       />
       <div style={{ padding: "0 16px 10px" }}>
         <div className="input">
@@ -106,37 +105,48 @@ export function Passwords({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={entries ? `Search ${entries.length} entries` : "Search"}
+            aria-label="Search passwords"
             autoCapitalize="none"
             autoCorrect="off"
           />
         </div>
       </div>
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
-        {entries && shown.length === 0 && (
-          <p className="hint" style={{ textAlign: "center", padding: 32 }}>
-            {query ? "Nothing matches that search." : "No passwords in this silo yet."}
-          </p>
-        )}
-        {shown.map((entry) => {
-          const bg = avatarColor(entry.service);
-          return (
-            <div key={entry.id} className="row split divide">
-              <button className="row-main" onClick={() => onOpen(entry)}>
-                <span className="avatar" style={{ background: bg, color: inkOn(bg) }}>
-                  {serviceInitials(entry.service)}
-                </span>
-                <span className="row-text">
-                  <span className="row-title">{entry.service}</span>
-                  <span className="row-sub">{subtitleFor(entry)}</span>
-                </span>
-              </button>
-              <button className="icon-btn" aria-label={`Copy the ${entry.service} password`} onClick={() => copyPassword(entry)}>
-                <Copy size={20} />
-              </button>
-            </div>
-          );
-        })}
+      <div className="list-area">
+        <div className="list-scroll">
+          {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
+          {!entries && !error && <Skeleton />}
+          {entries && shown.length === 0 &&
+            (query ? (
+              <EmptyState icon={<Search size={26} />} title="Nothing matches" hint="Try another word, or part of a site or username." />
+            ) : (
+              <EmptyState
+                icon={<KeyRound size={26} />}
+                title="No passwords yet"
+                hint="Add one here, or import them in SilentSilo on your computer."
+                action={{ label: "Add a password", onClick: onAdd }}
+              />
+            ))}
+          {shown.map((entry) => {
+            const bg = avatarColor(entry.service);
+            return (
+              <div key={entry.id} className="row split divide">
+                <button className="row-main" onClick={() => onOpen(entry)}>
+                  <span className="avatar" style={{ background: bg, color: inkOn(bg) }}>
+                    {serviceInitials(entry.service)}
+                  </span>
+                  <span className="row-text">
+                    <span className="row-title">{entry.service}</span>
+                    <span className="row-sub">{subtitleFor(entry)}</span>
+                  </span>
+                </button>
+                <button className="icon-btn" aria-label={`Copy the ${entry.service} password`} onClick={() => copyPassword(entry)}>
+                  <Copy size={20} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+        {!isIOS && <AddButton label="New entry" onClick={onAdd} />}
       </div>
     </div>
   );

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type BackupSettings, type BackupStatus, type MediaFolder } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
-import { Notice, Sheet, ToggleRow, TopBar, useToast } from "../ui/chrome";
+import { Notice, Sheet, Skeleton, ToggleRow, TopBar, useToast } from "../ui/chrome";
 
 /** How long ago, in the words desktop's status lines use. */
 function ago(seconds: number) {
@@ -139,6 +139,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
           </p>
         </div>
         {error && <Notice tone="error">{error}</Notice>}
+        {!status && !error && <Skeleton avatar={false} rows={3} />}
         {status && (
           <>
             <div className="panel">

@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { api, type CopyView, type StorageView, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatAge } from "../shared/format";
-import { Notice, Sheet, TopBar, useToast } from "../ui/chrome";
+import { Notice, Sheet, Skeleton, TopBar, useToast } from "../ui/chrome";
 import { StorageForm } from "../ui/StorageForm";
 
 const KIND_NAME: Record<string, string> = {
@@ -100,6 +100,7 @@ export function Storage({ onBack }: { onBack: () => void }) {
           {copies && copies.length === 0 && <p className="hint">Not backed up. This silo is only on this phone.</p>}
         </div>
         {error && <Notice tone="error">{error}</Notice>}
+        {!copies && !error && <Skeleton avatar={false} rows={2} />}
 
         {copies && copies.length === 0 && current && (
           <StorageForm current={current} submitLabel="Save" busyLabel="Checking the backup storage" onSubmit={save} />

@@ -14,11 +14,13 @@ export function JoinKey({
   onBack,
   onDone,
   step = 3,
+  of = 3,
   rekey = false,
 }: {
   onBack: () => void;
   onDone: () => void;
-  step?: 1 | 2 | 3;
+  step?: number;
+  of?: number;
   rekey?: boolean;
 }) {
   const [label, setLabel] = useState("");
@@ -51,7 +53,7 @@ export function JoinKey({
 
   return (
     <div className="screen">
-      {rekey ? <TopBar /> : <StepBar step={step} onBack={onBack} />}
+      {rekey ? <TopBar /> : <StepBar step={step} of={of} onBack={onBack} />}
       <div className="screen-body">
         <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
           <div className="hero-icon">

@@ -25,7 +25,8 @@ import { Unlock } from "./screens/Unlock";
 import { Welcome } from "./screens/Welcome";
 import { formatAppError } from "./shared/errors";
 import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
-import { Notice, ToastProvider, useToast } from "./ui/chrome";
+import icon from "./assets/icon.svg";
+import { EmptyState, Notice, ToastProvider, useToast } from "./ui/chrome";
 import { RecoveryCodeKeeper } from "./ui/RecoveryCodeShow";
 import { SyncActivityProvider } from "./ui/syncActivity";
 import { useBackLayer } from "./ui/back";
@@ -165,7 +166,7 @@ export default function App() {
   function render() {
     switch (phase.at) {
       case "loading":
-        return <div className="screen" />;
+        return <Starting />;
       case "failed":
         return (
           <div className="screen">
@@ -200,7 +201,7 @@ export default function App() {
       case "create-name":
         return <CreateSilo onBack={() => void refresh()} onCreated={() => setPhase({ at: "create-key" })} />;
       case "create-key":
-        return <JoinKey step={1} onBack={() => void refresh()} onDone={() => setPhase({ at: "create-recovery", made: false })} />;
+        return <JoinKey step={2} of={4} onBack={() => void refresh()} onDone={() => setPhase({ at: "create-recovery", made: false })} />;
       case "create-recovery":
         return (
           <CreateRecovery
@@ -256,6 +257,24 @@ export default function App() {
         );
     }
   }
+}
+
+/** The app's mark while the phone is checked, after 300 ms so a quick start does not flash. */
+function Starting() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShown(true), 300);
+    return () => window.clearTimeout(timer);
+  }, []);
+  return (
+    <div className="screen" aria-busy="true">
+      {shown && (
+        <div className="empty-detail">
+          <img src={icon} alt="SilentSilo is starting" width={64} height={64} style={{ borderRadius: "22%" }} />
+        </div>
+      )}
+    </div>
+  );
 }
 
 type Tab = "passwords" | "files" | "silo";
@@ -445,8 +464,12 @@ function OpenSiloScreens({
             detailScreen()
           ) : (
             <div className="screen">
-              <div className="empty-detail dim">
-                {tab === "passwords" ? "Choose an entry to see it here." : tab === "files" ? "Choose a file to see it here." : "Choose a setting to open it here."}
+              <div className="empty-detail">
+                <EmptyState
+                  icon={tab === "passwords" ? <KeyRound size={26} /> : tab === "files" ? <Folder size={26} /> : <ShieldCheck size={26} />}
+                  title={tab === "passwords" ? "Choose an entry" : tab === "files" ? "Choose a file" : "Choose a setting"}
+                  hint="It opens here, beside the list."
+                />
               </div>
             </div>
           )}

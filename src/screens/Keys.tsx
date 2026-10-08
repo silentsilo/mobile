@@ -3,8 +3,9 @@ import { useCallback, useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { SecurityKeyInfo } from "../shared/types";
-import { Field, Notice, Sheet, TopBar } from "../ui/chrome";
+import { Field, Notice, Sheet, Skeleton, TopBar } from "../ui/chrome";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
+import { haptic } from "../ui/haptics";
 
 function describe(key: SecurityKeyInfo) {
   switch (key.kind ?? "fido2") {
@@ -35,6 +36,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
   useEffect(load, [load]);
 
   const remove = async () => {
+    haptic("heavy");
     if (!chosen) return;
     setBusy(true);
     setError(null);
@@ -80,6 +82,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
           <p className="hint">Each key opens this silo on its own.</p>
         </div>
         {error && !chosen && <Notice tone="error">{error}</Notice>}
+        {!keys && !error && <Skeleton rows={2} />}
         {keys && (
           <div className="panel">
             {keys.map((key, i) => {

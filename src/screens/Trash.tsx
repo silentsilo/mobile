@@ -4,8 +4,9 @@ import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import type { TrashItem } from "../shared/types";
-import { Notice, Sheet, TopBar, useToast } from "../ui/chrome";
+import { EmptyState, Notice, Sheet, Skeleton, TopBar, useToast } from "../ui/chrome";
 import { fileIcon } from "./Files";
+import { haptic } from "../ui/haptics";
 
 /** Said before a purge: the app never deletes from a never-delete copy. */
 function archiveNote(archiveTargets: number): string {
@@ -49,7 +50,10 @@ export function Trash({ sync, onBack }: { sync: SyncStatus | null; onBack: () =>
           <p className="hint">Deleted files and folders stay here, on every device, until the trash is emptied.</p>
         </div>
         {error && <Notice tone="error">{error}</Notice>}
-        {items?.length === 0 && <p className="hint" style={{ textAlign: "center", padding: 24 }}>The trash is empty.</p>}
+        {!items && !error && <Skeleton avatar={false} rows={4} />}
+        {items?.length === 0 && (
+          <EmptyState icon={<Trash2 size={26} />} title="The trash is empty" hint="Files and folders you delete wait here until the trash is emptied." />
+        )}
         {items && items.length > 0 && (
           <div className="panel">
             {items.map((item, i) => (
@@ -88,7 +92,10 @@ export function Trash({ sync, onBack }: { sync: SyncStatus | null; onBack: () =>
               <RotateCcw size={18} />
               Restore
             </button>
-            <button className="btn danger" onClick={() => void act(() => api.purgeTrash([chosen.id]), "Deleted for good.")}>
+            <button className="btn danger" onClick={() => {
+                haptic("heavy");
+                void act(() => api.purgeTrash([chosen.id]), "Deleted for good.");
+              }}>
               Delete for good
             </button>
           </>
@@ -100,7 +107,10 @@ export function Trash({ sync, onBack }: { sync: SyncStatus | null; onBack: () =>
           Everything in the trash is deleted for good, on every device, once they sync. This cannot be undone.
           {archiveNote(sync?.archive_targets ?? 0)}
         </p>
-        <button className="btn danger" onClick={() => void act(() => api.purgeTrash([]), "Trash emptied.")}>
+        <button className="btn danger" onClick={() => {
+            haptic("heavy");
+            void act(() => api.purgeTrash([]), "Trash emptied.");
+          }}>
           Empty trash
         </button>
         <button className="btn secondary" onClick={() => setEmptying(false)}>

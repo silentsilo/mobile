@@ -38,7 +38,7 @@ a {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding-top: var(--safe-top);
+  padding: var(--safe-top) var(--safe-right) 0 var(--safe-left);
 }
 
 /* A list kept under a detail screen: laid out, so its scroll survives, but
@@ -139,7 +139,7 @@ a {
   gap: 8px;
   width: 100%;
   min-height: var(--control);
-  padding: 0 18px;
+  padding: 8px 18px;
   border: 1px solid transparent;
   border-radius: var(--r-md);
   background: var(--accent-solid);
@@ -147,6 +147,8 @@ a {
   font-size: var(--fs-body);
   font-weight: 600;
   letter-spacing: 0.01em;
+  line-height: 1.25;
+  text-align: center;
   cursor: pointer;
 }
 
@@ -522,7 +524,7 @@ a {
   gap: 18px;
   max-height: 92%;
   overflow-y: auto;
-  padding: 10px 20px calc(20px + var(--safe-bottom));
+  padding: 10px calc(20px + var(--safe-right)) calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
   border-top: 1px solid var(--border-subtle);
   border-radius: var(--r-xl) var(--r-xl) 0 0;
   background: var(--surface);
@@ -697,9 +699,10 @@ a {
 }
 
 /* Recovery code: the desktop's boxes, four to a row on a phone. */
+/* Four boxes to a row, two when the phone's text is large. */
 .recovery-entry {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(4.5em, 1fr));
   gap: 8px;
 }
 
@@ -731,7 +734,7 @@ a {
 
 .code-on-paper {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(5em, 1fr));
   gap: 10px;
   padding: 16px;
   font-size: var(--fs-code);
@@ -792,18 +795,157 @@ a {
   color: var(--ink);
 }
 
-.toast {
+/* Toasts: above the tab bar, tap to dismiss. */
+.toast-region {
   position: fixed;
-  left: 16px;
-  right: 16px;
+  left: calc(16px + var(--safe-left));
+  right: calc(16px + var(--safe-right));
   bottom: calc(96px + var(--safe-bottom));
   z-index: 30;
-  padding: 12px 14px;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.toast {
+  width: 100%;
+  max-width: 560px;
+  min-height: 48px;
+  padding: 12px 16px;
+  border: 0;
   border-radius: var(--r-md);
   background: var(--inverse-surface);
   box-shadow: var(--shadow-md);
   color: var(--on-inverse);
   font-size: var(--fs-small);
+  line-height: 1.4;
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toast-in var(--dur-2) var(--ease-out);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Loading: rows shaped like the ones on their way. */
+.skeleton {
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--row);
+  padding: 0 16px;
+}
+
+.skeleton-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton-block {
+  display: block;
+  height: 14px;
+  border-radius: var(--r-xs);
+  background: var(--surface-2);
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* An empty list. */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.empty-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 4px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.empty-title {
+  margin: 0;
+  font-size: var(--fs-heading);
+  font-weight: 700;
+}
+
+.empty-state .btn {
+  margin-top: 6px;
+}
+
+/* A list with its floating add button, which stays put while rows scroll. */
+.list-area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.list-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.list-area:has(.fab) .list-scroll {
+  padding-bottom: 88px;
+}
+
+.fab {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--accent-solid);
+  box-shadow: var(--shadow-md);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+
+.fab:active:not(:disabled) {
+  background: var(--accent-solid-pressed);
 }
 
 /* A sync in progress. */
@@ -864,6 +1006,13 @@ a {
   display: grid;
   grid-template-columns: auto minmax(320px, 420px) 1fr;
   height: 100%;
+  padding-right: var(--safe-right);
+}
+
+/* The rail and the shell take the side insets once, not each pane. */
+.wide-shell .screen {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .wide-shell .pane {
@@ -885,7 +1034,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: calc(16px + var(--safe-top)) 8px calc(16px + var(--safe-bottom));
+  padding: calc(16px + var(--safe-top)) 8px calc(16px + var(--safe-bottom)) calc(8px + var(--safe-left));
   border-right: 1px solid var(--border-subtle);
   background: var(--tabbar-bg);
 }

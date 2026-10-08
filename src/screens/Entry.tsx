@@ -9,6 +9,7 @@ import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, gener
 import type { HistoryVersion, PasswordEntry } from "../shared/types";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
 import { ensureVerified, recentlyVerified } from "../ui/reverify";
+import { haptic } from "../ui/haptics";
 
 type FieldRow = { key: string; label: string; value: string; secret?: boolean; mono?: boolean };
 
@@ -140,6 +141,7 @@ export function Entry({
     if (!(await confirm())) return;
     try {
       await api.copySecret(entry, value, label.toLowerCase());
+      haptic("confirm");
       toast(`${label} copied. It clears from the clipboard after 45 seconds.`);
     } catch (e) {
       toast(formatAppError(e));
@@ -178,6 +180,7 @@ export function Entry({
   };
 
   const clearHistory = async () => {
+    haptic("heavy");
     setBusy(true);
     try {
       onChanged(await api.savePassword(entry, withoutHistory(entry), "history_cleared"));

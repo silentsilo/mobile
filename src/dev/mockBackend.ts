@@ -434,6 +434,7 @@ const handlers: Record<string, Handler> = {
   silo_remove: () => undefined,
   device_name: () => "Pixel 10 Pro",
   app_theme_set: () => undefined,
+  haptic: () => undefined,
   autofill_status: () => ({ supported: true, enabled: false }),
   autofill_enable: () => undefined,
   passkeys_status: () => ({ supported: true, enabled: false }),

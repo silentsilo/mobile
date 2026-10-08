@@ -1,8 +1,9 @@
-import { ArrowLeft, Check, CircleAlert, Info, TriangleAlert } from "lucide-react";
+import { ArrowLeft, Check, CircleAlert, Info, Plus, TriangleAlert } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useBackLayer } from "./back";
 import { isIOS } from "./platform";
+import { haptic } from "./haptics";
 
 const nothing = () => undefined;
 
@@ -37,7 +38,8 @@ export function TopBar({
   );
 }
 
-export function StepBar({ step, onBack }: { step: 1 | 2 | 3; onBack: () => void }) {
+/** Where a setup flow is: making a silo has four steps, joining one three. */
+export function StepBar({ step, of, onBack }: { step: number; of: number; onBack: () => void }) {
   useBackLayer(true, onBack);
   return (
     <div className="top-bar">
@@ -46,10 +48,10 @@ export function StepBar({ step, onBack }: { step: 1 | 2 | 3; onBack: () => void 
       </button>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6, paddingRight: 52 }}>
         <div className="muted caption" style={{ fontWeight: 600, textAlign: "center" }}>
-          Step {step} of 3
+          Step {step} of {of}
         </div>
         <div className="step-track" aria-hidden>
-          {[1, 2, 3].map((i) => (
+          {Array.from({ length: of }, (_, i) => i + 1).map((i) => (
             <span key={i} className={i <= step ? "done" : undefined} />
           ))}
         </div>
@@ -131,7 +133,10 @@ export function ToggleRow({
       aria-checked={checked}
       aria-busy={busy || undefined}
       disabled={disabled}
-      onClick={onChange}
+      onClick={() => {
+        haptic("tick");
+        onChange();
+      }}
     >
       {icon}
       <span className="row-text">
@@ -213,7 +218,15 @@ export function ChoiceRow({
   extra?: ReactNode;
 }) {
   return (
-    <button className={`row choice-row${first ? "" : " divide"}`} role="radio" aria-checked={checked} onClick={onChoose}>
+    <button
+      className={`row choice-row${first ? "" : " divide"}`}
+      role="radio"
+      aria-checked={checked}
+      onClick={() => {
+        haptic("tick");
+        onChoose();
+      }}
+    >
       {!isIOS && <span className="radio" aria-hidden />}
       <span className="row-title" style={{ flex: 1, fontWeight: checked ? 650 : 500 }}>
         {label}
@@ -227,28 +240,107 @@ export function ChoiceRow({
 type ToastApi = (message: string) => void;
 const ToastContext = createContext<ToastApi>(() => undefined);
 
+/** Long enough to read: 4 s for a word, up to 10 s for a paragraph. */
+export function toastDuration(text: string): number {
+  return Math.min(10_000, Math.max(4_000, 1_500 + text.length * 60));
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [message, setMessage] = useState<string | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const show = useCallback<ToastApi>((text) => {
     setMessage(text);
     window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setMessage(null), 2800);
+    timer.current = window.setTimeout(() => setMessage(null), toastDuration(text));
   }, []);
+  const dismiss = () => {
+    window.clearTimeout(timer.current);
+    setMessage(null);
+  };
   useEffect(() => () => window.clearTimeout(timer.current), []);
   return (
     <ToastContext.Provider value={show}>
       {children}
-      {/* Outside the app's root, which is inert while a sheet is open. */}
-      {message &&
-        createPortal(
-          <div className="toast" role="status">
-            {message}
-          </div>,
-          document.body,
-        )}
+      {/* Always there, so a screen reader hears each message; outside the
+          app's root, which is inert while a sheet is open. */}
+      {createPortal(
+        <div className="toast-region" role="status" aria-live="polite">
+          {message && (
+            <button className="toast" onClick={dismiss} aria-describedby="toast-dismiss">
+              {message}
+              <span id="toast-dismiss" className="visually-hidden">
+                Tap to dismiss.
+              </span>
+            </button>
+          )}
+        </div>,
+        document.body,
+      )}
     </ToastContext.Provider>
   );
 }
 
 export const useToast = () => useContext(ToastContext);
+
+/**
+ * Placeholder rows while a list loads. Nothing for the first 300 ms, so a
+ * quick answer does not flash.
+ */
+export function Skeleton({ rows = 6, avatar = true }: { rows?: number; avatar?: boolean }) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const timer = window.setTimeout(() => setShown(true), 300);
+    return () => window.clearTimeout(timer);
+  }, []);
+  if (!shown) return null;
+  return (
+    <div className="skeleton" aria-busy="true" aria-label="Loading">
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="skeleton-row" aria-hidden>
+          {avatar && <span className="skeleton-block" style={{ width: 40, height: 40 }} />}
+          <span className="skeleton-lines">
+            <span className="skeleton-block" style={{ width: `${55 + ((i * 17) % 30)}%` }} />
+            <span className="skeleton-block" style={{ width: `${30 + ((i * 11) % 25)}%`, height: 10 }} />
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** An empty list: what it is, why, and the one thing to do about it. */
+export function EmptyState({
+  icon,
+  title,
+  hint,
+  action,
+}: {
+  icon: ReactNode;
+  title: string;
+  hint?: string;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div className="empty-state">
+      <span className="empty-icon" aria-hidden>
+        {icon}
+      </span>
+      <h2 className="empty-title">{title}</h2>
+      {hint && <p className="hint">{hint}</p>}
+      {action && (
+        <button className="btn secondary inline" onClick={action.onClick}>
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** The screen's one "add": a floating button on Android, a "+" in the bar on iOS. */
+export function AddButton({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button className={isIOS ? "icon-btn accent" : "fab"} aria-label={label} onClick={onClick} disabled={disabled}>
+      <Plus size={24} />
+    </button>
+  );
+}

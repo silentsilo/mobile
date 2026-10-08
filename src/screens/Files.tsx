@@ -1,4 +1,4 @@
-import { Camera, Check, EllipsisVertical, File, FilePlus, FileText, Folder, FolderInput, FolderPlus, Image, Plus, Search, Trash2, X } from "lucide-react";
+import { Camera, Check, EllipsisVertical, File, FilePlus, FileText, Folder, FolderInput, FolderPlus, Image, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -6,9 +6,11 @@ import { formatBytes, formatDate } from "../shared/format";
 import type { FileEntry, FolderEntry, VaultEntry } from "../shared/types";
 import { addAll, photoName } from "../shared/importing";
 import { useBackLayer } from "../ui/back";
-import { Notice, Sheet, TopBar, useToast } from "../ui/chrome";
+import { AddButton, EmptyState, Notice, Sheet, Skeleton, TopBar, useToast } from "../ui/chrome";
+import { isIOS } from "../ui/platform";
 import { useSyncProgress } from "../ui/syncActivity";
 import { SiloHeader } from "./Passwords";
+import { haptic } from "../ui/haptics";
 
 type Crumb = { id: string; name: string };
 type Sort = "name" | "newest";
@@ -213,6 +215,7 @@ export function Files({
     window.clearTimeout(pressTimer.current);
     pressTimer.current = window.setTimeout(() => {
       pressed.current = true;
+      haptic("heavy");
       toggle(item);
     }, LONG_PRESS_MS);
   };
@@ -353,7 +356,7 @@ export function Files({
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {selecting ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "calc(10px + var(--safe-top)) 12px 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px" }}>
           <button className="icon-btn" aria-label="Clear the selection" onClick={() => setSelected(new Map())}>
             <X size={22} />
           </button>
@@ -373,79 +376,92 @@ export function Files({
       <div style={{ display: "flex", gap: 8, padding: "0 16px 10px" }}>
         <div className="input" style={{ flex: 1 }}>
           <Search size={20} color="var(--text-dim)" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the silo" autoCapitalize="none" autoCorrect="off" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search the silo" aria-label="Search the silo" autoCapitalize="none" autoCorrect="off" />
         </div>
-        <button className="btn secondary inline small" style={{ padding: "0 12px" }} onClick={() => setSort(sort === "name" ? "newest" : "name")}>
+        <button
+          className="btn secondary inline small"
+          style={{ padding: "0 12px" }}
+          aria-label={sort === "name" ? "Sorted by name. Sort by newest" : "Sorted by newest. Sort by name"}
+          onClick={() => setSort(sort === "name" ? "newest" : "name")}
+        >
           {sort === "name" ? "Name" : "Newest"}
         </button>
-        <button className="btn inline" style={{ padding: "0 12px" }} aria-label="Add" disabled={!here || progress !== null} onClick={() => setAdding(true)}>
-          <Plus size={20} />
-        </button>
+        {isIOS && <AddButton label="Add to this folder" disabled={!here || progress !== null} onClick={() => setAdding(true)} />}
       </div>
       {progress && <div className="notice" style={{ margin: "0 16px 10px" }}>{progress}</div>}
-      <div style={{ flex: 1, overflowY: "auto" }}>
-        {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
-        {searching && hits && hits.length === 0 && (
-          <p className="hint" style={{ textAlign: "center", padding: 32 }}>
-            Nothing in the silo matches.
-          </p>
-        )}
-        {searching &&
-          hits?.map((hit) => (
-            <button
-              key={hit.id}
-              className="row divide"
-              onClick={() => (hit.kind === "folder" ? void openFolderAt(hit) : onOpenFile(hit as FileEntry))}
-            >
-              <span className={`tile${hit.kind === "folder" ? " folder" : ""}`}>
-                {hit.kind === "folder" ? <Folder size={20} /> : fileIcon(hit as FileEntry)}
-              </span>
-              <span className="row-text">
-                <span className="row-title">{hit.name}</span>
-                <span className="row-sub">{hit.folder_path === "/" ? siloName : hit.folder_path}</span>
-              </span>
-            </button>
-          ))}
-        {!searching && items && shown.length === 0 && (
-          <p className="hint" style={{ textAlign: "center", padding: 32 }}>
-            {query ? "Nothing in this folder matches." : "This folder is empty."}
-          </p>
-        )}
-        {!searching &&
-          shown.map((item) => {
-            const ticked = selected.has(item.id);
-            const folder = item.kind === "folder";
-            return (
-              // Two buttons side by side, so TalkBack reaches "More" on its own.
-              <div key={item.id} className="row split divide">
-                <button
-                  className="row-main"
-                  aria-pressed={selecting ? ticked : undefined}
-                  onClick={() => tap(item, () => (folder ? enter({ id: item.id, name: item.name }) : onOpenFile(item)))}
-                  {...pressProps(item)}
-                >
-                  <span className={`tile${folder ? " folder" : ""}${ticked ? " ticked" : ""}`}>
-                    {ticked ? <Check size={20} /> : folder ? <Folder size={20} /> : fileIcon(item)}
-                  </span>
-                  <span className="row-text">
-                    <span className="row-title">{item.name}</span>
-                    {!folder && (
-                      <span className="row-sub">
-                        {syncing?.file_id === item.id
-                          ? syncing.phase === "uploading"
-                            ? "Uploading…"
-                            : "Downloading…"
-                          : `${formatBytes(item.size_bytes)} · ${formatDate(item.updated_at)}`}
-                      </span>
-                    )}
-                  </span>
-                </button>
-                <button className="icon-btn" aria-label={`More for ${item.name}`} onClick={() => setActing(item)}>
-                  <EllipsisVertical size={20} />
-                </button>
-              </div>
-            );
-          })}
+      <div className="list-area">
+        <div className="list-scroll">
+          {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
+          {((searching && !hits) || (!searching && !items)) && !error && <Skeleton avatar={false} />}
+          {searching && hits && hits.length === 0 && (
+            <EmptyState icon={<Search size={26} />} title="Nothing in the silo matches" hint="Search looks at file and folder names." />
+          )}
+          {searching &&
+            hits?.map((hit) => (
+              <button
+                key={hit.id}
+                className="row divide"
+                onClick={() => (hit.kind === "folder" ? void openFolderAt(hit) : onOpenFile(hit as FileEntry))}
+              >
+                <span className={`tile${hit.kind === "folder" ? " folder" : ""}`}>
+                  {hit.kind === "folder" ? <Folder size={20} /> : fileIcon(hit as FileEntry)}
+                </span>
+                <span className="row-text">
+                  <span className="row-title">{hit.name}</span>
+                  <span className="row-sub">{hit.folder_path === "/" ? siloName : hit.folder_path}</span>
+                </span>
+              </button>
+            ))}
+          {!searching &&
+            items &&
+            shown.length === 0 &&
+            (query ? (
+              <EmptyState icon={<Search size={26} />} title="Nothing in this folder matches" />
+            ) : (
+              <EmptyState
+                icon={<Folder size={26} />}
+                title="This folder is empty"
+                hint="Add files from this phone, take a photo, or make a folder."
+                action={here && progress === null ? { label: "Add to this folder", onClick: () => setAdding(true) } : undefined}
+              />
+            ))}
+          {!searching &&
+            shown.map((item) => {
+              const ticked = selected.has(item.id);
+              const folder = item.kind === "folder";
+              return (
+                // Two buttons side by side, so TalkBack reaches "More" on its own.
+                <div key={item.id} className="row split divide">
+                  <button
+                    className="row-main"
+                    aria-pressed={selecting ? ticked : undefined}
+                    onClick={() => tap(item, () => (folder ? enter({ id: item.id, name: item.name }) : onOpenFile(item)))}
+                    {...pressProps(item)}
+                  >
+                    <span className={`tile${folder ? " folder" : ""}${ticked ? " ticked" : ""}`}>
+                      {ticked ? <Check size={20} /> : folder ? <Folder size={20} /> : fileIcon(item)}
+                    </span>
+                    <span className="row-text">
+                      <span className="row-title">{item.name}</span>
+                      {!folder && (
+                        <span className="row-sub">
+                          {syncing?.file_id === item.id
+                            ? syncing.phase === "uploading"
+                              ? "Uploading…"
+                              : "Downloading…"
+                            : `${formatBytes(item.size_bytes)} · ${formatDate(item.updated_at)}`}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                  <button className="icon-btn" aria-label={`More for ${item.name}`} onClick={() => setActing(item)}>
+                    <EllipsisVertical size={20} />
+                  </button>
+                </div>
+              );
+            })}
+        </div>
+        {!isIOS && !selecting && <AddButton label="Add to this folder" disabled={!here || progress !== null} onClick={() => setAdding(true)} />}
       </div>
 
       <Sheet open={adding} onClose={() => setAdding(false)} title="Add to this folder">

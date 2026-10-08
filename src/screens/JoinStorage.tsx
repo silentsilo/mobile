@@ -19,7 +19,7 @@ export function JoinStorage({
 
   return (
     <div className="screen">
-      <StepBar step={1} onBack={onBack} />
+      <StepBar step={1} of={3} onBack={onBack} />
       <div className="screen-body">
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <h1 className="title">Where is the backup?</h1>

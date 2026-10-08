@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import android.view.HapticFeedbackConstants
 import android.view.autofill.AutofillManager
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
@@ -114,6 +115,22 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     }
     activity.runOnUiThread {
       (activity as? ComponentActivity)?.let { Appearance.choose(it, choice) }
+      invoke.resolve()
+    }
+  }
+
+  // A short vibration through the system's own haptics, which follow the
+  // phone's touch feedback setting.
+  @Command
+  fun haptic(invoke: Invoke) {
+    val feedback = when (invoke.getArgs().getString("kind")) {
+      "confirm" -> HapticFeedbackConstants.CONFIRM
+      "reject" -> HapticFeedbackConstants.REJECT
+      "heavy" -> HapticFeedbackConstants.LONG_PRESS
+      else -> HapticFeedbackConstants.CLOCK_TICK
+    }
+    activity.runOnUiThread {
+      activity.window.decorView.performHapticFeedback(feedback)
       invoke.resolve()
     }
   }

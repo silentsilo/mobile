@@ -24,7 +24,7 @@ export function CreateSilo({ onBack, onCreated }: { onBack: () => void; onCreate
 
   return (
     <div className="screen">
-      <StepBar step={1} onBack={onBack} />
+      <StepBar step={1} of={4} onBack={onBack} />
       <div className="screen-body">
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <h1 className="title">Make a new silo</h1>
