@@ -28,7 +28,7 @@ import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
 import icon from "./assets/icon.svg";
 import { EmptyState, Notice, ToastProvider, useToast } from "./ui/chrome";
 import { RecoveryCodeKeeper } from "./ui/RecoveryCodeShow";
-import { SyncActivityProvider } from "./ui/syncActivity";
+import { SyncActivityProvider, useLeftOut } from "./ui/syncActivity";
 import { useBackLayer } from "./ui/back";
 import { forgetVerified } from "./ui/reverify";
 import { useWide } from "./ui/useWide";
@@ -332,6 +332,7 @@ function OpenSiloScreens({
   const [detail, setDetail] = useState<Detail | null>(null);
   const toast = useToast();
   const wide = useWide();
+  const leftOut = useLeftOut();
   // Back from another tab goes to Passwords first, then leaves the app.
   useBackLayer(tab !== "passwords", () => setTab("passwords"));
 
@@ -416,6 +417,13 @@ function OpenSiloScreens({
 
   const tabScreen = (
     <>
+      {leftOut && (
+        <Notice tone="warning" style={{ margin: "10px 16px 0" }}>
+          <strong>This phone no longer syncs with this silo.</strong> Its encryption key was replaced on another device
+          without keeping this phone, so changes made here do not reach backup storage. To get back in, remove the silo
+          from this phone under Silo, then add it again with the new recovery code.
+        </Notice>
+      )}
       {tab === "passwords" && (
         <Passwords
           siloName={siloName}

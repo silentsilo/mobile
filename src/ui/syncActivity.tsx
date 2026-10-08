@@ -21,8 +21,13 @@ export type SyncProgress = {
 };
 
 const SyncActivity = createContext<SyncProgress | null>(null);
+const LeftOut = createContext(false);
 
 export const useSyncProgress = () => useContext(SyncActivity);
+
+/** Whether the last pass found the silo's key replaced without this phone:
+ * it still opens its own copy, but nothing it does reaches storage. */
+export const useLeftOut = () => useContext(LeftOut);
 
 /** What a status line says about a step, in a few words. */
 export function describeProgress(p: SyncProgress): string {
@@ -64,18 +69,26 @@ export function SyncActivityProvider({
   onChanged: () => void;
 }) {
   const [progress, setProgress] = useState<SyncProgress | null>(null);
+  const [leftOut, setLeftOut] = useState(false);
 
   useEffect(() => {
     const stops = [
       listen<SyncProgress>("sync-progress", (event) => {
         if (event.payload.silo_id === siloId) setProgress(event.payload);
       }),
-      listen<{ silo_id?: string } | null>("sync-report", (event) => {
-        const from = event.payload?.silo_id;
-        if (from && from !== siloId) return;
-        setProgress(null);
-        onReport();
-      }),
+      listen<{ silo_id?: string; configured?: boolean; skipped?: boolean; needs_rejoin?: boolean } | null>(
+        "sync-report",
+        (event) => {
+          const report = event.payload;
+          const from = report?.silo_id;
+          if (from && from !== siloId) return;
+          setProgress(null);
+          // Every pass says it again, the background ones included, which
+          // until now nobody looked at: only "Sync now" told the user.
+          if (report?.configured && !report.skipped) setLeftOut(Boolean(report.needs_rejoin));
+          onReport();
+        },
+      ),
       listen("vault-changed", () => onChanged()),
     ];
     return () => {
@@ -83,5 +96,9 @@ export function SyncActivityProvider({
     };
   }, [siloId, onReport, onChanged]);
 
-  return <SyncActivity.Provider value={progress}>{children}</SyncActivity.Provider>;
+  return (
+    <SyncActivity.Provider value={progress}>
+      <LeftOut.Provider value={leftOut}>{children}</LeftOut.Provider>
+    </SyncActivity.Provider>
+  );
 }

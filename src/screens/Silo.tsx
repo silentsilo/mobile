@@ -11,6 +11,7 @@ import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
 import { announceSilo } from "./SiloSwitcher";
 import { haptic } from "../ui/haptics";
+import { useLeftOut } from "../ui/syncActivity";
 
 function historyLabel(policy: HistoryPolicy): string {
   return policy === "fit" ? "As many as fit" : `Last ${policy}`;
@@ -70,6 +71,7 @@ export function Silo({
   const [backupOn, setBackupOn] = useState<boolean | null>(null);
   const [screenOff, setScreenOff] = useState<boolean | null>(null);
   const [removing, setRemoving] = useState(false);
+  const leftOut = useLeftOut();
   const [autofill, setAutofill] = useState<{ supported: boolean; enabled: boolean } | null>(null);
   const [aboutAutofill, setAboutAutofill] = useState(false);
   const [passkeys, setPasskeys] = useState<{ supported: boolean; enabled: boolean } | null>(null);
@@ -197,8 +199,14 @@ export function Silo({
             <span className="label" style={{ padding: "0 4px" }}>Backup</span>
             <div className="panel" style={{ gap: 12, padding: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Cloud size={20} color={waiting ? "var(--warning)" : "var(--success)"} />
-                <span style={{ flex: 1 }}>{waiting ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to sync` : "Synced"}</span>
+                <Cloud size={20} color={waiting || leftOut ? "var(--warning)" : "var(--success)"} />
+                <span style={{ flex: 1 }}>
+                  {leftOut
+                    ? "Not syncing"
+                    : waiting
+                      ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to sync`
+                      : "Synced"}
+                </span>
               </div>
               <button className="btn secondary" aria-busy={syncing} onClick={syncNow} disabled={syncing}>
                 {!syncing && <RefreshCw size={18} />}
@@ -383,8 +391,9 @@ export function Silo({
         )}
         {sync?.configured && waiting > 0 && (
           <Notice tone="warning">
-            {waiting === 1 ? "1 change has" : `${waiting} changes have`} not reached backup storage yet and would be lost. Sync
-            first.
+            {leftOut
+              ? `${waiting === 1 ? "1 change" : `${waiting} changes`} made here since the key was replaced cannot reach backup storage any more and will be lost.`
+              : `${waiting === 1 ? "1 change has" : `${waiting} changes have`} not reached backup storage yet and would be lost. Sync first.`}
           </Notice>
         )}
         <button

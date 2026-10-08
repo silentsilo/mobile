@@ -6,7 +6,7 @@ import { avatarColor, inkOn, searchTextFor, serviceInitials, subtitleFor } from 
 import type { PasswordEntry } from "../shared/types";
 import { AddButton, EmptyState, Notice, Skeleton, useToast } from "../ui/chrome";
 import { isIOS } from "../ui/platform";
-import { describeProgress, useSyncProgress } from "../ui/syncActivity";
+import { describeProgress, useLeftOut, useSyncProgress } from "../ui/syncActivity";
 import { ensureVerified } from "../ui/reverify";
 import { SiloSwitcher } from "./SiloSwitcher";
 import { haptic } from "../ui/haptics";
@@ -15,6 +15,7 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
   const waiting = sync?.pending_ops ?? 0;
   const [switching, setSwitching] = useState(false);
   const progress = useSyncProgress();
+  const leftOut = useLeftOut();
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 16px 14px" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
@@ -33,12 +34,14 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
             {progress ? (
               <RefreshCw size={12} className="spin" color="var(--accent-text)" style={{ flex: "none" }} />
             ) : (
-              <span style={{ width: 7, height: 7, borderRadius: "50%", flex: "none", background: waiting ? "var(--warning)" : "var(--success)" }} />
+              <span style={{ width: 7, height: 7, borderRadius: "50%", flex: "none", background: waiting || leftOut ? "var(--warning)" : "var(--success)" }} />
             )}
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {progress
                 ? describeProgress(progress)
-                : waiting
+                : leftOut
+                  ? "Not syncing"
+                  : waiting
                   ? `${waiting} ${waiting === 1 ? "change" : "changes"} waiting to sync`
                   : "Synced"}
             </span>
