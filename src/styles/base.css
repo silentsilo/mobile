@@ -508,6 +508,7 @@ a {
   inset: 0;
   z-index: 20;
   background: var(--scrim);
+  animation: fade-in var(--dur-3) var(--ease-out);
 }
 
 .sheet {
@@ -526,14 +527,71 @@ a {
   border-radius: var(--r-xl) var(--r-xl) 0 0;
   background: var(--surface);
   box-shadow: var(--shadow-lg);
+  animation: sheet-in var(--dur-3) var(--ease-out);
 }
 
-.sheet-grabber {
-  align-self: center;
-  width: 40px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--border-strong);
+.sheet:focus {
+  outline: none;
+}
+
+.sheet-title {
+  margin: 10px 0 0;
+  font-size: var(--fs-heading);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.sheet-title:focus {
+  outline: none;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* One choice of several: radio on Android, check mark on iOS. */
+.choice-row {
+  min-height: 56px;
+  cursor: pointer;
+}
+
+.radio {
+  position: relative;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+[aria-checked="true"] > .radio {
+  border-color: var(--switch-on);
+}
+
+[aria-checked="true"] > .radio::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--switch-on);
+}
+
+.choice-check {
+  flex: none;
+  color: var(--accent-text);
+  visibility: hidden;
+}
+
+[aria-checked="true"] > .choice-check {
+  visibility: visible;
 }
 
 /* Switch: off is an outlined track, on is filled. It is drawn inside a row
@@ -790,10 +848,15 @@ a {
     border: 1px solid var(--border-subtle);
     border-radius: var(--r-xl);
     padding-bottom: 20px;
+    animation-name: dialog-in;
+    animation-duration: var(--dur-2);
   }
+}
 
-  .sheet-grabber {
-    display: none;
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px));
   }
 }
 
@@ -959,4 +1022,15 @@ input[type="checkbox"] {
   height: 22px;
   margin: 0;
   flex: none;
+}
+
+/* Motion off when the phone asks for less: sheets appear, nothing slides. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

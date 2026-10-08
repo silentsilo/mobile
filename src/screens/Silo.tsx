@@ -6,7 +6,7 @@ import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import type { AuditStatus, RecoveryStatus } from "../shared/types";
 import { HISTORY_POLICIES, type HistoryPolicy } from "../shared/entryHistory";
-import { Notice, Sheet, ToggleRow, useToast } from "../ui/chrome";
+import { ChoiceRow, Notice, Sheet, ToggleRow, useToast } from "../ui/chrome";
 import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
 import { announceSilo } from "./SiloSwitcher";
@@ -282,12 +282,9 @@ export function Silo({
           How long the silo stays open after you switch to another app. To lock from anywhere, add the Lock SilentSilo tile to
           Quick Settings.
         </p>
-        <div className="panel">
+        <div className="panel" role="radiogroup" aria-label="Lock in the background">
           {LOCK_CHOICES.map((c, i) => (
-            <button key={c.seconds} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void chooseLock(c.seconds)} aria-pressed={lockAfter === c.seconds}>
-              <span style={{ flex: 1 }}>{c.label}</span>
-              {lockAfter === c.seconds && <span style={{ color: "var(--accent-text)", fontWeight: 700 }}>Selected</span>}
-            </button>
+            <ChoiceRow key={c.seconds} first={i === 0} label={c.label} checked={lockAfter === c.seconds} onChoose={() => void chooseLock(c.seconds)} />
           ))}
         </div>
       </Sheet>
@@ -324,12 +321,15 @@ export function Silo({
           Each time a password, a field or a note changes, the entry keeps the version before it. Old passwords stay in the
           silo until an entry's history is cleared. As many as fit means up to 256 KB per entry. On this phone only.
         </p>
-        <div className="panel">
+        <div className="panel" role="radiogroup" aria-label="Earlier versions">
           {HISTORY_POLICIES.map((policy, i) => (
-            <button key={String(policy)} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void chooseHistory(policy)} aria-pressed={historyPolicy === policy}>
-              <span style={{ flex: 1 }}>{historyLabel(policy)}</span>
-              {historyPolicy === policy && <span style={{ color: "var(--accent-text)", fontWeight: 700 }}>Selected</span>}
-            </button>
+            <ChoiceRow
+              key={String(policy)}
+              first={i === 0}
+              label={historyLabel(policy)}
+              checked={historyPolicy === policy}
+              onChoose={() => void chooseHistory(policy)}
+            />
           ))}
         </div>
       </Sheet>

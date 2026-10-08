@@ -1,8 +1,8 @@
-import { Check, LockKeyhole, Plus } from "lucide-react";
+import { LockKeyhole, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
-import { Sheet, useToast } from "../ui/chrome";
+import { ChoiceRow, Sheet, useToast } from "../ui/chrome";
 
 type Choice = { id: string; name: string; active: boolean; unlocked: boolean };
 
@@ -32,13 +32,16 @@ export function SiloSwitcher({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <Sheet open={open} onClose={onClose} title="Switch silo">
-      <div className="panel">
+      <div className="panel" role="radiogroup" aria-label="Silos on this phone">
         {silos?.map((silo, i) => (
-          <button key={silo.id} className={`row${i ? " divide" : ""}`} style={{ minHeight: 56 }} onClick={() => void choose(silo)}>
-            <span className="row-title" style={{ flex: 1 }}>{silo.name}</span>
-            {!silo.unlocked && <LockKeyhole size={16} color="var(--text-dim)" aria-label="Locked" />}
-            {silo.active && <Check size={20} color="var(--accent-text)" aria-label="Current" />}
-          </button>
+          <ChoiceRow
+            key={silo.id}
+            first={i === 0}
+            label={silo.name}
+            checked={silo.active}
+            onChoose={() => void choose(silo)}
+            extra={!silo.unlocked && <LockKeyhole size={16} color="var(--text-dim)" aria-label="Locked" style={{ flex: "none" }} />}
+          />
         ))}
       </div>
       <button

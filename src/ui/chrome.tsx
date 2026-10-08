@@ -1,6 +1,8 @@
-import { ArrowLeft, CircleAlert, Info, TriangleAlert } from "lucide-react";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { ArrowLeft, Check, CircleAlert, Info, TriangleAlert } from "lucide-react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useBackLayer } from "./back";
+import { isIOS } from "./platform";
 
 const nothing = () => undefined;
 
@@ -143,18 +145,82 @@ export function ToggleRow({
   );
 }
 
+// Sheets open now; the page under them is inert while any is.
+let openSheets = 0;
+
+/**
+ * A bottom sheet (a centred dialog on a tablet). Back and the scrim close it,
+ * focus moves into it, and the page under it cannot be reached until it
+ * closes. No grabber: it does not follow a drag.
+ */
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title?: string; children: ReactNode }) {
   useBackLayer(open, onClose);
+  const ref = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const before = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const root = document.getElementById("root");
+    openSheets += 1;
+    root?.setAttribute("inert", "");
+    // A field that asked for focus keeps it; otherwise the title takes it.
+    const sheet = ref.current;
+    if (sheet && !sheet.contains(document.activeElement)) {
+      (sheet.querySelector<HTMLElement>(".sheet-title") ?? sheet).focus({ preventScroll: true });
+    }
+    return () => {
+      openSheets -= 1;
+      if (openSheets === 0) root?.removeAttribute("inert");
+      // Back where it was, unless something else (another sheet's field) has it now.
+      const lost = !document.activeElement || document.activeElement === document.body;
+      if (lost && before?.isConnected) before.focus({ preventScroll: true });
+    };
+  }, [open]);
+
   if (!open) return null;
-  return (
+  return createPortal(
     <>
       <div className="scrim" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={title}>
-        <div className="sheet-grabber" />
-        {title && <div style={{ fontWeight: 700, fontSize: "var(--fs-heading)" }}>{title}</div>}
+      <div ref={ref} className="sheet" role="dialog" aria-modal="true" aria-labelledby={title ? titleId : undefined} tabIndex={-1}>
+        {title && (
+          <h2 className="sheet-title" id={titleId} tabIndex={-1}>
+            {title}
+          </h2>
+        )}
         {children}
       </div>
-    </>
+    </>,
+    document.body,
+  );
+}
+
+/**
+ * One option in a list where exactly one is chosen: a radio on Android, a
+ * check mark on iOS. Wrap the rows in a `role="radiogroup"` panel.
+ */
+export function ChoiceRow({
+  label,
+  checked,
+  onChoose,
+  first = false,
+  extra,
+}: {
+  label: string;
+  checked: boolean;
+  onChoose: () => void;
+  first?: boolean;
+  extra?: ReactNode;
+}) {
+  return (
+    <button className={`row choice-row${first ? "" : " divide"}`} role="radio" aria-checked={checked} onClick={onChoose}>
+      {!isIOS && <span className="radio" aria-hidden />}
+      <span className="row-title" style={{ flex: 1, fontWeight: checked ? 650 : 500 }}>
+        {label}
+      </span>
+      {extra}
+      {isIOS && <Check size={20} className="choice-check" aria-hidden />}
+    </button>
   );
 }
 
@@ -173,11 +239,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={show}>
       {children}
-      {message && (
-        <div className="toast" role="status">
-          {message}
-        </div>
-      )}
+      {/* Outside the app's root, which is inert while a sheet is open. */}
+      {message &&
+        createPortal(
+          <div className="toast" role="status">
+            {message}
+          </div>,
+          document.body,
+        )}
     </ToastContext.Provider>
   );
 }

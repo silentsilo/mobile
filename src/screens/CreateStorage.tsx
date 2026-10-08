@@ -32,11 +32,11 @@ export function CreateStorage({ onBack, onDone }: { onBack: () => void; onDone: 
           Until it has backup storage, this silo is only on this phone. Lose the phone and it is gone, recovery code or
           not. Add backup storage later from Silo, Backup storage.
         </p>
-        <button className="btn secondary" onClick={onDone}>
-          Continue without a backup
-        </button>
         <button className="btn" onClick={() => setLater(false)}>
           Set up backup storage now
+        </button>
+        <button className="btn secondary" onClick={onDone}>
+          Continue without a backup
         </button>
       </Sheet>
     </div>
