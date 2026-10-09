@@ -50,6 +50,7 @@ pub fn run() {
             let _ = app.state::<silentsilo_app::AppState>().sweep_scratch();
             #[cfg(target_os = "android")]
             android::seal_existing_secrets(&data);
+            commands::rehome_silos(&data);
             let handle = app.handle().clone();
             commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());
             commands::spawn_auto_sync(handle);
@@ -60,6 +61,11 @@ pub fn run() {
             match event {
                 tauri::WindowEvent::Suspended => background::suspended(window.app_handle()),
                 tauri::WindowEvent::Resumed => background::resumed(window.app_handle()),
+                // iOS: tao sends Suspended when the scene resigns active, which
+                // a Face ID sheet does, but Resumed only after a trip to the
+                // background. Becoming active again is the matching event.
+                #[cfg(target_os = "ios")]
+                tauri::WindowEvent::Focused(true) => background::resumed(window.app_handle()),
                 _ => {}
             }
             #[cfg(not(mobile))]
