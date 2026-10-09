@@ -9,6 +9,9 @@ use tauri::{Manager, Runtime};
 /// What the phone measured about itself, by doing each operation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceCheck {
+    /// `android` or `ios`: which checks the screen shows.
+    #[serde(default = "android")]
+    pub platform: String,
     pub android_release: String,
     pub android_supported: bool,
     pub secure_lock: bool,
@@ -31,6 +34,10 @@ pub const DERIVATION: &str = silentsilo_vault::DERIVATION_ECDH_P256_V1;
 pub const KIND: &str = silentsilo_vault::KIND_ANDROID_KEYSTORE;
 #[cfg(not(target_os = "ios"))]
 pub const DERIVATION: &str = silentsilo_vault::DERIVATION_KEYSTORE_AES_GCM_V1;
+
+fn android() -> String {
+    "android".into()
+}
 
 /// A key made for one silo: the credential id to publish, the device key's
 /// public half where the kind has one (hex, empty on Android), and the wrap
@@ -126,6 +133,7 @@ impl<R: Runtime> DeviceKey<R> {
     pub async fn check(&self) -> Result<DeviceCheck, String> {
         let ready = blocking(silentsilo_fido::device_enclave::available).await?;
         Ok(DeviceCheck {
+            platform: "ios".into(),
             android_release: String::new(),
             android_supported: true,
             secure_lock: ready,

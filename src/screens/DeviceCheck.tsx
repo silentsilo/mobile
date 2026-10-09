@@ -10,6 +10,28 @@ export function blockingFailures(check: Check): boolean {
 }
 
 function linesFor(check: Check): Line[] {
+  const space: Line = {
+    ok: check.free_bytes < 500_000_000 ? "warn" : true,
+    title: t("start.check_space"),
+    detail: check.free_bytes < 500_000_000 ? t("start.check_space_low") : t("start.check_space_ok"),
+  };
+  // iPhone: the system version is the build's minimum, and the web view is
+  // the system's own, so only the key's place and the face or finger count.
+  if (check.platform === "ios") {
+    return [
+      {
+        ok: check.strong_biometric,
+        title: t("start.check_ios_biometric"),
+        detail: check.strong_biometric ? t("start.check_ios_biometric_ok") : t("start.check_ios_biometric_fail"),
+      },
+      {
+        ok: check.keystore !== "failed",
+        title: "Secure Enclave",
+        detail: check.keystore !== "failed" ? t("start.check_ios_enclave_ok") : t("start.check_ios_enclave_fail"),
+      },
+      space,
+    ];
+  }
   return [
     {
       ok: check.android_supported,
@@ -43,11 +65,7 @@ function linesFor(check: Check): Line[] {
         ? t("start.check_webview_ok", { version: check.webview_version })
         : t("start.check_webview_fail", { version: check.webview_version }),
     },
-    {
-      ok: check.free_bytes < 500_000_000 ? "warn" : true,
-      title: t("start.check_space"),
-      detail: check.free_bytes < 500_000_000 ? t("start.check_space_low") : t("start.check_space_ok"),
-    },
+    space,
   ];
 }
 
