@@ -1,0 +1,5 @@
+/* Why iOS asks: shown in its own permission prompts. */
+"NSFaceIDUsageDescription" = "SilentSilo uses Face ID to open your silos on this iPhone.";
+"NFCReaderUsageDescription" = "SilentSilo reads a security key held to the iPhone to open your silos.";
+"NSCameraUsageDescription" = "SilentSilo takes a photo straight into your silo, encrypted on this iPhone.";
+"NSPhotoLibraryAddUsageDescription" = "SilentSilo saves a file from your silo to Photos when you choose to.";

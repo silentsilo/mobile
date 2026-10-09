@@ -49,7 +49,27 @@ impl<R: Runtime> Files<R> {
                 .await
                 .map_err(|e| e.to_string())
         }
-        #[cfg(not(target_os = "android"))]
+        #[cfg(target_os = "ios")]
+        {
+            let _ = payload;
+            let command = command.to_string();
+            let answer = tauri::async_runtime::spawn_blocking(move || match command.as_str() {
+                "pickFiles" => Ok(crate::ios::pick_files()),
+                // No share extension yet: nothing arrives from other apps.
+                "takeShared" => Ok(serde_json::json!({ "files": [] })),
+                "takePhoto" => {
+                    let folder = crate::background::cache_dir()
+                        .map(|d| d.join("camera"))
+                        .ok_or("The app has not finished starting.")?;
+                    Ok(serde_json::json!({ "path": crate::ios::take_photo(&folder) }))
+                }
+                other => Err(format!("no iOS answer for {other}")),
+            })
+            .await
+            .map_err(|e| e.to_string())??;
+            serde_json::from_value(answer).map_err(|e| e.to_string())
+        }
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
             let _ = (command, payload);
             Err("This build cannot reach the phone's files.".into())
@@ -71,7 +91,15 @@ impl<R: Runtime> Files<R> {
                 .map(|_| ())
                 .map_err(|e| e.to_string())
         }
-        #[cfg(not(target_os = "android"))]
+        #[cfg(target_os = "ios")]
+        {
+            if crate::ios::sign_in_open(url) {
+                Ok(())
+            } else {
+                Err("The sign-in page could not be opened.".into())
+            }
+        }
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
             let _ = url;
             Err("This build cannot open the phone's browser.".into())
@@ -95,6 +123,32 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
             Ok(())
         })
         .build()
+}
+
+/// Opens one of the project's own pages: the source code, the licence, the
+/// site. Nothing else, so the page cannot be made to open any address.
+#[tauri::command]
+pub async fn app_open_link(app: AppHandle, url: String) -> Result<(), String> {
+    const OURS: [&str; 2] = ["https://github.com/silentsilo/", "https://silentsilo.com/"];
+    if !OURS.iter().any(|prefix| url.starts_with(prefix)) {
+        return Err("Only SilentSilo's own pages open from here.".into());
+    }
+    #[cfg(target_os = "ios")]
+    {
+        let _ = app;
+        if crate::ios::open_url(&url) {
+            Ok(())
+        } else {
+            Err("The page could not be opened.".into())
+        }
+    }
+    #[cfg(not(target_os = "ios"))]
+    {
+        let url2 = url.clone();
+        tauri::async_runtime::spawn_blocking(move || plugin(&app).open_browser(&url2))
+            .await
+            .map_err(|e| e.to_string())?
+    }
 }
 
 fn plugin(app: &AppHandle) -> State<'_, Files<tauri::Wry>> {
@@ -185,7 +239,44 @@ pub async fn vault_import_offered(
         let _ = app.emit("vault-changed", ());
         Ok(entry)
     }
-    #[cfg(not(target_os = "android"))]
+    // iOS: the picker's copy in this app's temporary folder, removed once
+    // it is sealed into the silo. Only there: this command reads the path
+    // it is given.
+    #[cfg(target_os = "ios")]
+    {
+        let path = std::path::PathBuf::from(&file.uri);
+        let inside = path
+            .canonicalize()
+            .ok()
+            .zip(std::env::temp_dir().canonicalize().ok())
+            .is_some_and(|(p, tmp)| p.starts_with(tmp));
+        if !inside {
+            return Err("That is not a file picked for the silo.".into());
+        }
+        let app2 = app.clone();
+        let picked = path.clone();
+        let entry = tauri::async_runtime::spawn_blocking(move || {
+            let state = app2.state::<AppState>();
+            let mut source = std::fs::File::open(&picked).map_err(|e| e.to_string())?;
+            let mime = Some(file.mime_type.as_str()).filter(|m| !m.is_empty());
+            silentsilo_app::files::import_file(
+                &state,
+                &silo,
+                folder_id,
+                &mut source,
+                &file.name,
+                mime,
+            )
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+        let _ = std::fs::remove_file(&path);
+        let entry = entry?;
+        crate::audit::file_added(&app, &entry);
+        let _ = app.emit("vault-changed", ());
+        Ok(entry)
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let _ = (app, silo, folder_id, file);
         Err("This build cannot reach the phone's files.".into())

@@ -49,7 +49,7 @@ final class NfcLink: NSObject, NFCTagReaderSessionDelegate {
     }
     closing = nil
     let session = NFCTagReaderSession(pollingOption: [.iso14443], delegate: self, queue: nil)
-    session?.alertMessage = prompt
+    session?.alertMessage = NSLocalizedString("nfc_hold", value: prompt, comment: "NFC sheet")
     self.session = session
     session?.begin()
   }
@@ -146,26 +146,26 @@ final class PinPrompt {
     // active and the alert would have nowhere to go.
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
       let alert = UIAlertController(
-        title: "Security key PIN", message: note, preferredStyle: .alert)
+        title: NSLocalizedString("pin_title", value: "Security key PIN", comment: "PIN alert"), message: note, preferredStyle: .alert)
       alert.addTextField { field in
         field.isSecureTextEntry = true
         field.keyboardType = .default
         field.textContentType = .password
       }
       alert.addAction(
-        UIAlertAction(title: "OK", style: .default) { _ in
+        UIAlertAction(title: NSLocalizedString("pin_ok", value: "OK", comment: "PIN alert"), style: .default) { _ in
           result = (0, alert.textFields?.first?.text ?? "")
           done.signal()
         })
       if offerNoPin {
         alert.addAction(
-          UIAlertAction(title: "No PIN", style: .default) { _ in
+          UIAlertAction(title: NSLocalizedString("pin_no_pin", value: "No PIN", comment: "PIN alert"), style: .default) { _ in
             result = (1, "")
             done.signal()
           })
       }
       alert.addAction(
-        UIAlertAction(title: "Cancel", style: .cancel) { _ in
+        UIAlertAction(title: NSLocalizedString("pin_cancel", value: "Cancel", comment: "PIN alert"), style: .cancel) { _ in
           result = (2, "")
           done.signal()
         })
@@ -177,18 +177,6 @@ final class PinPrompt {
     }
     done.wait()
     return result
-  }
-
-  private static func topController() -> UIViewController? {
-    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-    let scene =
-      scenes.first { $0.activationState == .foregroundActive }
-      ?? scenes.first { $0.activationState == .foregroundInactive }
-      ?? scenes.first
-    let window = scene?.windows.first { $0.isKeyWindow } ?? scene?.windows.first
-    var top = window?.rootViewController
-    while let next = top?.presentedViewController { top = next }
-    return top
   }
 }
 

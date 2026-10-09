@@ -1,0 +1,6 @@
+/* The NFC sheet and the security key PIN alert (SecurityKeys.swift). */
+"nfc_hold" = "Przyłóż klucz bezpieczeństwa do górnej części iPhone’a.";
+"pin_title" = "PIN klucza bezpieczeństwa";
+"pin_ok" = "OK";
+"pin_no_pin" = "Bez PIN-u";
+"pin_cancel" = "Anuluj";

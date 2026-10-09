@@ -1,0 +1,6 @@
+/* The NFC sheet and the security key PIN alert (SecurityKeys.swift). */
+"nfc_hold" = "Ține cheia de securitate lângă partea de sus a iPhone-ului.";
+"pin_title" = "PIN-ul cheii de securitate";
+"pin_ok" = "OK";
+"pin_no_pin" = "Fără PIN";
+"pin_cancel" = "Anulează";

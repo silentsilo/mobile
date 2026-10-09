@@ -54,7 +54,27 @@ pub async fn serve_pdf(
         .ok_or("This page could not be drawn.")?;
         Ok(("image/png", png))
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(target_os = "ios")]
+    {
+        if what == "pages" {
+            let pages = tauri::async_runtime::spawn_blocking(move || crate::ios::pdf_pages(&path))
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or("This PDF could not be read.")?;
+            return Ok((
+                "application/json",
+                format!("{{\"pages\":{pages}}}").into_bytes(),
+            ));
+        }
+        let index: u32 = what.parse().map_err(|_| "No such page.".to_string())?;
+        let png =
+            tauri::async_runtime::spawn_blocking(move || crate::ios::pdf_page(&path, index, width))
+                .await
+                .map_err(|e| e.to_string())?
+                .ok_or("This page could not be drawn.")?;
+        Ok(("image/png", png))
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let _ = (path, what, width);
         Err("This build cannot draw PDF pages.".into())
@@ -123,7 +143,21 @@ pub async fn file_open_with(
             .await
             .map(|_| ())
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(target_os = "ios")]
+    {
+        let lock = app.state::<crate::background::BackgroundLock>();
+        let _prompt = lock.prompt();
+        let _ = entry;
+        let shown = tauri::async_runtime::spawn_blocking(move || crate::ios::open_with(&dest))
+            .await
+            .map_err(|e| e.to_string())?;
+        if shown {
+            Ok(())
+        } else {
+            Err("The file could not be handed to another app.".into())
+        }
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let _ = std::fs::remove_file(dest);
         Err("This build cannot open files in other apps.".into())

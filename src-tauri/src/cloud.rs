@@ -111,10 +111,14 @@ pub async fn cloud_sign_in(app: AppHandle, kind: String) -> Result<CloudSignIn, 
         back,
     );
     // Dropping the sign-in closes its listener.
-    tokio::select! {
+    let outcome = tokio::select! {
         result = signing_in => result.map_err(|e| e.to_string()),
         _ = stopped => Err("The sign-in was stopped.".into()),
-    }
+    };
+    // iOS shows the page in a sheet over the app, which nothing else closes.
+    #[cfg(target_os = "ios")]
+    crate::ios::sign_in_close();
+    outcome
 }
 
 #[tauri::command]

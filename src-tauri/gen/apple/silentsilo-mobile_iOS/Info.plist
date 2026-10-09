@@ -42,11 +42,17 @@
 	</array>
 	<key>NSFaceIDUsageDescription</key>
 	<string>SilentSilo uses Face ID to open your silos on this iPhone.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>SilentSilo takes a photo straight into your silo, encrypted on this iPhone.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SilentSilo saves a file from your silo to Photos when you choose to.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>SilentSilo reads a security key held to the iPhone to open your silos.</string>
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 	<array>
 		<string>A0000006472F0001</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
 </dict>
 </plist>
