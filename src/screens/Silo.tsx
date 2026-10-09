@@ -1,4 +1,4 @@
-import { ChevronRight, Cloud, Fingerprint, HardDrive, HeartPulse, History, Images, Languages, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, ScrollText, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, Code, FileText, Fingerprint, HardDrive, HeartPulse, History, Images, Languages, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Scale, ScrollText, Smartphone, Trash2 } from "lucide-react";
 import { LOCALES, dateLocale, languagePreference, setLanguage, systemLocale, t, useLocale } from "../i18n";
 import { RecoveryCodeShow } from "../ui/RecoveryCodeShow";
 import { useEffect, useState } from "react";
@@ -38,6 +38,9 @@ function shortLock(seconds: number) {
 function languageLabel(l: (typeof LOCALES)[number]): string {
   return l.reviewed ? l.name : t("silo.language_beta", { name: l.name });
 }
+
+/** Where the app's source code is: AGPL section 6, for whoever has the app. */
+const SOURCE = "https://github.com/silentsilo/mobile";
 
 export function Silo({
   siloId,
@@ -87,6 +90,8 @@ export function Silo({
   const [aboutPasskeys, setAboutPasskeys] = useState(false);
   const [audit, setAudit] = useState<AuditStatus | null>(null);
   const [aboutAudit, setAboutAudit] = useState(false);
+  const [notices, setNotices] = useState<string | null>(null);
+  const [showingNotices, setShowingNotices] = useState(false);
   const toast = useToast();
 
   useEffect(() => {
@@ -165,6 +170,19 @@ export function Silo({
     } catch (e) {
       toast(formatAppError(e));
     }
+  };
+
+  const openLink = (url: string) => {
+    api.openLink(url).catch((e) => toast(formatAppError(e)));
+  };
+
+  // Built into the app by `npm run notices`, so it lists what was built.
+  const openNotices = () => {
+    setShowingNotices(true);
+    if (notices !== null) return;
+    fetch("/THIRD-PARTY-NOTICES.txt")
+      .then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+      .then(setNotices, (e) => toast(formatAppError(e)));
   };
 
   const lockNow = async () => {
@@ -306,6 +324,18 @@ export function Silo({
             )}
           </div>
         </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <span className="label" style={{ padding: "0 4px" }}>{t("silo.section_about")}</span>
+          <p className="hint" style={{ margin: "0 4px" }}>{t("silo.about_free")}</p>
+          <div className="panel">
+            {navRow(Code, t("silo.row_source"), "", () => openLink(SOURCE), true)}
+            {navRow(Scale, t("silo.row_licence"), "AGPL-3.0", () => openLink(`${SOURCE}/blob/main/LICENSE`))}
+            {navRow(FileText, t("silo.row_notices"), "", openNotices)}
+          </div>
+          <p className="hint" style={{ alignSelf: "center", margin: 0 }}>
+            {t("silo.row_version")} {__APP_VERSION__}
+          </p>
+        </div>
         <div className="spacer" />
         <button className="btn secondary" onClick={lockNow}>
           <LockKeyhole size={18} />
@@ -314,10 +344,12 @@ export function Silo({
         <button className="text-btn danger" style={{ alignSelf: "center" }} onClick={() => setRemoving(true)}>
           {t("silo.remove_silo")}
         </button>
-        <p className="hint" style={{ alignSelf: "center", margin: 0 }}>
-          SilentSilo {__APP_VERSION__}
-        </p>
       </div>
+
+      <Sheet open={showingNotices} onClose={() => setShowingNotices(false)} title={t("silo.row_notices")}>
+        <p className="hint">{t("silo.notices_intro")}</p>
+        <pre className="notices">{notices ?? ""}</pre>
+      </Sheet>
 
       <Sheet open={choosingLanguage} onClose={() => setChoosingLanguage(false)} title={t("silo.language")}>
         <p className="hint">{t("silo.language_hint")}</p>

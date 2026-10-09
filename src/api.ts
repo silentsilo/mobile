@@ -78,6 +78,8 @@ export type JoinPreview = { vault_id: string | null; key_labels: string[] };
 /** Measured by doing each operation on the phone, not read from the model. */
 export type DeviceCheck = {
   android_release: string;
+  /** Absent from an Android build of before iOS: Android. */
+  platform?: "android" | "ios";
   android_supported: boolean;
   secure_lock: boolean;
   strong_biometric: boolean;
@@ -273,6 +275,7 @@ export const api = {
   configureBackup: (settings: BackupSettings) => invoke<BackupStatus>("backup_configure", { settings }),
   runBackupNow: () => invoke<void>("backup_run_now"),
   pickFiles: () => invoke<Offered[]>("files_pick"),
+  openLink: (url: string) => invoke<void>("app_open_link", { url }),
   takeShared: () => invoke<Offered[]>("files_take_shared"),
   takePhoto: () => invoke<string | null>("files_take_photo"),
   importOffered: (file: Offered, folderId: string) => invoke<FileEntry>("vault_import_offered", { file, folderId }),

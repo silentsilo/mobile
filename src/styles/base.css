@@ -1348,3 +1348,15 @@ input[type="checkbox"] {
 .input:has(:disabled) {
   background: var(--surface-2);
 }
+
+/* The third-party notices: a long plain text, read rather than styled. */
+.notices {
+  margin: 0;
+  max-height: 60vh;
+  overflow: auto;
+  /* Lines are cut at 78 columns already: wrapped again they read as noise. */
+  white-space: pre;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
