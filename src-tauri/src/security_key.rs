@@ -41,7 +41,27 @@ impl<R: Runtime> Plugin<R> {
             .map_err(|e| e.to_string())
     }
 
-    #[cfg(not(target_os = "android"))]
+    /// iOS has no plugin: the same commands go to CoreNFC through `ios.rs`.
+    #[cfg(target_os = "ios")]
+    async fn call<T: serde::de::DeserializeOwned>(
+        &self,
+        command: &str,
+        args: serde_json::Value,
+    ) -> Result<T, String> {
+        let command = command.to_string();
+        let answer = tauri::async_runtime::spawn_blocking(move || {
+            let answer = ios_call(&command, &args);
+            if let Err(e) = &answer {
+                eprintln!("[security-key] {command}: {e}");
+            }
+            answer
+        })
+        .await
+        .map_err(|e| e.to_string())??;
+        serde_json::from_value(answer).map_err(|e| e.to_string())
+    }
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     async fn call<T: serde::de::DeserializeOwned>(
         &self,
         _command: &str,
@@ -113,8 +133,15 @@ async fn with_key<T: Send + 'static>(
         .map_err(KeyError::Other)?;
     let usb = found.transport == "usb";
     let outcome = tauri::async_runtime::spawn_blocking(move || run(usb, f)).await;
+    // Said on the phone's own sheet where it has one (iOS), so a failure does
+    // not end on a tick. A PIN still to be asked is not a failure.
+    let said = match &outcome {
+        Ok(Err(CtapError::PinRequired)) | Ok(Ok(_)) => None,
+        Ok(Err(error)) => Some(describe(error, usb)),
+        Err(_) => None,
+    };
     let _ = plugin(app)
-        .call::<serde_json::Value>("release", serde_json::json!({}))
+        .call::<serde_json::Value>("release", serde_json::json!({ "error": said }))
         .await;
     outcome
         .map_err(|e| KeyError::Other(e.to_string()))?
@@ -133,7 +160,58 @@ fn run<T>(
     }
 }
 
-#[cfg(not(target_os = "android"))]
+/// NFC only: a key in the Lightning or USB-C port needs Yubico's SDK.
+#[cfg(target_os = "ios")]
+fn run<T>(
+    usb: bool,
+    f: impl FnOnce(&mut dyn Ctap) -> Result<T, CtapError>,
+) -> Result<T, CtapError> {
+    if usb {
+        return Err(CtapError::Transport(
+            "no USB security key link on iPhone".into(),
+        ));
+    }
+    f(&mut ctap2::nfc::Nfc::new(crate::ios::NfcKey))
+}
+
+/// The plugin commands Android's Kotlin answers, answered on iOS.
+#[cfg(target_os = "ios")]
+fn ios_call(command: &str, args: &serde_json::Value) -> Result<serde_json::Value, String> {
+    use serde_json::json;
+    match command {
+        "status" => {
+            let nfc = crate::ios::nfc_available();
+            Ok(json!({ "nfc": nfc, "nfcOn": nfc, "usb": false }))
+        }
+        "waitForKey" => {
+            crate::ios::wait_for_key("Hold your security key to the top of the iPhone.")?;
+            Ok(json!({ "transport": "nfc" }))
+        }
+        "release" => {
+            crate::ios::release(args.get("error").and_then(|e| e.as_str()));
+            Ok(json!({}))
+        }
+        "cancel" => {
+            crate::ios::cancel();
+            Ok(json!({}))
+        }
+        "askPin" => {
+            let note = args.get("note").and_then(|n| n.as_str());
+            let offer = args
+                .get("offerNoPin")
+                .and_then(|o| o.as_bool())
+                .unwrap_or(false);
+            Ok(match crate::ios::ask_pin(note, offer) {
+                crate::ios::Pin::Given(pin) => json!({ "pin": pin.as_str() }),
+                crate::ios::Pin::NotSet => json!({ "no_pin": true }),
+                crate::ios::Pin::Cancelled => json!({}),
+            })
+        }
+        other => Err(format!("no iOS answer for {other}")),
+    }
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn run<T>(
     _usb: bool,
     _f: impl FnOnce(&mut dyn Ctap) -> Result<T, CtapError>,
@@ -435,7 +513,8 @@ pub async fn security_key_enroll(
     let (made, pin) = with_pin(&app, None, move |dev, pin| {
         ctap2::make_credential(dev, &made_vault, pin)
     })
-    .await?;
+    .await
+    .inspect_err(|e| eprintln!("[security-key] enrol, credential: {e}"))?;
     let _ = app.emit("security-key-step", 2);
 
     let id = made.credential_id.clone();
@@ -452,7 +531,8 @@ pub async fn security_key_enroll(
         Ok((key, verified))
     })
     .await
-    .map_err(KeyError::into_message)?;
+    .map_err(KeyError::into_message)
+    .inspect_err(|e| eprintln!("[security-key] enrol, secret: {e}"))?;
     remember_pin_key(&hex::encode(&made.credential_id), verified);
     let label = label.trim();
     let key = DeviceKey {

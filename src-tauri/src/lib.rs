@@ -13,6 +13,8 @@ mod device_key;
 mod history;
 mod host;
 mod incoming;
+#[cfg(target_os = "ios")]
+mod ios;
 mod manage;
 #[cfg(target_os = "android")]
 mod passkeys;
@@ -41,6 +43,11 @@ pub fn run() {
             android::stderr_to_logcat();
             background::remember(app.handle());
             let data = app.path().app_data_dir()?;
+            #[cfg(all(target_os = "ios", debug_assertions))]
+            {
+                let _ = std::fs::create_dir_all(&data);
+                ios::stderr_to_file(&data.join("stderr.log"));
+            }
             silentsilo_vault::set_work_base(data.join("work"));
             // OneDrive, Dropbox and Google Drive open through the tokens the
             // vault keeps.

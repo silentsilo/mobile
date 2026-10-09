@@ -8,8 +8,10 @@
 
 /* Begin PBXBuildFile section */
 		19EE7481370493F88B63BC64 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4594482BC08332386981866 /* Security.framework */; };
+		39E4A55C5F54C4A652DD6325 /* libapp.a in Resources */ = {isa = PBXBuildFile; fileRef = BCE8960077382C32755B485E /* libapp.a */; };
 		3CEC84D4AF043D204C6F8174 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B8B4B8A9059219DE236B91E /* QuartzCore.framework */; };
 		42EF808B08F90D6F0FC6D43B /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AA39853D57EFD683C1A40C0 /* Metal.framework */; };
+		594F184AFA89CEA2F842C0F1 /* SecurityKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9903D3914EB101B819680C6C /* SecurityKeys.swift */; };
 		6B5749979966D2F558FABDD1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C928F759941C5474B298853 /* Assets.xcassets */; };
 		7A3B704C22881B8051AD971F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1CAD7E042E696358D3C085B5 /* LaunchScreen.storyboard */; };
 		7D996DFBF0B832D6675500AC /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 0D1576C987CA3261E874D0A1 /* assets */; };
@@ -35,6 +37,7 @@
 		3AA39853D57EFD683C1A40C0 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		3BA4930F495F08ACF1516A6B /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
 		400683E44B49FCBF6EA2E151 /* viewer.rs */ = {isa = PBXFileReference; path = viewer.rs; sourceTree = "<group>"; };
+		4284FACAA2B2B679090CAF77 /* ios.rs */ = {isa = PBXFileReference; path = ios.rs; sourceTree = "<group>"; };
 		50E584AA28234DB2917774FF /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		57560DC3D1ABF69F61BF0BEB /* device_key.rs */ = {isa = PBXFileReference; path = device_key.rs; sourceTree = "<group>"; };
 		5B8B4B8A9059219DE236B91E /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
@@ -47,10 +50,12 @@
 		8A423D46C3D997E1B8656ACD /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
 		8B6389A514510B02D9D12AD3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8D37C8FCA9D02EE0260495AD /* silentsilo-mobile_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "silentsilo-mobile_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		9903D3914EB101B819680C6C /* SecurityKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityKeys.swift; sourceTree = "<group>"; };
 		A13C5A252469C42854EA41AA /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		A4594482BC08332386981866 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
 		B68344C7F66558B1FC9923D5 /* android.rs */ = {isa = PBXFileReference; path = android.rs; sourceTree = "<group>"; };
 		B8D3CAFCBFCDA0F37A9A4796 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		BCE8960077382C32755B485E /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
 		C1C08E92702E8926C65F1A8F /* incoming.rs */ = {isa = PBXFileReference; path = incoming.rs; sourceTree = "<group>"; };
 		D1AF4D5B65B79BE3335BB696 /* autofill.rs */ = {isa = PBXFileReference; path = autofill.rs; sourceTree = "<group>"; };
 		D894C097916C2CC0784FF098 /* backup.rs */ = {isa = PBXFileReference; path = backup.rs; sourceTree = "<group>"; };
@@ -86,10 +91,19 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		15153EF031D23037865C47A1 /* arm64 */ = {
+			isa = PBXGroup;
+			children = (
+				EA692898413966133B21078B /* debug */,
+			);
+			path = arm64;
+			sourceTree = "<group>";
+		};
 		16F15CD33EBFCCC08BF85027 /* silentsilo-mobile */ = {
 			isa = PBXGroup;
 			children = (
 				B8D3CAFCBFCDA0F37A9A4796 /* main.mm */,
+				9903D3914EB101B819680C6C /* SecurityKeys.swift */,
 				56DF5D2590E5C8B58C2A94C6 /* bindings */,
 			);
 			path = "silentsilo-mobile";
@@ -107,6 +121,7 @@
 		399D27E593CA27984164F6E2 /* Externals */ = {
 			isa = PBXGroup;
 			children = (
+				15153EF031D23037865C47A1 /* arm64 */,
 			);
 			path = Externals;
 			sourceTree = "<group>";
@@ -173,6 +188,7 @@
 				7387175AC1EBE6FAAD6E6FD1 /* history.rs */,
 				61AC7D612032EFC99BF417DE /* host.rs */,
 				C1C08E92702E8926C65F1A8F /* incoming.rs */,
+				4284FACAA2B2B679090CAF77 /* ios.rs */,
 				E5D7575F603E6D6F3CE6CB57 /* lib.rs */,
 				8A423D46C3D997E1B8656ACD /* main.rs */,
 				D8FAA1EF73E1FA52C4D23EED /* manage.rs */,
@@ -182,6 +198,21 @@
 			);
 			name = src;
 			path = ../../src;
+			sourceTree = "<group>";
+		};
+		EA692898413966133B21078B /* debug */ = {
+			isa = PBXGroup;
+			children = (
+				BCE8960077382C32755B485E /* libapp.a */,
+			);
+			path = debug;
+			sourceTree = "<group>";
+		};
+		"TEMP_668F9F99-1284-4DB9-A8B7-822109E6781B" /* x86_64 */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = x86_64;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -248,6 +279,7 @@
 				6B5749979966D2F558FABDD1 /* Assets.xcassets in Resources */,
 				7A3B704C22881B8051AD971F /* LaunchScreen.storyboard in Resources */,
 				7D996DFBF0B832D6675500AC /* assets in Resources */,
+				39E4A55C5F54C4A652DD6325 /* libapp.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -282,6 +314,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				594F184AFA89CEA2F842C0F1 /* SecurityKeys.swift in Sources */,
 				8AC0F768D9C841334819CCB4 /* main.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -379,6 +412,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.silentsilo.mobile;
 				PRODUCT_NAME = "SilentSilo";
 				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
 			};
@@ -411,6 +445,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.silentsilo.mobile;
 				PRODUCT_NAME = "SilentSilo";
 				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VALID_ARCHS = arm64;
 			};

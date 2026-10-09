@@ -6,5 +6,11 @@
 <dict>
 	<key>NSFaceIDUsageDescription</key>
 	<string>SilentSilo uses Face ID to open your silos on this iPhone.</string>
+	<key>NFCReaderUsageDescription</key>
+	<string>SilentSilo reads a security key held to the iPhone to open your silos.</string>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>A0000006472F0001</string>
+	</array>
 </dict>
 </plist>
