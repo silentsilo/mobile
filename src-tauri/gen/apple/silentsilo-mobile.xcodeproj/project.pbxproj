@@ -234,7 +234,7 @@
 			path = debug;
 			sourceTree = "<group>";
 		};
-		"TEMP_57FC53BA-EC89-4DC9-92E1-B4D3EFF3059C" /* x86_64 */ = {
+		"TEMP_FAF327CA-E8F7-4BA7-BB54-DDC642E6BF56" /* x86_64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -483,7 +483,7 @@
 				PRODUCT_NAME = "SilentSilo";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VALID_ARCHS = arm64;
 			};
 			name = release;
@@ -516,7 +516,7 @@
 				PRODUCT_NAME = "SilentSilo";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 				VALID_ARCHS = arm64;
 			};
 			name = debug;

@@ -47,11 +47,6 @@ targets:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        UISupportedInterfaceOrientations~ipad:
-          - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationPortraitUpsideDown
-          - UIInterfaceOrientationLandscapeLeft
-          - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 1.4.0
         CFBundleVersion: "1.4.0"
     entitlements:
@@ -68,6 +63,9 @@ targets:
       base:
         ENABLE_BITCODE: false
         SWIFT_VERSION: 5.0
+        # iPhone only for 1.0: once an App Store version supports iPad, later
+        # versions cannot drop it.
+        TARGETED_DEVICE_FAMILY: 1
         ARCHS: [arm64]
         VALID_ARCHS: arm64 
         LIBRARY_SEARCH_PATHS[arch=x86_64]: $(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)
