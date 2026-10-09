@@ -1,0 +1,499 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		19EE7481370493F88B63BC64 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4594482BC08332386981866 /* Security.framework */; };
+		3CEC84D4AF043D204C6F8174 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5B8B4B8A9059219DE236B91E /* QuartzCore.framework */; };
+		42EF808B08F90D6F0FC6D43B /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3AA39853D57EFD683C1A40C0 /* Metal.framework */; };
+		6B5749979966D2F558FABDD1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C928F759941C5474B298853 /* Assets.xcassets */; };
+		7A3B704C22881B8051AD971F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1CAD7E042E696358D3C085B5 /* LaunchScreen.storyboard */; };
+		7D996DFBF0B832D6675500AC /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 0D1576C987CA3261E874D0A1 /* assets */; };
+		83E9A4F7BB0B6FFEA529BF6E /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A13C5A252469C42854EA41AA /* CoreGraphics.framework */; };
+		8AC0F768D9C841334819CCB4 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = B8D3CAFCBFCDA0F37A9A4796 /* main.mm */; };
+		915F3088F3905B5C6A4DD19D /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6F4F31C0D17930C5F8119643 /* MetalKit.framework */; };
+		984B6C0CF40BDBF2BBEC57D8 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12A95C7A9860750D9174A8BB /* WebKit.framework */; };
+		BD5ACE12294842CA65C5F033 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B7C380D58F31E659D9A3A6A /* libapp.a */; };
+		FE7FEAA828BD3ECE62AE641D /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 07FED78DE5B8CC672E03BBD7 /* UIKit.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		05DCA97C40FFB75E3489733A /* security_key.rs */ = {isa = PBXFileReference; path = security_key.rs; sourceTree = "<group>"; };
+		07D3DE15131AFA3FD020110E /* create.rs */ = {isa = PBXFileReference; path = create.rs; sourceTree = "<group>"; };
+		07FED78DE5B8CC672E03BBD7 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		0D1576C987CA3261E874D0A1 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		12121DD5C50E746A46ED2BD1 /* copies.rs */ = {isa = PBXFileReference; path = copies.rs; sourceTree = "<group>"; };
+		12A95C7A9860750D9174A8BB /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		1CAD7E042E696358D3C085B5 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		2C928F759941C5474B298853 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		2E9A32906F2C0BC9D95777D4 /* passkeys.rs */ = {isa = PBXFileReference; path = passkeys.rs; sourceTree = "<group>"; };
+		33DCAA130579F70B1E0E14CF /* silentsilo-mobile_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "silentsilo-mobile_iOS.entitlements"; sourceTree = "<group>"; };
+		3AA39853D57EFD683C1A40C0 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
+		3BA4930F495F08ACF1516A6B /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
+		400683E44B49FCBF6EA2E151 /* viewer.rs */ = {isa = PBXFileReference; path = viewer.rs; sourceTree = "<group>"; };
+		50E584AA28234DB2917774FF /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
+		57560DC3D1ABF69F61BF0BEB /* device_key.rs */ = {isa = PBXFileReference; path = device_key.rs; sourceTree = "<group>"; };
+		5B8B4B8A9059219DE236B91E /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
+		61AC7D612032EFC99BF417DE /* host.rs */ = {isa = PBXFileReference; path = host.rs; sourceTree = "<group>"; };
+		6B7C380D58F31E659D9A3A6A /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		6F4F31C0D17930C5F8119643 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		7387175AC1EBE6FAAD6E6FD1 /* history.rs */ = {isa = PBXFileReference; path = history.rs; sourceTree = "<group>"; };
+		766D3DDC026BC50EE575313D /* cloud.rs */ = {isa = PBXFileReference; path = cloud.rs; sourceTree = "<group>"; };
+		8046ABE9BDBA97ADE1456CF9 /* audit.rs */ = {isa = PBXFileReference; path = audit.rs; sourceTree = "<group>"; };
+		8A423D46C3D997E1B8656ACD /* main.rs */ = {isa = PBXFileReference; path = main.rs; sourceTree = "<group>"; };
+		8B6389A514510B02D9D12AD3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8D37C8FCA9D02EE0260495AD /* silentsilo-mobile_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "silentsilo-mobile_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A13C5A252469C42854EA41AA /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		A4594482BC08332386981866 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		B68344C7F66558B1FC9923D5 /* android.rs */ = {isa = PBXFileReference; path = android.rs; sourceTree = "<group>"; };
+		B8D3CAFCBFCDA0F37A9A4796 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
+		C1C08E92702E8926C65F1A8F /* incoming.rs */ = {isa = PBXFileReference; path = incoming.rs; sourceTree = "<group>"; };
+		D1AF4D5B65B79BE3335BB696 /* autofill.rs */ = {isa = PBXFileReference; path = autofill.rs; sourceTree = "<group>"; };
+		D894C097916C2CC0784FF098 /* backup.rs */ = {isa = PBXFileReference; path = backup.rs; sourceTree = "<group>"; };
+		D8FAA1EF73E1FA52C4D23EED /* manage.rs */ = {isa = PBXFileReference; path = manage.rs; sourceTree = "<group>"; };
+		E5D7575F603E6D6F3CE6CB57 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
+		F28F597DE4EB43804FADFA85 /* background.rs */ = {isa = PBXFileReference; path = background.rs; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A9E09389A72A24C54F5EE485 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BD5ACE12294842CA65C5F033 /* libapp.a in Frameworks */,
+				83E9A4F7BB0B6FFEA529BF6E /* CoreGraphics.framework in Frameworks */,
+				42EF808B08F90D6F0FC6D43B /* Metal.framework in Frameworks */,
+				915F3088F3905B5C6A4DD19D /* MetalKit.framework in Frameworks */,
+				3CEC84D4AF043D204C6F8174 /* QuartzCore.framework in Frameworks */,
+				19EE7481370493F88B63BC64 /* Security.framework in Frameworks */,
+				FE7FEAA828BD3ECE62AE641D /* UIKit.framework in Frameworks */,
+				984B6C0CF40BDBF2BBEC57D8 /* WebKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0B6B09723D122C8884422F1E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8D37C8FCA9D02EE0260495AD /* silentsilo-mobile_iOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		16F15CD33EBFCCC08BF85027 /* silentsilo-mobile */ = {
+			isa = PBXGroup;
+			children = (
+				B8D3CAFCBFCDA0F37A9A4796 /* main.mm */,
+				56DF5D2590E5C8B58C2A94C6 /* bindings */,
+			);
+			path = "silentsilo-mobile";
+			sourceTree = "<group>";
+		};
+		33272FB3823D3D1BB3141427 /* silentsilo-mobile_iOS */ = {
+			isa = PBXGroup;
+			children = (
+				8B6389A514510B02D9D12AD3 /* Info.plist */,
+				33DCAA130579F70B1E0E14CF /* silentsilo-mobile_iOS.entitlements */,
+			);
+			path = "silentsilo-mobile_iOS";
+			sourceTree = "<group>";
+		};
+		399D27E593CA27984164F6E2 /* Externals */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Externals;
+			sourceTree = "<group>";
+		};
+		56DF5D2590E5C8B58C2A94C6 /* bindings */ = {
+			isa = PBXGroup;
+			children = (
+				50E584AA28234DB2917774FF /* bindings.h */,
+			);
+			path = bindings;
+			sourceTree = "<group>";
+		};
+		71BC2590245F6D9E5A1EE91A /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A13C5A252469C42854EA41AA /* CoreGraphics.framework */,
+				6B7C380D58F31E659D9A3A6A /* libapp.a */,
+				3AA39853D57EFD683C1A40C0 /* Metal.framework */,
+				6F4F31C0D17930C5F8119643 /* MetalKit.framework */,
+				5B8B4B8A9059219DE236B91E /* QuartzCore.framework */,
+				A4594482BC08332386981866 /* Security.framework */,
+				07FED78DE5B8CC672E03BBD7 /* UIKit.framework */,
+				12A95C7A9860750D9174A8BB /* WebKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		791AF236FC7781DC7DC85889 = {
+			isa = PBXGroup;
+			children = (
+				0D1576C987CA3261E874D0A1 /* assets */,
+				2C928F759941C5474B298853 /* Assets.xcassets */,
+				1CAD7E042E696358D3C085B5 /* LaunchScreen.storyboard */,
+				399D27E593CA27984164F6E2 /* Externals */,
+				33272FB3823D3D1BB3141427 /* silentsilo-mobile_iOS */,
+				8FEAF305B72EE2EA2B9364BA /* Sources */,
+				BA87447C22FD04F20232F9F6 /* src */,
+				71BC2590245F6D9E5A1EE91A /* Frameworks */,
+				0B6B09723D122C8884422F1E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8FEAF305B72EE2EA2B9364BA /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				16F15CD33EBFCCC08BF85027 /* silentsilo-mobile */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		BA87447C22FD04F20232F9F6 /* src */ = {
+			isa = PBXGroup;
+			children = (
+				B68344C7F66558B1FC9923D5 /* android.rs */,
+				8046ABE9BDBA97ADE1456CF9 /* audit.rs */,
+				D1AF4D5B65B79BE3335BB696 /* autofill.rs */,
+				F28F597DE4EB43804FADFA85 /* background.rs */,
+				D894C097916C2CC0784FF098 /* backup.rs */,
+				766D3DDC026BC50EE575313D /* cloud.rs */,
+				3BA4930F495F08ACF1516A6B /* commands.rs */,
+				12121DD5C50E746A46ED2BD1 /* copies.rs */,
+				07D3DE15131AFA3FD020110E /* create.rs */,
+				57560DC3D1ABF69F61BF0BEB /* device_key.rs */,
+				7387175AC1EBE6FAAD6E6FD1 /* history.rs */,
+				61AC7D612032EFC99BF417DE /* host.rs */,
+				C1C08E92702E8926C65F1A8F /* incoming.rs */,
+				E5D7575F603E6D6F3CE6CB57 /* lib.rs */,
+				8A423D46C3D997E1B8656ACD /* main.rs */,
+				D8FAA1EF73E1FA52C4D23EED /* manage.rs */,
+				2E9A32906F2C0BC9D95777D4 /* passkeys.rs */,
+				05DCA97C40FFB75E3489733A /* security_key.rs */,
+				400683E44B49FCBF6EA2E151 /* viewer.rs */,
+			);
+			name = src;
+			path = ../../src;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA9D9184F37B514544A6ACB4 /* silentsilo-mobile_iOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 671D7FB9C7EC02FE0D34CA70 /* Build configuration list for PBXNativeTarget "silentsilo-mobile_iOS" */;
+			buildPhases = (
+				64B4FB725A542B8A27D4E41B /* Build Rust Code */,
+				C23EB94007E4ED18155088B5 /* Sources */,
+				40BEE8952F6A8FBB87BB5F03 /* Resources */,
+				A9E09389A72A24C54F5EE485 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "silentsilo-mobile_iOS";
+			packageProductDependencies = (
+			);
+			productName = "silentsilo-mobile_iOS";
+			productReference = 8D37C8FCA9D02EE0260495AD /* silentsilo-mobile_iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E3A43FEB4650CAA85EE44B37 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					AA9D9184F37B514544A6ACB4 = {
+						DevelopmentTeam = J3YBNT5RQ3;
+					};
+				};
+			};
+			buildConfigurationList = 9B6DD8ED55DAAC1C33EDA673 /* Build configuration list for PBXProject "silentsilo-mobile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 791AF236FC7781DC7DC85889;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 0B6B09723D122C8884422F1E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				AA9D9184F37B514544A6ACB4 /* silentsilo-mobile_iOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		40BEE8952F6A8FBB87BB5F03 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6B5749979966D2F558FABDD1 /* Assets.xcassets in Resources */,
+				7A3B704C22881B8051AD971F /* LaunchScreen.storyboard in Resources */,
+				7D996DFBF0B832D6675500AC /* assets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		64B4FB725A542B8A27D4E41B /* Build Rust Code */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Rust Code";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a",
+				"$(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "npm run -- tauri ios xcode-script -v --platform ${PLATFORM_DISPLAY_NAME:?} --sdk-root ${SDKROOT:?} --framework-search-paths \"${FRAMEWORK_SEARCH_PATHS:?}\" --header-search-paths \"${HEADER_SEARCH_PATHS:?}\" --gcc-preprocessor-definitions \"${GCC_PREPROCESSOR_DEFINITIONS:-}\" --configuration ${CONFIGURATION:?} ${FORCE_COLOR} ${ARCHS:?}";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C23EB94007E4ED18155088B5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				8AC0F768D9C841334819CCB4 /* main.mm in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		34F0848FC80897B762FA3E5D /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = debug;
+		};
+		5D2099CE0E9EC0EAB9C8515F /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "silentsilo-mobile_iOS/silentsilo-mobile_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "J3YBNT5RQ3";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "silentsilo-mobile_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentsilo.mobile;
+				PRODUCT_NAME = "SilentSilo";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = release;
+		};
+		76EC66CD03D9001822488393 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				ARCHS = (
+					arm64,
+				);
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "silentsilo-mobile_iOS/silentsilo-mobile_iOS.entitlements";
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = "J3YBNT5RQ3";
+				ENABLE_BITCODE = NO;
+				"EXCLUDED_ARCHS[sdk=iphoneos*]" = x86_64;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\".\"",
+				);
+				INFOPLIST_FILE = "silentsilo-mobile_iOS/Info.plist";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				"LIBRARY_SEARCH_PATHS[arch=arm64]" = "$(inherited) $(PROJECT_DIR)/Externals/arm64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				"LIBRARY_SEARCH_PATHS[arch=x86_64]" = "$(inherited) $(PROJECT_DIR)/Externals/x86_64/$(CONFIGURATION) $(SDKROOT)/usr/lib/swift $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/$(PLATFORM_NAME) $(DEVELOPER_DIR)/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift-5.0/$(PLATFORM_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentsilo.mobile;
+				PRODUCT_NAME = "SilentSilo";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALID_ARCHS = arm64;
+			};
+			name = debug;
+		};
+		AE62291CBFCBAD9A96D252BC /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		671D7FB9C7EC02FE0D34CA70 /* Build configuration list for PBXNativeTarget "silentsilo-mobile_iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				76EC66CD03D9001822488393 /* debug */,
+				5D2099CE0E9EC0EAB9C8515F /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+		9B6DD8ED55DAAC1C33EDA673 /* Build configuration list for PBXProject "silentsilo-mobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				34F0848FC80897B762FA3E5D /* debug */,
+				AE62291CBFCBAD9A96D252BC /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E3A43FEB4650CAA85EE44B37 /* Project object */;
+}

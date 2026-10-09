@@ -4,7 +4,7 @@ The Android and iOS clients of [SilentSilo](https://silentsilo.com), a
 local-first encrypted vault for files and passwords. AGPL-3.0.
 
 **Android** 12 or later: [Google Play](https://play.google.com/store/apps/details?id=com.silentsilo.mobile).
-**iOS**: not started, no date.
+**iOS**: in progress, no date. It builds and starts; unlocking with Face ID is not there yet.
 
 The engine lives in [silentsilo/core](https://github.com/silentsilo/core).
 This repository pins a tag from it, the same way
