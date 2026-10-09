@@ -8,8 +8,7 @@ use silentsilo_app::flows::{self, DeviceKey};
 use silentsilo_app::{AppState, StoreConfigInput, SyncReport};
 use silentsilo_core::{FolderEntry, VaultEntry, VaultMeta};
 use silentsilo_vault::{
-    KIND_ANDROID_KEYSTORE, LocalVaultAuth, SiloEntry, StoredFidoCredential, VaultSession,
-    load_registry, save_registry,
+    LocalVaultAuth, SiloEntry, StoredFidoCredential, VaultSession, load_registry, save_registry,
 };
 use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
@@ -304,10 +303,10 @@ pub async fn device_key_enroll(
         .and_then(|b| b.try_into().ok())
         .ok_or_else(|| "The phone returned an unreadable key.".to_string())?;
     let key = DeviceKey {
-        kind: KIND_ANDROID_KEYSTORE.into(),
-        derivation: silentsilo_vault::DERIVATION_KEYSTORE_AES_GCM_V1.into(),
+        kind: crate::device_key::KIND.into(),
+        derivation: crate::device_key::DERIVATION.into(),
         credential_id: enrolled.credential_id.clone(),
-        public_key: String::new(),
+        public_key: enrolled.public_key.clone(),
         wrap_key,
         label: label.trim().to_string(),
     };
@@ -365,7 +364,7 @@ pub async fn phone_key_state(
 #[tauri::command]
 pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<VaultMeta, String> {
     let silo = active_silo(&state)?;
-    let ids = flows::device_key_ids(&silo.path, KIND_ANDROID_KEYSTORE);
+    let ids = flows::device_key_ids(&silo.path, crate::device_key::KIND);
     if ids.is_empty() {
         return Err("This phone has no key for this silo. Use the recovery code.".into());
     }
@@ -412,7 +411,7 @@ pub async fn vault_reverify(app: AppHandle, state: State<'_, AppState>) -> Resul
     {
         return Err("Unlock the silo first.".into());
     }
-    let ids = flows::device_key_ids(&silo.path, KIND_ANDROID_KEYSTORE);
+    let ids = flows::device_key_ids(&silo.path, crate::device_key::KIND);
     if ids.is_empty() {
         return Err(
             "This phone has no key for this silo, so it cannot confirm it is you. Add one under Keys."
@@ -875,6 +874,25 @@ pub fn spawn_auto_sync(app: AppHandle) {
     });
 }
 
+/// iOS can move an app's data container when the app is reinstalled or
+/// updated, so the absolute path a silo was saved under goes stale while
+/// the silo itself sits in this app's `silos/` folder as before. Such
+/// entries are pointed back at it before anything opens a silo.
+pub fn rehome_silos(app_data: &std::path::Path) {
+    let mut registry = load_registry(app_data);
+    let mut moved = false;
+    for silo in &mut registry.silos {
+        let here = app_data.join("silos").join(silo.id.to_string());
+        if !silo.path.exists() && here.is_dir() {
+            silo.path = here;
+            moved = true;
+        }
+    }
+    if moved {
+        let _ = save_registry(app_data, &registry);
+    }
+}
+
 /// The silo opened last time, so a restart lands on its unlock screen.
 pub fn restore_focus(app: &AppHandle, state: &AppState) {
     let Ok(app_data) = app_data(app) else {
@@ -887,5 +905,58 @@ pub fn restore_focus(app: &AppHandle, state: &AppState) {
         .or_else(|| registry.silos.first().cloned());
     if let Ok(mut active) = state.active_silo.lock() {
         *active = focused;
+    }
+}
+
+#[cfg(test)]
+mod rehome_tests {
+    use super::*;
+
+    #[test]
+    fn a_silo_left_under_an_old_container_path_is_found_again() {
+        let data = tempfile::tempdir().unwrap();
+        let id = Uuid::new_v4();
+        std::fs::create_dir_all(data.path().join("silos").join(id.to_string())).unwrap();
+        let gone =
+            std::path::PathBuf::from("/private/var/mobile/Containers/Data/Application/OLD/silos")
+                .join(id.to_string());
+        let kept = data.path().join("elsewhere");
+        std::fs::create_dir_all(&kept).unwrap();
+        let other = Uuid::new_v4();
+        save_registry(
+            data.path(),
+            &silentsilo_vault::SiloRegistry {
+                silos: vec![
+                    SiloEntry {
+                        id,
+                        name: "Personal".into(),
+                        path: gone,
+                        last_opened: 0,
+                        auto_lock_minutes: None,
+                    },
+                    SiloEntry {
+                        id: other,
+                        name: "Work".into(),
+                        path: kept.clone(),
+                        last_opened: 0,
+                        auto_lock_minutes: None,
+                    },
+                ],
+                active: Some(id),
+            },
+        )
+        .unwrap();
+
+        rehome_silos(data.path());
+
+        let registry = load_registry(data.path());
+        assert_eq!(
+            registry.silos[0].path,
+            data.path().join("silos").join(id.to_string())
+        );
+        assert_eq!(
+            registry.silos[1].path, kept,
+            "a silo where it was saved stays put"
+        );
     }
 }

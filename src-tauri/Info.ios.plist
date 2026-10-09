@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Merged by Tauri into the generated Info.plist. iOS ends an app that
+     asks for Face ID without saying why. -->
+<plist version="1.0">
+<dict>
+	<key>NSFaceIDUsageDescription</key>
+	<string>SilentSilo uses Face ID to open your silos on this iPhone.</string>
+</dict>
+</plist>
