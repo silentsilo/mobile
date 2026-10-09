@@ -12,5 +12,9 @@
 	<array>
 		<string>A0000006472F0001</string>
 	</array>
+	<!-- Standard algorithms beyond the system's (AES-GCM, Argon2id, HKDF,
+	     ECDH): declared once here instead of at every upload. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
 </dict>
 </plist>

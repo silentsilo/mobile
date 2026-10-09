@@ -20,6 +20,7 @@
 		915F3088F3905B5C6A4DD19D /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6F4F31C0D17930C5F8119643 /* MetalKit.framework */; };
 		984B6C0CF40BDBF2BBEC57D8 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12A95C7A9860750D9174A8BB /* WebKit.framework */; };
 		BD5ACE12294842CA65C5F033 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B7C380D58F31E659D9A3A6A /* libapp.a */; };
+		C2F8128D2E822AD0816C2141 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0F8F6A8910B3BF130A052DC4 /* PrivacyInfo.xcprivacy */; };
 		FE7FEAA828BD3ECE62AE641D /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 07FED78DE5B8CC672E03BBD7 /* UIKit.framework */; };
 /* End PBXBuildFile section */
 
@@ -28,6 +29,7 @@
 		07D3DE15131AFA3FD020110E /* create.rs */ = {isa = PBXFileReference; path = create.rs; sourceTree = "<group>"; };
 		07FED78DE5B8CC672E03BBD7 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		0D1576C987CA3261E874D0A1 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
+		0F8F6A8910B3BF130A052DC4 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		12121DD5C50E746A46ED2BD1 /* copies.rs */ = {isa = PBXFileReference; path = copies.rs; sourceTree = "<group>"; };
 		12A95C7A9860750D9174A8BB /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		1CAD7E042E696358D3C085B5 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -113,6 +115,7 @@
 			isa = PBXGroup;
 			children = (
 				8B6389A514510B02D9D12AD3 /* Info.plist */,
+				0F8F6A8910B3BF130A052DC4 /* PrivacyInfo.xcprivacy */,
 				33DCAA130579F70B1E0E14CF /* silentsilo-mobile_iOS.entitlements */,
 			);
 			path = "silentsilo-mobile_iOS";
@@ -208,7 +211,7 @@
 			path = debug;
 			sourceTree = "<group>";
 		};
-		"TEMP_668F9F99-1284-4DB9-A8B7-822109E6781B" /* x86_64 */ = {
+		"TEMP_21102540-A372-4EC4-8976-B3382329E492" /* x86_64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -278,6 +281,7 @@
 			files = (
 				6B5749979966D2F558FABDD1 /* Assets.xcassets in Resources */,
 				7A3B704C22881B8051AD971F /* LaunchScreen.storyboard in Resources */,
+				C2F8128D2E822AD0816C2141 /* PrivacyInfo.xcprivacy in Resources */,
 				7D996DFBF0B832D6675500AC /* assets in Resources */,
 				39E4A55C5F54C4A652DD6325 /* libapp.a in Resources */,
 			);
