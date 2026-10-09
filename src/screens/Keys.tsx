@@ -13,7 +13,7 @@ function describe(key: SecurityKeyInfo) {
     case "android-keystore":
       return { Icon: Smartphone, detail: t("silo.key_kind_phone") };
     case "secure-enclave":
-      return { Icon: ScanFace, detail: "Touch ID" };
+      return { Icon: ScanFace, detail: t("silo.key_kind_apple") };
     default:
       return key.platform
         ? { Icon: ScanFace, detail: t("silo.key_kind_builtin") }

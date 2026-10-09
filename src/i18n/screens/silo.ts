@@ -950,6 +950,17 @@ export const silo = {
     "pt-BR": "Celular Android",
     pl: "Telefon z Androidem",
   },
+  "silo.key_kind_apple": {
+    note: "Under a key's name in Keys: the key is kept in the Secure Enclave of an iPhone, iPad or Mac and opens with Face ID or Touch ID. Face ID and Touch ID are names, kept as is.",
+    en: "Face ID or Touch ID",
+    ro: "Face ID sau Touch ID",
+    de: "Face ID oder Touch ID",
+    fr: "Face ID ou Touch ID",
+    es: "Face ID o Touch ID",
+    it: "Face ID o Touch ID",
+    "pt-BR": "Face ID ou Touch ID",
+    pl: "Face ID lub Touch ID",
+  },
   "silo.key_kind_builtin": {
     note: "Under a key's name in Keys: a computer's built-in authenticator. Windows Hello and Touch ID are product names.",
     en: "Windows Hello or Touch ID",
