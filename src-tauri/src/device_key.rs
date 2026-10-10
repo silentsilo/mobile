@@ -173,6 +173,13 @@ impl<R: Runtime> DeviceKey<R> {
             .filter_map(|id| hex::decode(id).ok())
             .collect();
         blocking(move || {
+            // No key left behind these ids: iOS deleted it when the passcode
+            // was removed, or it went with a change to the faces or
+            // fingerprints. Said the way Android says it, so the unlock
+            // screen offers the recovery code instead of a bare error.
+            if !silentsilo_fido::device_enclave::holds_any(&ids) {
+                return Err("[invalidated] This phone's Face ID or Touch ID key for this silo is gone. Unlock with the recovery code.".to_string());
+            }
             silentsilo_fido::device_enclave::derive_unlock_material(&ids, &vault_id)
                 .map(|m| Unlocked {
                     credential_id: hex::encode(&m.credential_id),
@@ -198,12 +205,14 @@ impl<R: Runtime> DeviceKey<R> {
             .await?
     }
 
-    /// `ok` or `missing`; asking prompts for nothing. A key whose Face ID
-    /// enrolment changed is only found out at its next use.
+    /// `ok` or `invalidated`; asking prompts for nothing. This phone made
+    /// the key, so one it no longer holds was taken by iOS: the passcode
+    /// removed, or the faces or fingerprints changed. A change iOS leaves
+    /// the key for is only found out at its next use.
     pub async fn key_state(&self, credential_id: &str) -> Result<String, String> {
         let id = hex::decode(credential_id).map_err(|e| e.to_string())?;
         let held = blocking(move || silentsilo_fido::device_enclave::holds_any(&[id])).await?;
-        Ok(if held { "ok" } else { "missing" }.into())
+        Ok(if held { "ok" } else { "invalidated" }.into())
     }
 
     pub async fn autofill_status(&self) -> Result<AutofillStatus, String> {

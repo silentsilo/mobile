@@ -24,7 +24,7 @@ const PROMPT_LIMIT: u64 = 120;
 /// timers stop in deep sleep on Android, so a phone that slept all night came
 /// back counting minutes, with its silo still open.
 #[cfg(target_os = "android")]
-fn since_boot() -> Duration {
+pub(crate) fn since_boot() -> Duration {
     let mut now = libc::timespec {
         tv_sec: 0,
         tv_nsec: 0,
@@ -41,7 +41,7 @@ fn since_boot() -> Duration {
 /// sleeps, so a silo left open at night came back counting only the minutes
 /// the phone was awake. Darwin's CLOCK_MONOTONIC keeps counting asleep.
 #[cfg(target_os = "ios")]
-fn since_boot() -> Duration {
+pub(crate) fn since_boot() -> Duration {
     const CLOCK_MONOTONIC: u32 = 6;
     unsafe extern "C" {
         fn clock_gettime_nsec_np(clock: u32) -> u64;
@@ -52,7 +52,7 @@ fn since_boot() -> Duration {
 
 /// Elsewhere, only for building and testing on a computer.
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
-fn since_boot() -> Duration {
+pub(crate) fn since_boot() -> Duration {
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
     START.get_or_init(std::time::Instant::now).elapsed()
 }

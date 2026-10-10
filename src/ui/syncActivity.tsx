@@ -6,7 +6,15 @@ import { t } from "../i18n";
 /** Where a running sync pass is. Gone once the pass reports its end. */
 export type SyncProgress = {
   silo_id: string;
-  phase: "sending-changes" | "uploading" | "fetching-changes" | "downloading" | "importing";
+  phase:
+    | "sending-changes"
+    | "uploading"
+    | "fetching-changes"
+    | "downloading"
+    | "importing"
+    | "applying"
+    | "compacting"
+    | "checking";
   done: number;
   total: number;
   /**
@@ -55,6 +63,12 @@ export function describeProgress(p: SyncProgress): string {
       return `${t("start.progress_downloading")}${count}${bytes}${name}`;
     case "importing":
       return `${t("start.progress_importing")}${count}`;
+    case "applying":
+      return `${t("start.progress_applying")}${count}`;
+    case "compacting":
+      return t("start.progress_compacting");
+    case "checking":
+      return t("start.progress_checking");
   }
 }
 

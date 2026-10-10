@@ -846,7 +846,10 @@ pub fn recovery_status(state: State<AppState>) -> Result<RecoveryStatus, String>
 /// offline.
 pub fn spawn_auto_sync(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
-        let mut last_pull: std::collections::HashMap<Uuid, i64> = Default::default();
+        // On the clock that only goes forward: the wall clock set back an
+        // hour stopped these passes for that hour.
+        let mut last_pull: std::collections::HashMap<Uuid, std::time::Duration> =
+            Default::default();
         // Silos told this phone's name since the app started.
         let mut announced: std::collections::HashSet<Uuid> = Default::default();
         let mut first = true;
@@ -862,10 +865,7 @@ pub fn spawn_auto_sync(app: AppHandle) {
                 continue;
             };
             let registry = load_registry(&app_data);
-            let now = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs() as i64)
-                .unwrap_or(0);
+            let now = crate::background::since_boot();
             for id in state.open_silo_ids() {
                 let Some(silo) = registry.get(id).cloned() else {
                     continue;
@@ -882,7 +882,11 @@ pub fn spawn_auto_sync(app: AppHandle) {
                             .and_then(|s| silentsilo_vfs::pending_count(&s.conn).ok())
                     })
                     .unwrap_or(0);
-                if waiting == 0 && now - last_pull.get(&id).copied().unwrap_or(0) < 120 {
+                if waiting == 0
+                    && last_pull.get(&id).is_some_and(|at| {
+                        now.saturating_sub(*at) < std::time::Duration::from_secs(120)
+                    })
+                {
                     continue;
                 }
                 // Away from the screen Android keeps the app off the network,

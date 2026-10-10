@@ -1314,6 +1314,17 @@ export const errors = {
     "pt-BR": "Erro desconhecido",
     pl: "Nieznany błąd",
   },
+  "app.err_disk_full": {
+    note: "Error shown when the phone's storage is full and a file could not be written.",
+    en: "This phone's storage is full. Free some space and try again.",
+    ro: "Memoria telefonului e plină. Fă loc și încearcă din nou.",
+    de: "Der Speicher dieses Telefons ist voll. Gib Speicher frei und versuche es erneut.",
+    fr: "Le stockage de ce téléphone est plein. Libérez de l’espace et réessayez.",
+    es: "El almacenamiento de este teléfono está lleno. Libera espacio y vuelve a intentarlo.",
+    it: "La memoria di questo telefono è piena. Libera spazio e riprova.",
+    "pt-BR": "O armazenamento deste celular está cheio. Libere espaço e tente de novo.",
+    pl: "Pamięć tego telefonu jest pełna. Zwolnij miejsce i spróbuj ponownie.",
+  },
   "app.err_not_backed_up": {
     note: "Error when something needs backup storage and the silo has none connected.",
     en: "Not backed up. This silo is only on this phone.",

@@ -167,6 +167,8 @@ pub fn run() {
             incoming::files_take_photo,
             incoming::vault_import_offered,
             incoming::vault_import_photo,
+            incoming::files_left_photos,
+            incoming::files_discard_left_photos,
             incoming::vault_create_folder,
             incoming::share_to_inbox,
             viewer::file_open_with,

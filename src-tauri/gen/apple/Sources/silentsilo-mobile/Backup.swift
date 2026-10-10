@@ -568,7 +568,8 @@ final class BackupRunner {
   /// sent and at most once a day.
   private func sendContacts() -> Bool {
     let now = Int(Date().timeIntervalSince1970)
-    if now - BackupPrefs.contactsSentAt < 24 * 3600 { return false }
+    // A clock set back counts as a day gone, or contacts would wait out the jump.
+    if now >= BackupPrefs.contactsSentAt && now - BackupPrefs.contactsSentAt < 24 * 3600 { return false }
     let file = Self.contactsFile
     defer { try? FileManager.default.removeItem(at: file) }
     var contacts: [CNContact] = []

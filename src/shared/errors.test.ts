@@ -8,6 +8,16 @@ beforeEach(() => setLanguage("en"));
 afterEach(() => setLanguage("system"));
 
 describe("formatAppError", () => {
+  it("says a full disk in words, on every platform", () => {
+    for (const raw of [
+      "No space left on device (os error 28)",
+      "There is not enough space on the disk. (os error 112)",
+    ]) {
+      expect(formatAppError(raw)).toContain("storage is full");
+    }
+    expect(formatAppError("failed (os error 280)")).not.toContain("storage is full");
+  });
+
   it("says a missing backup storage in the phone's words", () => {
     const expected = "Not backed up. This silo is only on this phone.";
     expect(formatAppError("CloudNotConfigured")).toBe(expected);

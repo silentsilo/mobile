@@ -59,6 +59,12 @@ class BackupPrefs(context: Context) {
   // When the inbox last went from empty to holding something.
   var waitingSince: Long by long("waitingSince")
   var remindedAt: Long by long("remindedAt")
+  // The item a run started on and how many runs started it without it
+  // going through: a video too large for one job's time.
+  var stuckItem: String by string("stuckItem")
+  var stuckRuns: Long by long("stuckRuns")
+  // Items moved behind the rest after that, "kind:id:added", comma separated.
+  var deferred: String by string("deferred")
 
   fun clear() = prefs.edit().clear().apply()
 
@@ -236,6 +242,7 @@ class BackupRunner(private val context: Context) {
       if (prefs.contacts && granted(Manifest.permission.READ_CONTACTS) && !stopped()) {
         if (sendContacts()) return true
       }
+      if (sendDeferred(stopped)) return true
       prefs.lastError = ""
       return false
     } finally {
@@ -274,6 +281,29 @@ class BackupRunner(private val context: Context) {
         }
         else -> Native.resolveResend(dataDir, kind, reference)
       }
+    }
+    return false
+  }
+
+  // The items moved behind the rest, after everything else. One that does not
+  // go through stays for the next run.
+  private fun sendDeferred(stopped: () -> Boolean): Boolean {
+    for (key in prefs.deferred.split(',').filter { it.isNotBlank() }) {
+      if (stopped()) return true
+      val parts = key.split(':')
+      val media = if (parts.getOrNull(0) == "video") Media.VIDEO else Media.PHOTO
+      val id = parts.getOrNull(1)?.toLongOrNull()
+      val added = parts.getOrNull(2)?.toLongOrNull()
+      // To the back first: one killed with the job again does not keep the
+      // others behind it waiting for ever.
+      prefs.deferred = (prefs.deferred.split(',').filter { it.isNotBlank() && it != key } + key).joinToString(",")
+      val outcome = if (id == null || added == null) "gone" else resendMedia(media, id, added)
+      if (outcome.startsWith("retry")) {
+        prefs.lastError = outcome.removePrefix("retry: ")
+        return true
+      }
+      if (outcome == "ok") prefs.sent = prefs.sent + 1
+      prefs.deferred = prefs.deferred.split(',').filter { it.isNotBlank() && it != key }.joinToString(",")
     }
     return false
   }
@@ -359,8 +389,25 @@ class BackupRunner(private val context: Context) {
         val name = rows.getString(1) ?: "${media.kind}-$id"
         val mime = rows.getString(2) ?: ""
         val dateAdded = rows.getLong(4)
+        // Started by three runs and never through: the job's time ends
+        // before it does. Moved behind everything else, so the photos after
+        // it are not held up, and tried again at the end of each run.
+        val key = "${media.kind}:$id:$dateAdded"
+        if (prefs.stuckItem == key) {
+          prefs.stuckRuns = prefs.stuckRuns + 1
+        } else {
+          prefs.stuckItem = key
+          prefs.stuckRuns = 1
+        }
+        if (prefs.stuckRuns > 3) {
+          prefs.deferred = (prefs.deferred.split(',').filter { it.isNotBlank() } + key).distinct().joinToString(",")
+          prefs.stuckItem = ""
+          setMarks(media, dateAdded, id)
+          continue
+        }
         val outcome = send(media, id, dateAdded, name, mime, rows.getLong(3))
           ?: "skip: it could not be opened"
+        if (!outcome.startsWith("retry")) prefs.stuckItem = ""
 
         if (outcome.startsWith("retry")) {
           prefs.lastError = outcome.removePrefix("retry: ")
@@ -421,7 +468,8 @@ class BackupRunner(private val context: Context) {
   // for the upload and no longer: it goes as soon as the silo has read it.
   private fun sendContacts(): Boolean {
     val now = System.currentTimeMillis() / 1000
-    if (now - prefs.contactsSentAt < TimeUnit.DAYS.toSeconds(1)) return false
+    // A clock set back counts as a day gone, or contacts would wait out the jump.
+    if (now >= prefs.contactsSentAt && now - prefs.contactsSentAt < TimeUnit.DAYS.toSeconds(1)) return false
     val file = contactsFile()
     try {
       val digest = MessageDigest.getInstance("SHA-256")

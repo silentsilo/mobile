@@ -11,6 +11,8 @@ import android.view.WindowManager
 import android.webkit.WebView
 
 class MainActivity : TauriActivity() {
+  private var webView: WebView? = null
+
   // The screen turning off pauses the app like leaving it does, but the
   // user may want the silo locked at once rather than after the delay.
   private val screenOff = object : BroadcastReceiver() {
@@ -39,9 +41,12 @@ class MainActivity : TauriActivity() {
   }
 
   // The phone switching between light and dark, or the app's own choice.
+  // A new font size is applied here too, without restarting the screen: a
+  // restart dropped an import or a join half way.
   override fun onConfigurationChanged(newConfig: Configuration) {
     super.onConfigurationChanged(newConfig)
     Appearance.systemBars(this)
+    webView?.settings?.textZoom = (newConfig.fontScale * 100).toInt()
   }
 
   // Android's own autofill must never see the silo: it would keep the
@@ -49,6 +54,7 @@ class MainActivity : TauriActivity() {
   // autofill store, outside the silo and unencrypted.
   override fun onWebViewCreate(webView: WebView) {
     webView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
+    this.webView = webView
   }
 
   override fun onDestroy() {

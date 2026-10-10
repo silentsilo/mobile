@@ -293,6 +293,8 @@ const handlers: Record<string, Handler> = {
     return 42;
   },
   backup_target_fill_stop: async () => {},
+  files_left_photos: async () => [],
+  files_discard_left_photos: async () => {},
   cloud_sign_in: async (args) => {
     await wait(900);
     return {

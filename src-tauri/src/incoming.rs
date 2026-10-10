@@ -282,6 +282,38 @@ pub async fn vault_import_offered(
     }
 }
 
+/// Photos the camera wrote that were never added: the app was closed while
+/// the camera was open (Android ends it to free memory). Offered again on
+/// the files screen, never left in the cache unsaid.
+#[tauri::command]
+pub async fn files_left_photos(app: AppHandle) -> Result<Vec<String>, String> {
+    let camera = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("camera");
+    let Ok(entries) = std::fs::read_dir(&camera) else {
+        return Ok(Vec::new());
+    };
+    Ok(entries
+        .flatten()
+        .filter(|e| e.metadata().is_ok_and(|m| m.is_file() && m.len() > 0))
+        .map(|e| e.path().to_string_lossy().into_owned())
+        .collect())
+}
+
+/// Deletes those photos without adding them.
+#[tauri::command]
+pub async fn files_discard_left_photos(app: AppHandle) -> Result<(), String> {
+    let camera = app
+        .path()
+        .app_cache_dir()
+        .map_err(|e| e.to_string())?
+        .join("camera");
+    let _ = std::fs::remove_dir_all(camera);
+    Ok(())
+}
+
 /// Adds the photo the camera just wrote, then removes it from the cache.
 #[tauri::command]
 pub async fn vault_import_photo(

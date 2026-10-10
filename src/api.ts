@@ -287,6 +287,9 @@ export const api = {
   takePhoto: () => invoke<string | null>("files_take_photo"),
   importOffered: (file: Offered, folderId: string) => invoke<FileEntry>("vault_import_offered", { file, folderId }),
   importPhoto: (path: string, name: string, folderId: string) => invoke<FileEntry>("vault_import_photo", { path, name, folderId }),
+  /** Photos the camera took that never reached the silo. */
+  leftPhotos: () => invoke<string[]>("files_left_photos"),
+  discardLeftPhotos: () => invoke<void>("files_discard_left_photos"),
   createFolder: (parentId: string, name: string) => invoke<FolderEntry>("vault_create_folder", { parentId, name }),
   shareToInbox: (file: Offered) => invoke<void>("share_to_inbox", { file }),
 

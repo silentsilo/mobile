@@ -160,6 +160,28 @@ export function Files({
     }
   };
 
+  // A photo the camera took while Android closed the app is still in the
+  // cache: offered here rather than lost or left there.
+  const [leftPhotos, setLeftPhotos] = useState<string[]>([]);
+  useEffect(() => {
+    api.leftPhotos().then(setLeftPhotos, () => undefined);
+  }, []);
+  const addLeftPhotos = async () => {
+    if (!here) return;
+    const paths = leftPhotos;
+    setLeftPhotos([]);
+    setProgress(t("files.adding_photo"));
+    try {
+      for (const path of paths) await api.importPhoto(path, photoName(), here.id);
+      toast(t("files.photo_added"));
+    } catch (e) {
+      toast(formatAppError(e));
+    } finally {
+      setProgress(null);
+      void load(here.id);
+    }
+  };
+
   const takePhoto = async () => {
     setAdding(false);
     if (!here) return;
@@ -409,6 +431,25 @@ export function Files({
         {isIOS && <AddButton label={t("files.add_here")} disabled={!here || progress !== null} onClick={() => setAdding(true)} />}
       </div>
       {progress && <div className="notice" style={{ margin: "0 16px 10px" }}>{progress}</div>}
+      {leftPhotos.length > 0 && !progress && (
+        <div className="notice" style={{ margin: "0 16px 10px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <span>{t("files.left_photos", { count: leftPhotos.length })}</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" onClick={() => void addLeftPhotos()}>
+              {t("files.left_add")}
+            </button>
+            <button
+              className="btn secondary"
+              onClick={() => {
+                setLeftPhotos([]);
+                void api.discardLeftPhotos().catch(() => undefined);
+              }}
+            >
+              {t("files.left_discard")}
+            </button>
+          </div>
+        </div>
+      )}
       <div className="list-area">
         <div className="list-scroll">
           {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
