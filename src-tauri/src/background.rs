@@ -209,6 +209,10 @@ pub fn suspended(app: &AppHandle) {
     if let Ok(mut at) = lock.suspended_at.lock() {
         *at = Some(since_boot());
     }
+    // AutoFill opens the silo from its snapshot, in another process: what
+    // was saved since the last lock goes into it as the app leaves.
+    #[cfg(target_os = "ios")]
+    app.state::<AppState>().flush_all(&MobileHost(app.clone()));
     arm(app, lock_after(app));
 }
 

@@ -5,6 +5,7 @@ import { formatAppError } from "../shared/errors";
 import { useBackLayer } from "../ui/back";
 import { Field, Notice, StepBar, TopBar } from "../ui/chrome";
 import { t, useLocale } from "../i18n";
+import { isIOS } from "../ui/platform";
 
 /**
  * Making this phone's key. `rekey` is the same thing after a fingerprint
@@ -64,10 +65,10 @@ export function JoinKey({
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <h1 className="title">{rekey ? t("start.rekey_title") : t("start.key_title")}</h1>
-          <p className="hint">{rekey ? t("start.rekey_body") : t("start.key_body")}</p>
+          <p className="hint">{rekey ? t(isIOS ? "start.rekey_body_ios" : "start.rekey_body") : t("start.key_body")}</p>
         </div>
         <Notice tone="warning">
-          <p className="hint small">{t("start.key_warning")}</p>
+          <p className="hint small">{t(isIOS ? "start.key_warning_ios" : "start.key_warning")}</p>
         </Notice>
         <Field label={t("start.key_name_label")}>
           <div className="input">

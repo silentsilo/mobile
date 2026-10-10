@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.silentsilo.mobile.backup</string>
+	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>
@@ -18,8 +22,28 @@
 	<string>1.4.0</string>
 	<key>CFBundleVersion</key>
 	<string>1.4.0</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<true/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>SilentSilo reads a security key held to the iPhone to open your silos.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>SilentSilo takes a photo straight into your silo, encrypted on this iPhone.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>SilentSilo backs up your contacts to your silo, encrypted on this iPhone.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>SilentSilo uses Face ID to open your silos on this iPhone.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>SilentSilo connects to the backup server on your network that you set up for your silo.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SilentSilo saves a file from your silo to Photos when you choose to.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SilentSilo backs up the photos and videos you choose to your silo, encrypted on this iPhone.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>processing</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
@@ -33,31 +57,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSFaceIDUsageDescription</key>
-	<string>SilentSilo uses Face ID to open your silos on this iPhone.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>SilentSilo takes a photo straight into your silo, encrypted on this iPhone.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>SilentSilo saves a file from your silo to Photos when you choose to.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>SilentSilo backs up the photos and videos you choose to your silo, encrypted on this iPhone.</string>
-	<key>NSContactsUsageDescription</key>
-	<string>SilentSilo backs up your contacts to your silo, encrypted on this iPhone.</string>
-	<key>BGTaskSchedulerPermittedIdentifiers</key>
-	<array>
-		<string>com.silentsilo.mobile.backup</string>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>processing</string>
-	</array>
-	<key>NFCReaderUsageDescription</key>
-	<string>SilentSilo reads a security key held to the iPhone to open your silos.</string>
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
 	<array>
 		<string>A0000006472F0001</string>
 	</array>
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<true/>
 </dict>
 </plist>

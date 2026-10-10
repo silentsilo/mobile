@@ -23,6 +23,8 @@
 	<array>
 		<string>processing</string>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>SilentSilo connects to the backup server on your network that you set up for your silo.</string>
 	<key>NFCReaderUsageDescription</key>
 	<string>SilentSilo reads a security key held to the iPhone to open your silos.</string>
 	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
@@ -30,7 +32,8 @@
 		<string>A0000006472F0001</string>
 	</array>
 	<!-- Standard algorithms beyond the system's (AES-GCM, Argon2id, HKDF,
-	     ECDH): declared once here instead of at every upload. -->
+	     ECDH). App Store Connect still asks about export at each upload
+	     until it has a compliance code (the French declaration brings one). -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<true/>
 </dict>

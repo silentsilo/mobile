@@ -5,3 +5,4 @@
 "NSPhotoLibraryAddUsageDescription" = "O SilentSilo salva um arquivo do seu silo no app Fotos quando você escolhe.";
 "NSPhotoLibraryUsageDescription" = "O SilentSilo faz backup das fotos e vídeos que você escolher no seu silo, criptografados neste iPhone.";
 "NSContactsUsageDescription" = "O SilentSilo faz backup dos seus contatos no seu silo, criptografados neste iPhone.";
+"NSLocalNetworkUsageDescription" = "O SilentSilo se conecta ao servidor de backup da sua rede que você configurou para o seu silo.";

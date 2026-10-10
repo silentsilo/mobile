@@ -90,22 +90,27 @@ final class ShareViewController: UIViewController {
           done.resume(returning: false)
           return
         }
-        let folder = inbox.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        // Written under a hidden name and renamed when complete, so the app
+        // never takes half a file.
+        let id = UUID().uuidString
+        let partial = inbox.appendingPathComponent("." + id, isDirectory: true)
+        let folder = inbox.appendingPathComponent(id, isDirectory: true)
         var name = suggested ?? url.deletingPathExtension().lastPathComponent
         if URL(fileURLWithPath: name).pathExtension.isEmpty, !url.pathExtension.isEmpty {
           name += "." + url.pathExtension
         }
-        let target = folder.appendingPathComponent(name.replacingOccurrences(of: "/", with: "_"))
+        let target = partial.appendingPathComponent(name.replacingOccurrences(of: "/", with: "_"))
         do {
           try FileManager.default.createDirectory(
-            at: folder, withIntermediateDirectories: true,
+            at: partial, withIntermediateDirectories: true,
             attributes: [.protectionKey: FileProtectionType.complete])
           try FileManager.default.copyItem(at: url, to: target)
           try (target as NSURL).setResourceValue(
             URLFileProtection.complete, forKey: .fileProtectionKey)
+          try FileManager.default.moveItem(at: partial, to: folder)
           done.resume(returning: true)
         } catch {
-          try? FileManager.default.removeItem(at: folder)
+          try? FileManager.default.removeItem(at: partial)
           done.resume(returning: false)
         }
       }

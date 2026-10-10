@@ -5,3 +5,4 @@
 "NSPhotoLibraryAddUsageDescription" = "SilentSilo enregistre un fichier de votre silo dans Photos quand vous le choisissez.";
 "NSPhotoLibraryUsageDescription" = "SilentSilo sauvegarde les photos et vidéos que vous choisissez dans votre silo, chiffrées sur cet iPhone.";
 "NSContactsUsageDescription" = "SilentSilo sauvegarde vos contacts dans votre silo, chiffrés sur cet iPhone.";
+"NSLocalNetworkUsageDescription" = "SilentSilo se connecte au serveur de sauvegarde de votre réseau que vous avez configuré pour votre silo.";

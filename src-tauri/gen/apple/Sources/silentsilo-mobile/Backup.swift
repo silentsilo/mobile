@@ -222,11 +222,22 @@ enum BackupScheduler {
 public func ssBackupRegister() {
   BGTaskScheduler.shared.register(forTaskWithIdentifier: taskId, using: nil) { task in
     let stop = StopFlag()
-    task.expirationHandler = { stop.set() }
+    let done = StopFlag()
+    // iOS ends the process if the task is not completed soon after this;
+    // an item still uploading is sent again next time, under the same id.
+    task.expirationHandler = {
+      stop.set()
+      if done.setOnce() {
+        BackupScheduler.schedule()
+        task.setTaskCompleted(success: false)
+      }
+    }
     DispatchQueue.global(qos: .utility).async {
       let retry = BackupRunner().backUp { stop.isSet }
-      BackupScheduler.schedule()
-      task.setTaskCompleted(success: !retry)
+      if done.setOnce() {
+        BackupScheduler.schedule()
+        task.setTaskCompleted(success: !retry)
+      }
     }
   }
 }
@@ -236,6 +247,14 @@ final class StopFlag: @unchecked Sendable {
   private var value = false
   func set() { lock.withLock { value = true } }
   var isSet: Bool { lock.withLock { value } }
+  /// True for the first caller only.
+  func setOnce() -> Bool {
+    lock.withLock {
+      if value { return false }
+      value = true
+      return true
+    }
+  }
 }
 
 // MARK: - One run
@@ -362,17 +381,25 @@ final class BackupRunner {
   }
 
   private func sendQueue(_ stopped: () -> Bool) -> Bool {
-    var queue = BackupQueue.load()
+    let queue = BackupQueue.load()
     let scope = inChosenAlbums()
-    while let entry = queue.first {
+    var done = 0
+    // Saved every 25 items and on the way out: "send everything" can queue
+    // tens of thousands, and rewriting all of it per item wears the disk.
+    defer { BackupQueue.save(Array(queue.dropFirst(done))) }
+    while done < queue.count {
+      let entry = queue[done]
       if stopped() { return true }
       let video = entry.hasPrefix("v:")
       let id = String(entry.dropFirst(2))
       let wanted = video ? BackupPrefs.videos : BackupPrefs.photos
-      if wanted, scope?.contains(id) ?? true,
-        let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject
-      {
-        let outcome = send(asset, video: video)
+      let outcome: String? = autoreleasepool {
+        guard wanted, scope?.contains(id) ?? true,
+          let asset = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil).firstObject
+        else { return nil }
+        return send(asset, video: video)
+      }
+      if let outcome {
         if outcome.hasPrefix("retry") {
           BackupPrefs.lastError = String(outcome.dropFirst("retry: ".count))
           return true
@@ -384,8 +411,8 @@ final class BackupRunner {
           BackupPrefs.lastError = String(outcome.dropFirst("skip: ".count))
         }
       }
-      queue.removeFirst()
-      BackupQueue.save(queue)
+      done += 1
+      if done % 25 == 0 { BackupQueue.save(Array(queue.dropFirst(done))) }
     }
     return false
   }
@@ -416,7 +443,10 @@ final class BackupRunner {
       failure = $0
       written.signal()
     }
-    written.wait()
+    // An iCloud download has no handle to cancel; it gets ten minutes.
+    if written.wait(timeout: .now() + 600) == .timedOut {
+      return "retry: the photo did not download in time"
+    }
     if let failure { return "retry: \(failure.localizedDescription)" }
 
     let taken = Int((asset.creationDate ?? Date()).timeIntervalSince1970)
@@ -513,7 +543,9 @@ final class BackupRunner {
       return false
     }
     do {
-      try data.write(to: file, options: [.atomic, .completeFileProtection])
+      // Written while the iPhone is locked, as background runs usually are:
+      // the class that allows it. The file goes as soon as it is sent.
+      try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     } catch {
       return true
     }
@@ -593,7 +625,7 @@ final class BackupRunner {
   }
 
   private func contactsAllowed() -> Bool {
-    CNContactStore.authorizationStatus(for: .contacts) == .authorized
+    contactsReadable()
   }
 }
 
@@ -669,7 +701,7 @@ private func backupStatus() -> [String: Any] {
     "waiting": BackupPrefs.waiting,
     "photosAllowed": allowed,
     "videosAllowed": allowed,
-    "contactsAllowed": CNContactStore.authorizationStatus(for: .contacts) == .authorized,
+    "contactsAllowed": contactsReadable(),
   ]
 }
 
@@ -744,4 +776,11 @@ private func configure(_ args: [String: Any]) {
   BackupPrefs.remind = args["remind"] as? Bool ?? true
   BackupScheduler.schedule()
   BackupScheduler.runNow()
+}
+
+/// Full access, or on iOS 18 the contacts the person chose to share.
+func contactsReadable() -> Bool {
+  let status = CNContactStore.authorizationStatus(for: .contacts)
+  if #available(iOS 18, *), status == .limited { return true }
+  return status == .authorized
 }

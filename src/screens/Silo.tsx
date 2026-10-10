@@ -1,4 +1,4 @@
-import { ChevronRight, Cloud, Code, FileText, Fingerprint, HardDrive, HeartPulse, History, Images, Languages, TextCursorInput, KeyRound, LockKeyhole, MonitorOff, RefreshCw, Scale, ScrollText, Smartphone, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, Code, FileText, Fingerprint, HardDrive, HeartPulse, History, Images, KeyRound, Languages, LockKeyhole, MonitorOff, RefreshCw, Scale, ScrollText, ShieldCheck, Smartphone, TextCursorInput, Trash2 } from "lucide-react";
 import { LOCALES, dateLocale, languagePreference, setLanguage, systemLocale, t, useLocale } from "../i18n";
 import { RecoveryCodeShow } from "../ui/RecoveryCodeShow";
 import { useEffect, useState } from "react";
@@ -42,6 +42,7 @@ function languageLabel(l: (typeof LOCALES)[number]): string {
 
 /** Where the app's source code is: AGPL section 6, for whoever has the app. */
 const SOURCE = "https://github.com/silentsilo/mobile";
+const PRIVACY = "https://silentsilo.com/privacy/";
 
 export function Silo({
   siloId,
@@ -276,7 +277,7 @@ export function Silo({
             )}
             {navRow(History, t("silo.row_history"), historyPolicy === null ? "" : historyLabel(historyPolicy), () => setChoosingHistory(true))}
             {navRow(Smartphone, t("silo.row_lock_background"), lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
-            {screenOff !== null && (
+            {screenOff !== null && !isIOS && (
               <ToggleRow
                 icon={<MonitorOff size={20} color="var(--accent-text)" style={{ flex: "none" }} />}
                 label={t("silo.row_screen_off")}
@@ -331,6 +332,7 @@ export function Silo({
           <div className="panel">
             {navRow(Code, t("silo.row_source"), "", () => openLink(SOURCE), true)}
             {navRow(Scale, t("silo.row_licence"), "AGPL-3.0", () => openLink(`${SOURCE}/blob/main/LICENSE`))}
+            {navRow(ShieldCheck, t("silo.row_privacy"), "", () => openLink(PRIVACY))}
             {navRow(FileText, t("silo.row_notices"), "", openNotices)}
           </div>
           <p className="hint" style={{ alignSelf: "center", margin: 0 }}>
@@ -378,7 +380,7 @@ export function Silo({
       </Sheet>
 
       <Sheet open={choosingLock} onClose={() => setChoosingLock(false)} title={t("silo.row_lock_background")}>
-        <p className="hint">{t("silo.lock_hint")}</p>
+        <p className="hint">{t(isIOS ? "silo.lock_hint_ios" : "silo.lock_hint")}</p>
         <div className="panel" role="radiogroup" aria-label={t("silo.row_lock_background")}>
           {LOCK_CHOICES.map((seconds, i) => (
             <ChoiceRow

@@ -51,6 +51,7 @@ pub fn run() {
             #[cfg(target_os = "ios")]
             if let (Ok(old), Ok(new)) = (app.path().app_data_dir(), paths::data_dir(app.handle())) {
                 paths::move_into(&old, &new);
+                paths::take_work_back(&new, &old);
             }
             background::remember(app.handle());
             #[cfg(target_os = "ios")]
@@ -61,7 +62,7 @@ pub fn run() {
                 let _ = std::fs::create_dir_all(&data);
                 ios::stderr_to_file(&data.join("stderr.log"));
             }
-            silentsilo_vault::set_work_base(data.join("work"));
+            silentsilo_vault::set_work_base(paths::work_dir(app.handle())?);
             // Before the first secret file is read or written.
             #[cfg(target_os = "ios")]
             let sealed = keychain::install_protector();
@@ -78,6 +79,7 @@ pub fn run() {
                 secrets::seal_existing(&data);
             }
             commands::rehome_silos(&data);
+            paths::recover_silos(&data);
             let handle = app.handle().clone();
             commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());
             commands::spawn_auto_sync(handle);

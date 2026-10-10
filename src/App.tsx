@@ -71,7 +71,14 @@ export default function App() {
   const rekeyAsked = useRef(false);
 
   const takeShared = useCallback(() => {
-    api.takeShared().then((files) => files.length && setShared(files), () => {});
+    // Added to what is waiting, each once: iOS offers again what was taken
+    // and not imported yet.
+    api.takeShared().then(
+      (files) =>
+        files.length &&
+        setShared((waiting) => [...waiting, ...files.filter((f) => !waiting.some((w) => w.uri === f.uri))]),
+      () => {},
+    );
   }, []);
 
   useEffect(() => {

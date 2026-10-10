@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { api, type SecurityKeyStatus } from "../api";
 import { Notice } from "./chrome";
 import { t, useLocale } from "../i18n";
+import { isIOS } from "./platform";
 
 /** What to do with the key while the phone waits for it. */
 export function SecurityKeyWait({ touches = 1 }: { touches?: 1 | 2 }) {
@@ -35,13 +36,13 @@ export function SecurityKeyWait({ touches = 1 }: { touches?: 1 | 2 }) {
         </p>
       ) : (
         <p className="hint">
-          {t("start.key_hold")}
+          {t(isIOS ? "start.key_hold_ios" : "start.key_hold")}
           {touches === 2 ? ` ${t("start.key_twice")}` : ""}
         </p>
       )}
       {status && status.nfc && !status.nfcOn && (
         <Notice tone="warning" style={{ alignSelf: "stretch" }}>
-          {t("start.key_nfc_off")}
+          {t(isIOS ? "start.key_nfc_off_ios" : "start.key_nfc_off")}
         </Notice>
       )}
       {status && !status.nfc && !status.usb && (

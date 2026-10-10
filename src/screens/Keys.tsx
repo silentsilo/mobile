@@ -7,11 +7,12 @@ import { Field, Notice, Sheet, Skeleton, TopBar } from "../ui/chrome";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
 import { haptic } from "../ui/haptics";
 import { t, useLocale } from "../i18n";
+import { isIOS } from "../ui/platform";
 
 function describe(key: SecurityKeyInfo) {
   switch (key.kind ?? "fido2") {
     case "android-keystore":
-      return { Icon: Smartphone, detail: t("silo.key_kind_phone") };
+      return { Icon: Smartphone, detail: t(isIOS ? "silo.key_kind_phone_ios" : "silo.key_kind_phone") };
     case "secure-enclave":
       return { Icon: ScanFace, detail: t("silo.key_kind_apple") };
     default:
@@ -123,7 +124,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
       <Sheet open={adding !== null} onClose={closeAdding} title={t("silo.key_add_title")}>
         {adding === "name" && (
           <>
-            <p className="hint">{t("silo.key_add_hint")}</p>
+            <p className="hint">{t(isIOS ? "silo.key_add_hint_ios" : "silo.key_add_hint")}</p>
             <Field label={t("silo.key_name_label")}>
               <div className="input">
                 <input value={label} onChange={(e) => setLabel(e.target.value)} />

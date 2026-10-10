@@ -31,7 +31,11 @@ targets:
     sources:
       - path: Sources
       - path: Assets.xcassets
+      # Only linked (libapp.a, below). As a resource it was copied whole into
+      # the app, which App Store Connect refuses (ITMS-90171).
       - path: Externals
+        buildPhase: none
+        optional: true
       - path: silentsilo-mobile_iOS
       - path: assets
         buildPhase: resources
@@ -48,7 +52,23 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 1.4.0
-        CFBundleVersion: "1.4.0"
+        # The build number, set by `tauri ios build` (agvtool) for every
+        # target at once, so the extensions always match the app.
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        # Also in src-tauri/Info.ios.plist, which Tauri merges at build: here
+        # so an Info.plist xcodegen writes is complete on its own. Keep both
+        # in step; the translations are in each .lproj/InfoPlist.strings.
+        NSFaceIDUsageDescription: SilentSilo uses Face ID to open your silos on this iPhone.
+        NSCameraUsageDescription: SilentSilo takes a photo straight into your silo, encrypted on this iPhone.
+        NSPhotoLibraryAddUsageDescription: SilentSilo saves a file from your silo to Photos when you choose to.
+        NSPhotoLibraryUsageDescription: SilentSilo backs up the photos and videos you choose to your silo, encrypted on this iPhone.
+        NSContactsUsageDescription: SilentSilo backs up your contacts to your silo, encrypted on this iPhone.
+        NSLocalNetworkUsageDescription: SilentSilo connects to the backup server on your network that you set up for your silo.
+        NFCReaderUsageDescription: SilentSilo reads a security key held to the iPhone to open your silos.
+        com.apple.developer.nfc.readersession.iso7816.select-identifiers: [A0000006472F0001]
+        BGTaskSchedulerPermittedIdentifiers: [com.silentsilo.mobile.backup]
+        UIBackgroundModes: [processing]
+        ITSAppUsesNonExemptEncryption: true
     entitlements:
       path: silentsilo-mobile_iOS/silentsilo-mobile_iOS.entitlements
       # Written into that file by xcodegen on every build: an entitlement
@@ -114,7 +134,7 @@ targets:
         CFBundleDisplayName: SilentSilo
         # Kept equal to the app's: App Store Connect warns on a mismatch.
         CFBundleShortVersionString: 1.4.0
-        CFBundleVersion: "1.4.0"
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
@@ -150,7 +170,7 @@ targets:
         CFBundleDisplayName: SilentSilo
         # Kept equal to the app's: App Store Connect warns on a mismatch.
         CFBundleShortVersionString: 1.4.0
-        CFBundleVersion: "1.4.0"
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSFaceIDUsageDescription: SilentSilo uses Face ID to open your silo and fill a login.
         NSExtension:
           NSExtensionPointIdentifier: com.apple.authentication-services-credential-provider-ui

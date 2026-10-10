@@ -5,3 +5,4 @@
 "NSPhotoLibraryAddUsageDescription" = "SilentSilo salvează un fișier din siloz în Poze când alegi asta.";
 "NSPhotoLibraryUsageDescription" = "SilentSilo face backup în siloz pozelor și videoclipurilor pe care le alegi, criptate pe acest iPhone.";
 "NSContactsUsageDescription" = "SilentSilo face backup în siloz contactelor tale, criptate pe acest iPhone.";
+"NSLocalNetworkUsageDescription" = "SilentSilo se conectează la serverul de backup din rețeaua ta, pe care l-ai configurat pentru siloz.";

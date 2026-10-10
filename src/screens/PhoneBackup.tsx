@@ -5,6 +5,7 @@ import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import { Notice, Sheet, Skeleton, ToggleRow, TopBar, useToast } from "../ui/chrome";
 import { dateLocale, t, useLocale } from "../i18n";
+import { isIOS } from "../ui/platform";
 
 /** The silo folder backups land in; its name stays as the phone writes it. */
 const BACKUP_FOLDER = "Phone backup";
@@ -95,6 +96,18 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
     }
   };
 
+  // Android shows what is read before its own prompt, as Google Play asks.
+  // iOS goes straight to its prompt: Apple refuses a screen that can be
+  // dismissed before it (5.1.1).
+  const disclose = (kind: "photos" | "videos" | "contacts") => {
+    if (!isIOS) {
+      setDisclosing(kind);
+      return;
+    }
+    if (kind === "contacts") void apply({ contacts: true });
+    else askAboutExisting(kind);
+  };
+
   // Counted first, so "All" says what it would send.
   const askAboutExisting = (kind: "photos" | "videos") => {
     setAskExisting(kind);
@@ -110,7 +123,10 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
   // What "all existing" would send, in the folders backed up.
   const existing = (kind: "photos" | "videos") => {
     if (!folders || !status) return null;
-    const inScope = folders.filter((f) => status.folders.length === 0 || status.folders.includes(f.id));
+    const inScope =
+      status.folders.length === 0
+        ? isIOS ? folders.slice(0, 1) : folders
+        : folders.filter((f) => status.folders.includes(f.id));
     const count = inScope.reduce((n, f) => n + (kind === "photos" ? f.photos : f.videos), 0);
     // Folder sizes cover photos and videos together; shared out by count.
     const bytes = inScope.reduce((n, f) => n + (f.photos + f.videos ? (f.bytes * (kind === "photos" ? f.photos : f.videos)) / (f.photos + f.videos) : 0), 0);
@@ -147,9 +163,9 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
         {status && (
           <>
             <div className="panel">
-              {toggle(t("files.backup_photos"), t("files.backup_photos_hint"), status.photos, () => (status.photos ? void apply({ photos: false }) : status.photosAllowed ? askAboutExisting("photos") : setDisclosing("photos")), true)}
-              {toggle(t("files.backup_videos"), t("files.backup_videos_hint"), status.videos, () => (status.videos ? void apply({ videos: false }) : status.videosAllowed ? askAboutExisting("videos") : setDisclosing("videos")))}
-              {toggle(t("files.backup_contacts"), t("files.backup_contacts_hint"), status.contacts, () => (status.contacts ? void apply({ contacts: false }) : status.contactsAllowed ? void apply({ contacts: true }) : setDisclosing("contacts")))}
+              {toggle(t("files.backup_photos"), t("files.backup_photos_hint"), status.photos, () => (status.photos ? void apply({ photos: false }) : status.photosAllowed ? askAboutExisting("photos") : disclose("photos")), true)}
+              {toggle(t("files.backup_videos"), t("files.backup_videos_hint"), status.videos, () => (status.videos ? void apply({ videos: false }) : status.videosAllowed ? askAboutExisting("videos") : disclose("videos")))}
+              {toggle(t("files.backup_contacts"), t("files.backup_contacts_hint"), status.contacts, () => (status.contacts ? void apply({ contacts: false }) : status.contactsAllowed ? void apply({ contacts: true }) : disclose("contacts")))}
             </div>
             {media && (
               <div className="panel">
@@ -197,7 +213,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
             )}
             {on && (
               <p className="hint" style={{ padding: "0 4px" }}>
-                {t("files.backup_battery_hint")}
+                {t(isIOS ? "files.backup_battery_hint_ios" : "files.backup_battery_hint")}
               </p>
             )}
           </>
@@ -223,7 +239,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
               : t("files.backup_disclose_photos")}
         </p>
         <p className="hint">{t("files.backup_disclose_storage")}</p>
-        <p className="hint small">{t("files.backup_disclose_next")}</p>
+        <p className="hint small">{t(isIOS ? "files.backup_disclose_next_ios" : "files.backup_disclose_next")}</p>
         <button
           className="btn"
           onClick={() => {
@@ -242,7 +258,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
 
       <Sheet open={askExisting !== null} onClose={() => setAskExisting(null)} title={askExisting === "videos" ? t("files.backup_existing_videos_title") : t("files.backup_existing_photos_title")}>
         <p className="hint">{t("files.backup_existing_text")}</p>
-        {offer && (
+        {offer && offer.bytes > 0 && (
           <p className="hint">
             {t(askExisting === "videos" ? "files.backup_existing_videos" : "files.backup_existing_photos", {
               count: offer.count,
@@ -269,13 +285,13 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
             void apply({ [kind ?? "photos"]: true, includeExisting: true });
           }}
         >
-          {offer ? t("files.backup_all_size", { size: formatBytes(offer.bytes) }) : t("files.backup_all")}
+          {offer && offer.bytes > 0 ? t("files.backup_all_size", { size: formatBytes(offer.bytes) }) : t("files.backup_all")}
         </button>
       </Sheet>
 
       <Sheet open={choosingFolders} onClose={() => setChoosingFolders(false)} title={t("files.backup_folders_title")}>
         <p className="hint">{t("files.backup_folders_text")}</p>
-        {folders === null && <p className="hint">{t("files.reading_gallery")}</p>}
+        {folders === null && <p className="hint">{t(isIOS ? "files.reading_gallery_ios" : "files.reading_gallery")}</p>}
         {folders && (
           <div className="panel" style={{ maxHeight: "45vh", overflowY: "auto" }}>
             {folders.map((folder, i) => {
@@ -293,7 +309,8 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
                     <span className="row-title">{folder.name}</span>
                     <span className="row-sub">
                       {t("files.folder_photos", { count: folder.photos, number: num(folder.photos) })} ·{" "}
-                      {t("files.folder_videos", { count: folder.videos, number: num(folder.videos) })} · {formatBytes(folder.bytes)}
+                      {t("files.folder_videos", { count: folder.videos, number: num(folder.videos) })}
+                      {folder.bytes > 0 && ` · ${formatBytes(folder.bytes)}`}
                     </span>
                   </span>
                   <span className="checkmark" aria-hidden>

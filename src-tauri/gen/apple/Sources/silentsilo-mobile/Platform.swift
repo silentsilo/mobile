@@ -264,13 +264,16 @@ final class PrivacyCover {
 
   func install() {
     let center = NotificationCenter.default
-    center.addObserver(
-      forName: UIScene.didEnterBackgroundNotification, object: nil, queue: .main
-    ) { [weak self] note in
-      self?.cover(note.object as? UIWindowScene)
+    // From the moment the scene stops being active: the app switcher shows
+    // the card while the scene is only inactive. A Face ID or NFC sheet does
+    // that too, and covers the app itself anyway.
+    for name in [UIScene.willDeactivateNotification, UIScene.didEnterBackgroundNotification] {
+      center.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+        self?.cover(note.object as? UIWindowScene)
+      }
     }
     center.addObserver(
-      forName: UIScene.willEnterForegroundNotification, object: nil, queue: .main
+      forName: UIScene.didActivateNotification, object: nil, queue: .main
     ) { [weak self] _ in
       self?.uncover()
     }
@@ -311,26 +314,34 @@ public func ssTakeShared() -> UnsafeMutablePointer<CChar>? {
     let folders = try? manager.contentsOfDirectory(at: inbox, includingPropertiesForKeys: nil)
   {
     let taken = manager.temporaryDirectory.appendingPathComponent("shared", isDirectory: true)
-    for folder in folders {
-      defer { try? manager.removeItem(at: folder) }
+    // A folder whose name starts with "." is still being written.
+    for folder in folders where !folder.lastPathComponent.hasPrefix(".") {
       guard let file = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.first
       else { continue }
       let target = taken.appendingPathComponent(folder.lastPathComponent, isDirectory: true)
       do {
         try manager.createDirectory(at: target, withIntermediateDirectories: true)
-        let moved = target.appendingPathComponent(file.lastPathComponent)
-        try manager.moveItem(at: file, to: moved)
-        let size = (try? moved.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
-        files.append([
-          "uri": moved.path,
-          "name": moved.lastPathComponent,
-          "size": size,
-          "mimeType": UTType(filenameExtension: moved.pathExtension)?.preferredMIMEType ?? "",
-        ])
+        try manager.moveItem(at: file, to: target.appendingPathComponent(file.lastPathComponent))
+        try? manager.removeItem(at: folder)
       } catch {
         continue
       }
     }
+  }
+  // Everything taken and not imported yet, this time's and earlier ones':
+  // the import deletes what it read, so nothing shared is lost to a cancel
+  // or a closed app. The app keeps each once, by path.
+  let taken = manager.temporaryDirectory.appendingPathComponent("shared", isDirectory: true)
+  for folder in (try? manager.contentsOfDirectory(at: taken, includingPropertiesForKeys: nil)) ?? [] {
+    guard let file = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.first
+    else { continue }
+    let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+    files.append([
+      "uri": file.path,
+      "name": file.lastPathComponent,
+      "size": size,
+      "mimeType": UTType(filenameExtension: file.pathExtension)?.preferredMIMEType ?? "",
+    ])
   }
   let data = (try? JSONSerialization.data(withJSONObject: ["files": files])) ?? Data("{\"files\":[]}".utf8)
   return owned(String(decoding: data, as: UTF8.self))
