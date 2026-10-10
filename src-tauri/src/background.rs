@@ -212,8 +212,56 @@ pub fn suspended(app: &AppHandle) {
     // AutoFill opens the silo from its snapshot, in another process: what
     // was saved since the last lock goes into it as the app leaves.
     #[cfg(target_os = "ios")]
-    app.state::<AppState>().flush_all(&MobileHost(app.clone()));
+    {
+        app.state::<AppState>().flush_all(&MobileHost(app.clone()));
+        sync_on_the_way_out(app);
+    }
     arm(app, lock_after(app));
+}
+
+/// iOS suspends the app seconds after it leaves the screen, and the sync
+/// loop with it: what was saved just before would wait for the next time the
+/// app is opened. So a silo with changes not sent yet gets one pass now, in
+/// the time iOS grants for it (about 30 seconds). A larger upload that does
+/// not fit goes on at the next opening, as before.
+#[cfg(target_os = "ios")]
+fn sync_on_the_way_out(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let waiting: Vec<uuid::Uuid> = state
+        .open_silo_ids()
+        .into_iter()
+        .filter(|id| {
+            state
+                .sessions
+                .lock()
+                .ok()
+                .and_then(|s| {
+                    s.get(id)
+                        .and_then(|s| silentsilo_vfs::pending_count(&s.conn).ok())
+                })
+                .unwrap_or(0)
+                > 0
+        })
+        .collect();
+    let Some(data) = data_dir().cloned() else {
+        return;
+    };
+    if waiting.is_empty() {
+        return;
+    }
+    let task = crate::ios::background_begin();
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let state = app.state::<AppState>();
+        let registry = silentsilo_vault::load_registry(&data);
+        for id in waiting {
+            if let Some(silo) = registry.get(id).cloned() {
+                let _ =
+                    silentsilo_app::run_sync_pass(&state, &MobileHost(app.clone()), &silo).await;
+            }
+        }
+        crate::ios::background_end(task);
+    });
 }
 
 /// Locks after `delay` unless the app comes back or goes away again first.

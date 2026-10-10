@@ -92,3 +92,24 @@ public func ssGroupDir() -> UnsafeMutablePointer<CChar>? {
   else { return nil }
   return strdup(container.appendingPathComponent("Data", isDirectory: true).path)
 }
+
+/// Asks iOS for time to finish work after the app leaves the screen, up to
+/// about 30 seconds: a sync of what was saved just before. Returns the
+/// task's id for `ss_background_end`; iOS's own deadline ends it too.
+@_cdecl("ss_background_begin")
+public func ssBackgroundBegin() -> Int {
+  onMain {
+    var task = UIBackgroundTaskIdentifier.invalid
+    task = UIApplication.shared.beginBackgroundTask(withName: "sync") {
+      UIApplication.shared.endBackgroundTask(task)
+    }
+    return task.rawValue
+  }
+}
+
+@_cdecl("ss_background_end")
+public func ssBackgroundEnd(_ raw: Int) {
+  let task = UIBackgroundTaskIdentifier(rawValue: raw)
+  guard task != .invalid else { return }
+  DispatchQueue.main.async { UIApplication.shared.endBackgroundTask(task) }
+}

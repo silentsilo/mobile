@@ -148,6 +148,8 @@ unsafe extern "C" {
     fn ss_autofill_enabled() -> bool;
     fn ss_autofill_open_settings() -> bool;
     fn ss_group_dir() -> *mut c_char;
+    fn ss_background_begin() -> isize;
+    fn ss_background_end(task: isize);
     fn ss_backup_call(command: *const c_char, payload: *const c_char) -> *mut c_char;
     fn ss_sender_sign(
         vault: *const c_char,
@@ -344,4 +346,16 @@ pub fn autofill_enabled() -> bool {
 pub fn autofill_open_settings() -> bool {
     // SAFETY: no arguments.
     unsafe { ss_autofill_open_settings() }
+}
+
+/// Time from iOS to finish a sync after the app leaves the screen; give it
+/// back with [`background_end`].
+pub fn background_begin() -> isize {
+    // SAFETY: no arguments; Swift runs it on the main thread.
+    unsafe { ss_background_begin() }
+}
+
+pub fn background_end(task: isize) {
+    // SAFETY: an id `background_begin` returned.
+    unsafe { ss_background_end(task) }
 }

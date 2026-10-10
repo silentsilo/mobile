@@ -214,12 +214,46 @@ enum BackupScheduler {
       _ = BackupRunner().backUp { false }
     }
   }
+
+  /// When the app comes to the screen: what was taken since goes now, not
+  /// when iOS next lets the job run. At most once a minute.
+  static func runOnOpening() {
+    guard !BackupPrefs.vaultId.isEmpty,
+      Int(Date().timeIntervalSince1970) - BackupPrefs.lastRun > 60
+    else { return }
+    runNow()
+  }
+
+  /// When the app leaves the screen: one run in the time iOS grants for
+  /// finishing work, about 30 seconds. An item that does not fit is sent
+  /// again later, under the same id.
+  static func runOnLeaving() {
+    guard !BackupPrefs.vaultId.isEmpty else { return }
+    let stop = StopFlag()
+    var task = UIBackgroundTaskIdentifier.invalid
+    task = UIApplication.shared.beginBackgroundTask(withName: "backup") {
+      stop.set()
+      UIApplication.shared.endBackgroundTask(task)
+    }
+    guard task != .invalid else { return }
+    DispatchQueue.global(qos: .utility).async {
+      _ = BackupRunner().backUp { stop.isSet }
+      DispatchQueue.main.async { UIApplication.shared.endBackgroundTask(task) }
+    }
+  }
 }
 
 /// Called from main.mm before the app starts: iOS wants the handler before
 /// launch ends.
 @_cdecl("ss_backup_register")
 public func ssBackupRegister() {
+  let center = NotificationCenter.default
+  center.addObserver(forName: UIApplication.didBecomeActiveNotification, object: nil, queue: .main) { _ in
+    BackupScheduler.runOnOpening()
+  }
+  center.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
+    BackupScheduler.runOnLeaving()
+  }
   BGTaskScheduler.shared.register(forTaskWithIdentifier: taskId, using: nil) { task in
     let stop = StopFlag()
     let done = StopFlag()
