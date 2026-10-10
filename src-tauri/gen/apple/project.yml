@@ -55,6 +55,13 @@ targets:
       # added to the file alone is lost.
       properties:
         com.apple.developer.nfc.readersession.formats: [TAG]
+        # Shared with the share extension, which leaves files in its Inbox,
+        # and with AutoFill, which reads the silos kept there.
+        com.apple.security.application-groups: [group.com.silentsilo.mobile]
+        com.apple.developer.authentication-services.autofill-credential-provider: true
+        # The Face ID key and the local secrets' key, which AutoFill uses too.
+        # The app's own group, first, so nothing already stored moves.
+        keychain-access-groups: [$(AppIdentifierPrefix)com.silentsilo.mobile]
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
@@ -63,6 +70,8 @@ targets:
       base:
         ENABLE_BITCODE: false
         SWIFT_VERSION: 5.0
+        # The Rust functions Backup.swift calls.
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/silentsilo-mobile/rust.h
         # iPhone only for 1.0: once an App Store version supports iPad, later
         # versions cannot drop it.
         TARGETED_DEVICE_FAMILY: 1
@@ -74,6 +83,8 @@ targets:
         EXCLUDED_ARCHS[sdk=iphoneos*]: x86_64
       groups: [app]
     dependencies:
+      - target: silentsilo-share
+      - target: silentsilo-autofill
       - framework: libapp.a
         embed: false
       - sdk: CoreGraphics.framework
@@ -90,3 +101,97 @@ targets:
         outputFiles:
           - $(SRCROOT)/Externals/x86_64/${CONFIGURATION}/libapp.a
           - $(SRCROOT)/Externals/arm64/${CONFIGURATION}/libapp.a
+  # "SilentSilo" in other apps' share sheet. Swift only, no Rust: it copies
+  # what it is given into the app group and the app does the rest.
+  silentsilo-share:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+    info:
+      path: ShareExtension/Info.plist
+      properties:
+        CFBundleDisplayName: SilentSilo
+        # Kept equal to the app's: App Store Connect warns on a mismatch.
+        CFBundleShortVersionString: 1.4.0
+        CFBundleVersion: "1.4.0"
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.share-services
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).ShareViewController
+          NSExtensionAttributes:
+            NSExtensionActivationRule:
+              NSExtensionActivationSupportsFileWithMaxCount: 20
+              NSExtensionActivationSupportsImageWithMaxCount: 20
+              NSExtensionActivationSupportsMovieWithMaxCount: 20
+    entitlements:
+      path: ShareExtension/ShareExtension.entitlements
+      properties:
+        com.apple.security.application-groups: [group.com.silentsilo.mobile]
+    settings:
+      base:
+        PRODUCT_NAME: SilentSiloShare
+        PRODUCT_BUNDLE_IDENTIFIER: com.silentsilo.mobile.share
+        DEVELOPMENT_TEAM: J3YBNT5RQ3
+        SWIFT_VERSION: 5.0
+        TARGETED_DEVICE_FAMILY: 1
+        ARCHS: [arm64]
+
+  # "SilentSilo" in iOS's AutoFill. Its own Rust library (`autofill/` at the
+  # repository root), built here: it opens the silo with Face ID, apart from
+  # the app.
+  silentsilo-autofill:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: AutoFill
+    info:
+      path: AutoFill/Info.plist
+      properties:
+        CFBundleDisplayName: SilentSilo
+        # Kept equal to the app's: App Store Connect warns on a mismatch.
+        CFBundleShortVersionString: 1.4.0
+        CFBundleVersion: "1.4.0"
+        NSFaceIDUsageDescription: SilentSilo uses Face ID to open your silo and fill a login.
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.authentication-services-credential-provider-ui
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).CredentialProviderViewController
+          NSExtensionAttributes:
+            ASCredentialProviderExtensionCapabilities:
+              ProvidesPasswords: true
+    entitlements:
+      path: AutoFill/AutoFill.entitlements
+      properties:
+        com.apple.developer.authentication-services.autofill-credential-provider: true
+        com.apple.security.application-groups: [group.com.silentsilo.mobile]
+        keychain-access-groups: [$(AppIdentifierPrefix)com.silentsilo.mobile]
+    settings:
+      base:
+        PRODUCT_NAME: SilentSiloAutoFill
+        PRODUCT_BUNDLE_IDENTIFIER: com.silentsilo.mobile.autofill
+        DEVELOPMENT_TEAM: J3YBNT5RQ3
+        SWIFT_VERSION: 5.0
+        TARGETED_DEVICE_FAMILY: 1
+        ARCHS: [arm64]
+        SWIFT_OBJC_BRIDGING_HEADER: AutoFill/autofill.h
+        LIBRARY_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Externals/autofill/$(PLATFORM_NAME)/$(CONFIGURATION)
+        OTHER_LDFLAGS: -lsilentsilo_autofill
+    dependencies:
+      - sdk: Security.framework
+      - sdk: LocalAuthentication.framework
+      - sdk: SystemConfiguration.framework
+      - sdk: AuthenticationServices.framework
+    preBuildScripts:
+      - name: Build Rust for AutoFill
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          export PATH="$HOME/.cargo/bin:$PATH"
+          if [ "$PLATFORM_NAME" = "iphonesimulator" ]; then TARGET=aarch64-apple-ios-sim; else TARGET=aarch64-apple-ios; fi
+          if [ "$CONFIGURATION" = "release" ]; then PROFILE=release; FLAG=--release; else PROFILE=debug; FLAG=; fi
+          cd "$PROJECT_DIR/../../.."
+          cargo build --locked -p silentsilo-autofill --target "$TARGET" $FLAG
+          OUT="$PROJECT_DIR/Externals/autofill/$PLATFORM_NAME/$CONFIGURATION"
+          mkdir -p "$OUT"
+          cp "target/$TARGET/$PROFILE/libsilentsilo_autofill.a" "$OUT/"
+        outputFiles:
+          - $(PROJECT_DIR)/Externals/autofill/$(PLATFORM_NAME)/$(CONFIGURATION)/libsilentsilo_autofill.a

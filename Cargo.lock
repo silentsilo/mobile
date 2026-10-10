@@ -5454,6 +5454,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "silentsilo-autofill"
+version = "1.4.0"
+dependencies = [
+ "aes-gcm 0.10.3",
+ "hex",
+ "rand 0.9.5",
+ "security-framework 3.7.0",
+ "serde_json",
+ "silentsilo-app",
+ "silentsilo-fido",
+ "silentsilo-vault",
+ "silentsilo-vfs",
+ "zeroize",
+]
+
+[[package]]
 name = "silentsilo-cloud"
 version = "1.10.0-beta.3"
 source = "git+https://github.com/silentsilo/core?tag=v1.10.0-beta.3#a17c83024b4e77e34e297cd0c1918fcd6e231a80"
@@ -5533,9 +5549,12 @@ dependencies = [
 name = "silentsilo-mobile"
 version = "1.4.0"
 dependencies = [
+ "aes-gcm 0.10.3",
  "hex",
  "jni 0.21.1",
  "libc",
+ "rand 0.9.5",
+ "security-framework 3.7.0",
  "serde",
  "serde_json",
  "silentsilo-app",

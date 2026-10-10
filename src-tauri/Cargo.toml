@@ -38,6 +38,12 @@ jni = "0.21.1"
 # CLOCK_BOOTTIME, which counts the time the phone slept.
 libc = "0.2"
 
+[target.'cfg(target_os = "ios")'.dependencies]
+# The local secret files' key, in the Keychain; the versions core uses.
+security-framework = "3.7"
+aes-gcm = "0.10"
+rand = "0.9"
+
 [dev-dependencies]
 tempfile = "3"
 

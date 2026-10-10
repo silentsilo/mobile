@@ -55,8 +55,7 @@ impl<R: Runtime> Files<R> {
             let command = command.to_string();
             let answer = tauri::async_runtime::spawn_blocking(move || match command.as_str() {
                 "pickFiles" => Ok(crate::ios::pick_files()),
-                // No share extension yet: nothing arrives from other apps.
-                "takeShared" => Ok(serde_json::json!({ "files": [] })),
+                "takeShared" => Ok(crate::ios::take_shared()),
                 "takePhoto" => {
                     let folder = crate::background::cache_dir()
                         .map(|d| d.join("camera"))
@@ -353,10 +352,21 @@ pub fn vault_create_folder(
 /// phone is set up to send.
 #[tauri::command]
 pub async fn share_to_inbox(app: AppHandle, file: Offered) -> Result<(), String> {
-    #[cfg(target_os = "android")]
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     {
+        #[cfg(target_os = "android")]
         let mut source = open_offered(&app, &file.uri).await?;
-        let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+        // The share extension's file, moved into this app's temporary folder.
+        #[cfg(target_os = "ios")]
+        let shared = std::path::PathBuf::from(&file.uri);
+        #[cfg(target_os = "ios")]
+        let mut source = {
+            if !shared.starts_with(std::env::temp_dir()) {
+                return Err("That file is not one this app was given.".into());
+            }
+            std::fs::File::open(&shared).map_err(|e| e.to_string())?
+        };
+        let data_dir = crate::paths::data_dir(&app)?;
         let label = crate::backup::sender_vault(&data_dir)
             .and_then(|vault| {
                 silentsilo_vault::load_registry(&data_dir)
@@ -365,7 +375,7 @@ pub async fn share_to_inbox(app: AppHandle, file: Offered) -> Result<(), String>
             })
             .map(|silo| crate::backup::phone_label(&app, &silo))
             .unwrap_or_else(|| "This phone".into());
-        tauri::async_runtime::spawn_blocking(move || {
+        let sent = tauri::async_runtime::spawn_blocking(move || {
             let mime = Some(file.mime_type).filter(|m| !m.is_empty());
             crate::backup::send_shared(
                 &data_dir,
@@ -377,9 +387,16 @@ pub async fn share_to_inbox(app: AppHandle, file: Offered) -> Result<(), String>
             )
         })
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())?;
+        #[cfg(target_os = "ios")]
+        if sent.is_ok()
+            && let Some(folder) = shared.parent()
+        {
+            let _ = std::fs::remove_dir_all(folder);
+        }
+        sent
     }
-    #[cfg(not(target_os = "android"))]
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         let _ = (app, file);
         Err("This build cannot reach the phone's files.".into())

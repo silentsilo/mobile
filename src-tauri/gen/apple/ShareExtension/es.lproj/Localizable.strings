@@ -1,0 +1,8 @@
+/* Share sheet, after the shared items are kept for the app. Title. */
+"share.saved" = "Guardado para SilentSilo";
+/* Share sheet, under the title: what to do next. */
+"share.open_app" = "Abre SilentSilo para ponerlo en un silo.";
+/* Share sheet: the button that closes it. */
+"share.done" = "OK";
+/* Share sheet: nothing could be kept. */
+"share.failed" = "SilentSilo no pudo recibir este elemento.";

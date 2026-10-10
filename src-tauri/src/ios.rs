@@ -133,6 +133,7 @@ pub fn stderr_to_file(path: &std::path::Path) {
 
 unsafe extern "C" {
     fn ss_pick_files() -> *mut c_char;
+    fn ss_take_shared() -> *mut c_char;
     fn ss_take_photo(folder: *const c_char) -> *mut c_char;
     fn ss_open_with(path: *const c_char) -> bool;
     fn ss_open_url(url: *const c_char) -> bool;
@@ -140,6 +141,21 @@ unsafe extern "C" {
     fn ss_sign_in_close();
     fn ss_pdf_pages(path: *const c_char) -> i32;
     fn ss_pdf_page(path: *const c_char, index: i32, width: i32, length: *mut usize) -> *mut u8;
+    fn ss_privacy_cover_install();
+    fn ss_copy_secret(text: *const c_char);
+    fn ss_clear_secret();
+    fn ss_haptic(kind: *const c_char);
+    fn ss_autofill_enabled() -> bool;
+    fn ss_autofill_open_settings() -> bool;
+    fn ss_group_dir() -> *mut c_char;
+    fn ss_backup_call(command: *const c_char, payload: *const c_char) -> *mut c_char;
+    fn ss_sender_sign(
+        vault: *const c_char,
+        message: *const u8,
+        length: usize,
+        out: *mut u8,
+        capacity: usize,
+    ) -> isize;
     fn ss_free(pointer: *mut std::ffi::c_void);
 }
 
@@ -166,6 +182,15 @@ fn c(text: &str) -> CString {
 pub fn pick_files() -> serde_json::Value {
     // SAFETY: no arguments; the result is owned by us.
     take_owned(unsafe { ss_pick_files() })
+        .and_then(|json| serde_json::from_str(&json).ok())
+        .unwrap_or_else(|| serde_json::json!({ "files": [] }))
+}
+
+/// What other apps shared through the share extension since the last call,
+/// moved into the app's temporary folder.
+pub fn take_shared() -> serde_json::Value {
+    // SAFETY: no arguments; the result is owned by us.
+    take_owned(unsafe { ss_take_shared() })
         .and_then(|json| serde_json::from_str(&json).ok())
         .unwrap_or_else(|| serde_json::json!({ "files": [] }))
 }
@@ -230,4 +255,93 @@ pub fn pdf_page(path: &str, index: u32, width: u32) -> Option<Vec<u8>> {
     let png = unsafe { std::slice::from_raw_parts(raw, length) }.to_vec();
     unsafe { ss_free(raw.cast()) };
     Some(png)
+}
+
+/// Covers the window while the app is in the background, so the app
+/// switcher's snapshot shows nothing of the silo.
+pub fn install_privacy_cover() {
+    // SAFETY: no arguments; the Swift side moves to the main thread.
+    unsafe { ss_privacy_cover_install() }
+}
+
+/// One of `Backup.swift`'s calls: the answer's JSON, or its error.
+pub fn backup_call(
+    command: &str,
+    payload: &serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let command = c(command);
+    let payload = c(&payload.to_string());
+    // SAFETY: NUL-terminated strings that outlive the call; the result is ours.
+    let answer = take_owned(unsafe { ss_backup_call(command.as_ptr(), payload.as_ptr()) })
+        .ok_or("The phone did not answer.")?;
+    let value: serde_json::Value = serde_json::from_str(&answer).map_err(|e| e.to_string())?;
+    match value.get("error").and_then(|e| e.as_str()) {
+        Some(error) => Err(error.to_string()),
+        None => Ok(value),
+    }
+}
+
+/// A DER signature by this iPhone's sender key for `vault`.
+pub fn sender_sign(vault: &str, message: &[u8]) -> Option<Vec<u8>> {
+    let vault = c(vault);
+    let mut out = [0u8; 128];
+    // SAFETY: the message and the buffer with their lengths; Swift writes at
+    // most `capacity` bytes.
+    let written = unsafe {
+        ss_sender_sign(
+            vault.as_ptr(),
+            message.as_ptr(),
+            message.len(),
+            out.as_mut_ptr(),
+            out.len(),
+        )
+    };
+    (written > 0).then(|| out[..written as usize].to_vec())
+}
+
+/// The app group's `Data` folder, made on first use; `None` when the build
+/// has no app group.
+pub fn group_data_dir() -> Option<std::path::PathBuf> {
+    static DIR: std::sync::OnceLock<Option<std::path::PathBuf>> = std::sync::OnceLock::new();
+    DIR.get_or_init(|| {
+        // SAFETY: no arguments; the result is owned by us.
+        let dir = std::path::PathBuf::from(take_owned(unsafe { ss_group_dir() })?);
+        std::fs::create_dir_all(&dir).ok()?;
+        Some(dir)
+    })
+    .clone()
+}
+
+/// A secret on the clipboard, this iPhone only, for 45 seconds.
+pub fn copy_secret(text: &str) {
+    // A NUL-terminated copy that is wiped after the call.
+    let mut bytes = Zeroizing::new(Vec::with_capacity(text.len() + 1));
+    bytes.extend(text.bytes().filter(|&b| b != 0));
+    bytes.push(0);
+    // SAFETY: a NUL-terminated buffer that outlives the call.
+    unsafe { ss_copy_secret(bytes.as_ptr().cast()) }
+}
+
+/// Takes the copied secret back, unless something else was copied since.
+pub fn clear_secret() {
+    // SAFETY: no arguments.
+    unsafe { ss_clear_secret() }
+}
+
+pub fn haptic(kind: &str) {
+    let kind = c(kind);
+    // SAFETY: a NUL-terminated string that outlives the call.
+    unsafe { ss_haptic(kind.as_ptr()) }
+}
+
+/// Whether SilentSilo is on as an AutoFill provider in iOS's settings.
+pub fn autofill_enabled() -> bool {
+    // SAFETY: no arguments.
+    unsafe { ss_autofill_enabled() }
+}
+
+/// Opens iOS's page for turning SilentSilo on as an AutoFill provider.
+pub fn autofill_open_settings() -> bool {
+    // SAFETY: no arguments.
+    unsafe { ss_autofill_open_settings() }
 }

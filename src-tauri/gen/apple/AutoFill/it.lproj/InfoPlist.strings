@@ -1,0 +1,4 @@
+/* The name in iOS's AutoFill settings. */
+"CFBundleDisplayName" = "SilentSilo";
+/* Why iOS asks for Face ID in the AutoFill sheet. */
+"NSFaceIDUsageDescription" = "SilentSilo usa Face ID per aprire il tuo silo e compilare un login.";

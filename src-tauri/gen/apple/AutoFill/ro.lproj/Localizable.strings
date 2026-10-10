@@ -1,0 +1,20 @@
+/* AutoFill sheet: its title, above the list of logins. */
+"af.title" = "Alege datele de conectare";
+/* AutoFill sheet: the button that closes it. */
+"af.cancel" = "Anulează";
+/* AutoFill sheet: placeholder of the search field. */
+"af.search" = "Caută";
+/* AutoFill sheet: heading over the logins saved for the site or app asking. */
+"af.suggested" = "Pentru acest site";
+/* AutoFill sheet: heading over every other login. */
+"af.all" = "Toate datele de conectare";
+/* AutoFill sheet: while Face ID and the silo open. */
+"af.opening" = "Se deschide silozul…";
+/* AutoFill sheet: the silo holds no login. */
+"af.empty" = "Silozul nu are încă date de conectare.";
+/* AutoFill sheet: button after a failure. */
+"af.retry" = "Încearcă din nou";
+/* AutoFill sheet: the silo could not be opened; the reason follows on its own line. */
+"af.failed" = "Silozul nu s-a deschis.";
+/* AutoFill sheet: in place of a login's username when it has none. */
+"af.no_user" = "Fără nume de utilizator";

@@ -1,0 +1,20 @@
+/* AutoFill sheet: its title, above the list of logins. */
+"af.title" = "Scegli un login";
+/* AutoFill sheet: the button that closes it. */
+"af.cancel" = "Annulla";
+/* AutoFill sheet: placeholder of the search field. */
+"af.search" = "Cerca";
+/* AutoFill sheet: heading over the logins saved for the site or app asking. */
+"af.suggested" = "Per questo sito";
+/* AutoFill sheet: heading over every other login. */
+"af.all" = "Tutti i login";
+/* AutoFill sheet: while Face ID and the silo open. */
+"af.opening" = "Apertura del silo…";
+/* AutoFill sheet: the silo holds no login. */
+"af.empty" = "Questo silo non ha ancora login.";
+/* AutoFill sheet: button after a failure. */
+"af.retry" = "Riprova";
+/* AutoFill sheet: the silo could not be opened; the reason follows on its own line. */
+"af.failed" = "Il silo non si è aperto.";
+/* AutoFill sheet: in place of a login's username when it has none. */
+"af.no_user" = "Nessun nome utente";

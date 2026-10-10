@@ -4,7 +4,7 @@ The Android and iOS clients of [SilentSilo](https://silentsilo.com), a
 local-first encrypted vault for files and passwords. AGPL-3.0.
 
 **Android** 12 or later: [Google Play](https://play.google.com/store/apps/details?id=com.silentsilo.mobile).
-**iOS**: in progress, no date. It runs on an iPhone and unlocks with Face ID or a security key over NFC; AutoFill, sharing and backup in the background are not there yet.
+**iOS** 17 or later, iPhone only: in progress, no date. It unlocks with Face ID or a security key over NFC, fills logins through AutoFill, takes files from other apps' share sheet and backs up photos and contacts in the background.
 
 The engine lives in [silentsilo/core](https://github.com/silentsilo/core).
 This repository pins a tag from it, the same way
@@ -34,6 +34,13 @@ not see.
 On Android it also fills logins in other apps through the system autofill,
 acts as a passkey provider for browsers, and can back up photos, videos and
 contacts, encrypted on the phone, once you turn that on.
+
+On the iPhone the same, without passkeys for now. AutoFill is an extension
+iOS runs apart from the app (`autofill/`, `gen/apple/AutoFill/`): it opens
+the silo with Face ID in a scratch folder of its own, lists its logins and
+closes it again without writing to it. Silos live in the app group's
+container so the extension can read them. Backup runs when iOS lets it,
+usually at night on the charger; there is no schedule to promise.
 
 The app speaks English, Romanian, German, French, Spanish, Italian,
 Brazilian Portuguese and Polish, chosen under Silo, Language, or following

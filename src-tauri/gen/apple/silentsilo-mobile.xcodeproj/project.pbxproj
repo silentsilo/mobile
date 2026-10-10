@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		06DD2B7252045D57DF9367BA /* Backup.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DBEA9CF0E9DAEF9583EF8A /* Backup.swift */; };
 		0719A71794A7792C67B47151 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 4C85AD9B1E5DE1111C5FED2C /* Localizable.strings */; };
 		110327F9A046E4B47CF2B9DB /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = E32290FBCE86FF9F37A31367 /* InfoPlist.strings */; };
 		19EE7481370493F88B63BC64 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A4594482BC08332386981866 /* Security.framework */; };
@@ -17,35 +18,73 @@
 		6B5749979966D2F558FABDD1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 2C928F759941C5474B298853 /* Assets.xcassets */; };
 		7A3B704C22881B8051AD971F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 1CAD7E042E696358D3C085B5 /* LaunchScreen.storyboard */; };
 		7D996DFBF0B832D6675500AC /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 0D1576C987CA3261E874D0A1 /* assets */; };
+		80F4AFBF89186E4AC420BDAA /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 309D3FA87FEC9B872A699203 /* Localizable.strings */; };
 		83E9A4F7BB0B6FFEA529BF6E /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A13C5A252469C42854EA41AA /* CoreGraphics.framework */; };
+		8A8C4EFD65271D5297AC4843 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A02BEE1442857185B5C77FEF /* PrivacyInfo.xcprivacy */; };
 		8AC0F768D9C841334819CCB4 /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = B8D3CAFCBFCDA0F37A9A4796 /* main.mm */; };
 		915F3088F3905B5C6A4DD19D /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6F4F31C0D17930C5F8119643 /* MetalKit.framework */; };
 		984B6C0CF40BDBF2BBEC57D8 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12A95C7A9860750D9174A8BB /* WebKit.framework */; };
 		9C817DF01FE78AFD9B399476 /* Platform.swift in Sources */ = {isa = PBXBuildFile; fileRef = DABF49A6043BBA421716614F /* Platform.swift */; };
+		A47D5B54B835A63974CDB935 /* silentsilo-share.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 708D940D75EE7389DFE99A0E /* silentsilo-share.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		B3D8C99E652D0FE2EB45A831 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE16598CD45925E28990D8D5 /* ShareViewController.swift */; };
 		BD5ACE12294842CA65C5F033 /* libapp.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6B7C380D58F31E659D9A3A6A /* libapp.a */; };
 		C2F8128D2E822AD0816C2141 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0F8F6A8910B3BF130A052DC4 /* PrivacyInfo.xcprivacy */; };
+		F5F78D554C195CA8CEBA2FB3 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 41B4A6F0A642AFCAB7377AC3 /* InfoPlist.strings */; };
 		FE7FEAA828BD3ECE62AE641D /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 07FED78DE5B8CC672E03BBD7 /* UIKit.framework */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		36A8020F9D5187B798EFCCD6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = E3A43FEB4650CAA85EE44B37 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = E9FFCECE0987173A48C819AC;
+			remoteInfo = "silentsilo-share";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		86C3AD01EAB790895D0CAB9A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				A47D5B54B835A63974CDB935 /* silentsilo-share.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		05DCA97C40FFB75E3489733A /* security_key.rs */ = {isa = PBXFileReference; path = security_key.rs; sourceTree = "<group>"; };
+		0631DC0B8ECF01B7D73F12AC /* rust.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = rust.h; sourceTree = "<group>"; };
 		07D3DE15131AFA3FD020110E /* create.rs */ = {isa = PBXFileReference; path = create.rs; sourceTree = "<group>"; };
 		07FED78DE5B8CC672E03BBD7 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
+		0AF917A05B79EC6BD2D10F97 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		0B7F4B7FBD897DFE72BB71AD /* secrets.rs */ = {isa = PBXFileReference; path = secrets.rs; sourceTree = "<group>"; };
 		0D1576C987CA3261E874D0A1 /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; path = assets; sourceTree = SOURCE_ROOT; };
 		0F8F6A8910B3BF130A052DC4 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		12121DD5C50E746A46ED2BD1 /* copies.rs */ = {isa = PBXFileReference; path = copies.rs; sourceTree = "<group>"; };
 		12A95C7A9860750D9174A8BB /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
+		15DBEA9CF0E9DAEF9583EF8A /* Backup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Backup.swift; sourceTree = "<group>"; };
+		167D8F2F994B89E9E6DEEBDB /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
 		1CAD7E042E696358D3C085B5 /* LaunchScreen.storyboard */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; path = LaunchScreen.storyboard; sourceTree = "<group>"; };
+		21B5D3E3F53FE8BBFF10D464 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
+		21FF16847652C171337FF25F /* keychain.rs */ = {isa = PBXFileReference; path = keychain.rs; sourceTree = "<group>"; };
 		2C928F759941C5474B298853 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2E9A32906F2C0BC9D95777D4 /* passkeys.rs */ = {isa = PBXFileReference; path = passkeys.rs; sourceTree = "<group>"; };
 		33DCAA130579F70B1E0E14CF /* silentsilo-mobile_iOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "silentsilo-mobile_iOS.entitlements"; sourceTree = "<group>"; };
 		35B57E3C51B0C840C0FF7BBA /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/Localizable.strings; sourceTree = "<group>"; };
+		3923BC183BB01E1CB6800E06 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
 		3AA39853D57EFD683C1A40C0 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		3BA4930F495F08ACF1516A6B /* commands.rs */ = {isa = PBXFileReference; path = commands.rs; sourceTree = "<group>"; };
 		400683E44B49FCBF6EA2E151 /* viewer.rs */ = {isa = PBXFileReference; path = viewer.rs; sourceTree = "<group>"; };
 		4284FACAA2B2B679090CAF77 /* ios.rs */ = {isa = PBXFileReference; path = ios.rs; sourceTree = "<group>"; };
 		439888A9CE15E3BFD42287F8 /* ro */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ro; path = ro.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		4AABDF02576BF6ABC6E60B66 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
+		4CBE3BED708AEB545F7F5BA1 /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		4E98565648CCC7A0B0F6DA98 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/Localizable.strings; sourceTree = "<group>"; };
 		50E584AA28234DB2917774FF /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		57560DC3D1ABF69F61BF0BEB /* device_key.rs */ = {isa = PBXFileReference; path = device_key.rs; sourceTree = "<group>"; };
@@ -53,7 +92,10 @@
 		5C8E2429A6C31652EE2C615B /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		61AC7D612032EFC99BF417DE /* host.rs */ = {isa = PBXFileReference; path = host.rs; sourceTree = "<group>"; };
 		6B7C380D58F31E659D9A3A6A /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		6E4C759FB6DE47EBF4535777 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		6F4F31C0D17930C5F8119643 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		708D940D75EE7389DFE99A0E /* silentsilo-share.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = "silentsilo-share.appex"; sourceTree = BUILT_PRODUCTS_DIR; };
+		71709FB009F0567D2438CB32 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		7387175AC1EBE6FAAD6E6FD1 /* history.rs */ = {isa = PBXFileReference; path = history.rs; sourceTree = "<group>"; };
 		766D3DDC026BC50EE575313D /* cloud.rs */ = {isa = PBXFileReference; path = cloud.rs; sourceTree = "<group>"; };
 		7AFD143FF25B880362F7B876 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/Localizable.strings; sourceTree = "<group>"; };
@@ -63,27 +105,40 @@
 		8D37C8FCA9D02EE0260495AD /* silentsilo-mobile_iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "silentsilo-mobile_iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		8EBA6370E4A410ACC201ACD7 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		8FDC9425D7D89D2EBC0DFC25 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		949B14434731F6A19BBDB5C1 /* ro */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ro; path = ro.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		9903D3914EB101B819680C6C /* SecurityKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecurityKeys.swift; sourceTree = "<group>"; };
+		9A2AE0C683FE349B640764C2 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A02BEE1442857185B5C77FEF /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A13C5A252469C42854EA41AA /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
 		A4594482BC08332386981866 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
+		A86B5BE0701989AD1BB6AAC8 /* it */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = it; path = it.lproj/Localizable.strings; sourceTree = "<group>"; };
 		ADB60FA6026C144CD20F1E70 /* ro */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ro; path = ro.lproj/Localizable.strings; sourceTree = "<group>"; };
 		B68344C7F66558B1FC9923D5 /* android.rs */ = {isa = PBXFileReference; path = android.rs; sourceTree = "<group>"; };
 		B8D3CAFCBFCDA0F37A9A4796 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
 		BCE8960077382C32755B485E /* libapp.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libapp.a; sourceTree = "<group>"; };
+		BED6302FAAB1A224BCE58FAE /* ShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ShareExtension.entitlements; sourceTree = "<group>"; };
+		C04E63AE7BD023084C13AE08 /* ro */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = ro; path = ro.lproj/Localizable.strings; sourceTree = "<group>"; };
 		C1C08E92702E8926C65F1A8F /* incoming.rs */ = {isa = PBXFileReference; path = incoming.rs; sourceTree = "<group>"; };
+		C645101BB57FD45102BD06FD /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/Localizable.strings; sourceTree = "<group>"; };
 		CB625D2FC3364508EBCC5714 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		D1AF4D5B65B79BE3335BB696 /* autofill.rs */ = {isa = PBXFileReference; path = autofill.rs; sourceTree = "<group>"; };
 		D7FB1C0061D8A04DAD333385 /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		D894C097916C2CC0784FF098 /* backup.rs */ = {isa = PBXFileReference; path = backup.rs; sourceTree = "<group>"; };
 		D8FAA1EF73E1FA52C4D23EED /* manage.rs */ = {isa = PBXFileReference; path = manage.rs; sourceTree = "<group>"; };
 		DABF49A6043BBA421716614F /* Platform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Platform.swift; sourceTree = "<group>"; };
+		DC90EC7D6F92C6F8A8695B72 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/Localizable.strings; sourceTree = "<group>"; };
 		DCE45D73E885B5981CA5BD47 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/Localizable.strings; sourceTree = "<group>"; };
+		E2060D0475148A6B9A14D751 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E5D7575F603E6D6F3CE6CB57 /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
 		E96E8574853723B351D7C706 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		EBA5D9E67E1588497B3D54AD /* pt-BR */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = "pt-BR"; path = "pt-BR.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		ECF6DC8F38EAA4E33A68557C /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = es.lproj/Localizable.strings; sourceTree = "<group>"; };
 		ED4B58586524D3F1741D97C9 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = de.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		EFC140E6246B9B28EA6404F3 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		F16BC8CB24DC85E33D789A98 /* fr */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = fr; path = fr.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F28F597DE4EB43804FADFA85 /* background.rs */ = {isa = PBXFileReference; path = background.rs; sourceTree = "<group>"; };
+		F696DED2D9731B0D52CFF769 /* pl */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = pl; path = pl.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		FE16598CD45925E28990D8D5 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -109,6 +164,7 @@
 			isa = PBXGroup;
 			children = (
 				8D37C8FCA9D02EE0260495AD /* silentsilo-mobile_iOS.app */,
+				708D940D75EE7389DFE99A0E /* silentsilo-share.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -124,8 +180,10 @@
 		16F15CD33EBFCCC08BF85027 /* silentsilo-mobile */ = {
 			isa = PBXGroup;
 			children = (
+				15DBEA9CF0E9DAEF9583EF8A /* Backup.swift */,
 				B8D3CAFCBFCDA0F37A9A4796 /* main.mm */,
 				DABF49A6043BBA421716614F /* Platform.swift */,
+				0631DC0B8ECF01B7D73F12AC /* rust.h */,
 				9903D3914EB101B819680C6C /* SecurityKeys.swift */,
 				56DF5D2590E5C8B58C2A94C6 /* bindings */,
 			);
@@ -182,6 +240,7 @@
 				2C928F759941C5474B298853 /* Assets.xcassets */,
 				1CAD7E042E696358D3C085B5 /* LaunchScreen.storyboard */,
 				399D27E593CA27984164F6E2 /* Externals */,
+				DA934A133FA2FA7DD467B8A3 /* ShareExtension */,
 				33272FB3823D3D1BB3141427 /* silentsilo-mobile_iOS */,
 				8FEAF305B72EE2EA2B9364BA /* Sources */,
 				BA87447C22FD04F20232F9F6 /* src */,
@@ -215,15 +274,30 @@
 				61AC7D612032EFC99BF417DE /* host.rs */,
 				C1C08E92702E8926C65F1A8F /* incoming.rs */,
 				4284FACAA2B2B679090CAF77 /* ios.rs */,
+				21FF16847652C171337FF25F /* keychain.rs */,
 				E5D7575F603E6D6F3CE6CB57 /* lib.rs */,
 				8A423D46C3D997E1B8656ACD /* main.rs */,
 				D8FAA1EF73E1FA52C4D23EED /* manage.rs */,
 				2E9A32906F2C0BC9D95777D4 /* passkeys.rs */,
+				0B7F4B7FBD897DFE72BB71AD /* secrets.rs */,
 				05DCA97C40FFB75E3489733A /* security_key.rs */,
 				400683E44B49FCBF6EA2E151 /* viewer.rs */,
 			);
 			name = src;
 			path = ../../src;
+			sourceTree = "<group>";
+		};
+		DA934A133FA2FA7DD467B8A3 /* ShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				71709FB009F0567D2438CB32 /* Info.plist */,
+				A02BEE1442857185B5C77FEF /* PrivacyInfo.xcprivacy */,
+				BED6302FAAB1A224BCE58FAE /* ShareExtension.entitlements */,
+				FE16598CD45925E28990D8D5 /* ShareViewController.swift */,
+				41B4A6F0A642AFCAB7377AC3 /* InfoPlist.strings */,
+				309D3FA87FEC9B872A699203 /* Localizable.strings */,
+			);
+			path = ShareExtension;
 			sourceTree = "<group>";
 		};
 		EA692898413966133B21078B /* debug */ = {
@@ -234,7 +308,7 @@
 			path = debug;
 			sourceTree = "<group>";
 		};
-		"TEMP_FAF327CA-E8F7-4BA7-BB54-DDC642E6BF56" /* x86_64 */ = {
+		"TEMP_7C6FFA1F-19A1-494C-AE24-16D47D9296AF" /* x86_64 */ = {
 			isa = PBXGroup;
 			children = (
 			);
@@ -252,10 +326,12 @@
 				C23EB94007E4ED18155088B5 /* Sources */,
 				40BEE8952F6A8FBB87BB5F03 /* Resources */,
 				A9E09389A72A24C54F5EE485 /* Frameworks */,
+				86C3AD01EAB790895D0CAB9A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				827F02235568FDBB5F66565A /* PBXTargetDependency */,
 			);
 			name = "silentsilo-mobile_iOS";
 			packageProductDependencies = (
@@ -263,6 +339,24 @@
 			productName = "silentsilo-mobile_iOS";
 			productReference = 8D37C8FCA9D02EE0260495AD /* silentsilo-mobile_iOS.app */;
 			productType = "com.apple.product-type.application";
+		};
+		E9FFCECE0987173A48C819AC /* silentsilo-share */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 3960898082945DF22D408DCC /* Build configuration list for PBXNativeTarget "silentsilo-share" */;
+			buildPhases = (
+				53FA4B6FDF85AB7D8C26E554 /* Sources */,
+				C6A6B8F89FE2AB5C294780F8 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "silentsilo-share";
+			packageProductDependencies = (
+			);
+			productName = "silentsilo-share";
+			productReference = 708D940D75EE7389DFE99A0E /* silentsilo-share.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -274,6 +368,9 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					AA9D9184F37B514544A6ACB4 = {
+						DevelopmentTeam = J3YBNT5RQ3;
+					};
+					E9FFCECE0987173A48C819AC = {
 						DevelopmentTeam = J3YBNT5RQ3;
 					};
 				};
@@ -300,6 +397,7 @@
 			projectRoot = "";
 			targets = (
 				AA9D9184F37B514544A6ACB4 /* silentsilo-mobile_iOS */,
+				E9FFCECE0987173A48C819AC /* silentsilo-share */,
 			);
 		};
 /* End PBXProject section */
@@ -316,6 +414,16 @@
 				C2F8128D2E822AD0816C2141 /* PrivacyInfo.xcprivacy in Resources */,
 				7D996DFBF0B832D6675500AC /* assets in Resources */,
 				39E4A55C5F54C4A652DD6325 /* libapp.a in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		C6A6B8F89FE2AB5C294780F8 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F5F78D554C195CA8CEBA2FB3 /* InfoPlist.strings in Resources */,
+				80F4AFBF89186E4AC420BDAA /* Localizable.strings in Resources */,
+				8A8C4EFD65271D5297AC4843 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -346,10 +454,19 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		53FA4B6FDF85AB7D8C26E554 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B3D8C99E652D0FE2EB45A831 /* ShareViewController.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		C23EB94007E4ED18155088B5 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				06DD2B7252045D57DF9367BA /* Backup.swift in Sources */,
 				9C817DF01FE78AFD9B399476 /* Platform.swift in Sources */,
 				594F184AFA89CEA2F842C0F1 /* SecurityKeys.swift in Sources */,
 				8AC0F768D9C841334819CCB4 /* main.mm in Sources */,
@@ -358,7 +475,45 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		827F02235568FDBB5F66565A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = E9FFCECE0987173A48C819AC /* silentsilo-share */;
+			targetProxy = 36A8020F9D5187B798EFCCD6 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin PBXVariantGroup section */
+		309D3FA87FEC9B872A699203 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DC90EC7D6F92C6F8A8695B72 /* de */,
+				3923BC183BB01E1CB6800E06 /* en */,
+				167D8F2F994B89E9E6DEEBDB /* es */,
+				21B5D3E3F53FE8BBFF10D464 /* fr */,
+				A86B5BE0701989AD1BB6AAC8 /* it */,
+				C645101BB57FD45102BD06FD /* pl */,
+				EBA5D9E67E1588497B3D54AD /* pt-BR */,
+				C04E63AE7BD023084C13AE08 /* ro */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
+		41B4A6F0A642AFCAB7377AC3 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				6E4C759FB6DE47EBF4535777 /* de */,
+				9A2AE0C683FE349B640764C2 /* en */,
+				E2060D0475148A6B9A14D751 /* es */,
+				F16BC8CB24DC85E33D789A98 /* fr */,
+				0AF917A05B79EC6BD2D10F97 /* it */,
+				F696DED2D9731B0D52CFF769 /* pl */,
+				4CBE3BED708AEB545F7F5BA1 /* pt-BR */,
+				949B14434731F6A19BBDB5C1 /* ro */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
 		4C85AD9B1E5DE1111C5FED2C /* Localizable.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -482,6 +637,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.silentsilo.mobile;
 				PRODUCT_NAME = "SilentSilo";
 				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/silentsilo-mobile/rust.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				VALID_ARCHS = arm64;
@@ -515,6 +671,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.silentsilo.mobile;
 				PRODUCT_NAME = "SilentSilo";
 				SDKROOT = iphoneos;
+				SWIFT_OBJC_BRIDGING_HEADER = "Sources/silentsilo-mobile/rust.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				VALID_ARCHS = arm64;
@@ -577,9 +734,62 @@
 			};
 			name = release;
 		};
+		DEC19D8CAAB5B1333A3841D1 /* release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					arm64,
+				);
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				DEVELOPMENT_TEAM = J3YBNT5RQ3;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentsilo.mobile.share;
+				PRODUCT_NAME = SilentSiloShare;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = release;
+		};
+		E0176568B23F53D0B30C84C7 /* debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					arm64,
+				);
+				CODE_SIGN_ENTITLEMENTS = ShareExtension/ShareExtension.entitlements;
+				DEVELOPMENT_TEAM = J3YBNT5RQ3;
+				INFOPLIST_FILE = ShareExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.silentsilo.mobile.share;
+				PRODUCT_NAME = SilentSiloShare;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		3960898082945DF22D408DCC /* Build configuration list for PBXNativeTarget "silentsilo-share" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				E0176568B23F53D0B30C84C7 /* debug */,
+				DEC19D8CAAB5B1333A3841D1 /* release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = debug;
+		};
 		671D7FB9C7EC02FE0D34CA70 /* Build configuration list for PBXNativeTarget "silentsilo-mobile_iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

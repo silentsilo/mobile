@@ -16,7 +16,7 @@ use uuid::Uuid;
 use crate::host::MobileHost;
 
 fn app_data(app: &AppHandle) -> Result<PathBuf, String> {
-    app.path().app_data_dir().map_err(|e| e.to_string())
+    crate::paths::data_dir(app)
 }
 
 pub(crate) fn active_silo(state: &AppState) -> Result<SiloEntry, String> {

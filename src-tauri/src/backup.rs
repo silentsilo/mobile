@@ -3,9 +3,10 @@
 //! Set up while the silo is open: this phone gets a signing key, registers
 //! it as a sender (sealed under the content KEK, so only a device holding
 //! the silo can), and learns the inbox key. From then on the job in
-//! `Backup.kt` seals each new photo to that key and signs it, with no key
-//! that opens anything. Any unlocked device, this phone included, imports
-//! what arrives. Formats: core FORMATS.md, "The inbox".
+//! `Backup.kt` (`Backup.swift` on the iPhone) seals each new photo to that
+//! key and signs it, with no key that opens anything. Any unlocked device,
+//! this phone included, imports what arrives. Formats: core FORMATS.md,
+//! "The inbox".
 
 use std::path::{Path, PathBuf};
 
@@ -161,7 +162,17 @@ impl<R: Runtime> Backup<R> {
                 .await
                 .map_err(|e| e.to_string())
         }
-        #[cfg(not(target_os = "android"))]
+        #[cfg(target_os = "ios")]
+        {
+            let command = command.to_string();
+            let answer = tauri::async_runtime::spawn_blocking(move || {
+                crate::ios::backup_call(&command, &payload)
+            })
+            .await
+            .map_err(|e| e.to_string())??;
+            serde_json::from_value(answer).map_err(|e| e.to_string())
+        }
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         {
             let _ = (command, payload);
             Err("This build has no background backup.".into())
@@ -252,7 +263,7 @@ pub async fn backup_configure(
         );
     }
 
-    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let data_dir = crate::paths::data_dir(&app)?;
     let label = phone_label(&app, &silo);
 
     if read_sender(&data_dir).is_none_or(|s| s.vault_id != silo.id) {
@@ -344,7 +355,7 @@ pub async fn backup_disable(
 }
 
 pub async fn stop(app: &AppHandle) -> Result<BackupStatus, String> {
-    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let data_dir = crate::paths::data_dir(app)?;
     if let Some(sender) = read_sender(&data_dir) {
         if let Some(target) = send_target(sender.vault_id)
             && let Ok(store) = target.config.open()
@@ -417,7 +428,7 @@ fn save_ledger(data_dir: &Path, ledger: &Ledger) {
     }
 }
 
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+#[cfg_attr(not(any(target_os = "android", target_os = "ios")), allow(dead_code))]
 pub fn record_sent(data_dir: &Path, item_id: Uuid, kind: &str, reference: &str) {
     let _held = LEDGER.lock();
     let mut ledger = load_ledger(data_dir);
@@ -434,7 +445,7 @@ pub fn record_sent(data_dir: &Path, item_id: Uuid, kind: &str, reference: &str) 
 }
 
 /// What the job should send again, as `[{kind, reference}]`.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+#[cfg_attr(not(any(target_os = "android", target_os = "ios")), allow(dead_code))]
 pub fn resends(data_dir: &Path) -> String {
     let _held = LEDGER.lock();
     let ledger = load_ledger(data_dir);
@@ -449,7 +460,7 @@ pub fn resends(data_dir: &Path) -> String {
 }
 
 /// The job sent it again, or it no longer exists on the phone.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+#[cfg_attr(not(any(target_os = "android", target_os = "ios")), allow(dead_code))]
 pub fn resolve_resend(data_dir: &Path, kind: &str, reference: &str) {
     let _held = LEDGER.lock();
     let mut ledger = load_ledger(data_dir);
@@ -550,7 +561,7 @@ async fn waiting_for(vault_id: Uuid) -> Result<usize, String> {
 /// `None` when backup is not set up here or storage did not answer.
 #[tauri::command]
 pub async fn backup_waiting(app: AppHandle) -> Result<Option<usize>, String> {
-    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let data_dir = crate::paths::data_dir(&app)?;
     let Some(sender) = read_sender(&data_dir) else {
         return Ok(None);
     };
@@ -558,7 +569,7 @@ pub async fn backup_waiting(app: AppHandle) -> Result<Option<usize>, String> {
 }
 
 /// For the job: the count, or -1 when it could not be read.
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 pub fn waiting_from_job(data_dir: &Path) -> i64 {
     let Some(sender) = read_sender(data_dir) else {
         return -1;
@@ -649,7 +660,7 @@ pub fn send_from_job(item: JobItem) -> String {
 }
 
 /// A file another app shared, sent without opening the silo.
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 pub fn send_shared(
     data_dir: &Path,
     source: &mut std::fs::File,
@@ -675,7 +686,7 @@ pub fn send_shared(
 
 /// Content is read from `source`, never reopened by path: a descriptor
 /// another app granted has no path this app may open.
-#[cfg(target_os = "android")]
+#[cfg(any(target_os = "android", target_os = "ios"))]
 #[allow(clippy::too_many_arguments)]
 fn send_one(
     data_dir: &Path,
@@ -712,8 +723,12 @@ fn send_one(
     };
     let vault = sender.vault_id.to_string();
     let sign = move |message: &[u8]| {
-        let der = crate::android::sign(&vault, message)
-            .ok_or_else(|| "This phone's signing key did not sign the item.".to_string())?;
+        #[cfg(target_os = "android")]
+        let der = crate::android::sign(&vault, message);
+        #[cfg(target_os = "ios")]
+        let der = crate::ios::sender_sign(&vault, message);
+        let der =
+            der.ok_or_else(|| "This phone's signing key did not sign the item.".to_string())?;
         silentsilo_crypto::inbox::signature_from_der(&der).map_err(|e| e.to_string())
     };
     tauri::async_runtime::block_on(async {
@@ -721,6 +736,135 @@ fn send_one(
             .await
             .map_err(|e| e.to_string())
     })
+}
+
+/// What `Backup.swift` calls, through `gen/apple/Sources/silentsilo-mobile/rust.h`.
+/// Strings Rust returns are freed with `ss_rust_free`.
+#[cfg(target_os = "ios")]
+mod ios_job {
+    use std::ffi::{CStr, CString, c_char};
+
+    use serde::Deserialize;
+    use uuid::Uuid;
+
+    fn text(raw: *const c_char) -> String {
+        if raw.is_null() {
+            return String::new();
+        }
+        // SAFETY: a NUL-terminated string Swift keeps alive for the call.
+        unsafe { CStr::from_ptr(raw) }
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    fn give(text: String) -> *mut c_char {
+        CString::new(text).unwrap_or_default().into_raw()
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn ss_rust_free(raw: *mut c_char) {
+        if !raw.is_null() {
+            // SAFETY: made by `give`, freed once.
+            drop(unsafe { CString::from_raw(raw) });
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn ss_backup_ready() -> bool {
+        crate::background::data_dir().is_some()
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct Item {
+        path: String,
+        item_id: String,
+        name: String,
+        #[serde(default)]
+        mime_type: String,
+        taken_at: Option<i64>,
+        /// Folder names below the root, one per line.
+        folder: String,
+        kind: String,
+    }
+
+    /// `ok`, `retry: why` or `skip: why`.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn ss_backup_send(item: *const c_char) -> *mut c_char {
+        give(send(&text(item)))
+    }
+
+    fn send(item: &str) -> String {
+        let Some(data_dir) = crate::background::data_dir() else {
+            return "retry: the app has not started yet".into();
+        };
+        let Ok(item) = serde_json::from_str::<Item>(item) else {
+            return "skip: the item could not be read".into();
+        };
+        let Ok(item_id) = Uuid::parse_str(&item.item_id) else {
+            return "skip: the item has no valid id".into();
+        };
+        let mut source = match std::fs::File::open(&item.path) {
+            Ok(file) => file,
+            Err(e) => return format!("skip: the item could not be read: {e}"),
+        };
+        let folder = item
+            .folder
+            .split('\n')
+            .filter(|s| !s.trim().is_empty())
+            .map(String::from)
+            .collect();
+        match super::send_one(
+            data_dir,
+            &mut source,
+            item_id,
+            item.name,
+            Some(item.mime_type).filter(|m| !m.is_empty()),
+            item.taken_at,
+            folder,
+            item.kind,
+        ) {
+            Ok(()) => "ok".into(),
+            Err(e) => format!("retry: {e}"),
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn ss_backup_record_sent(
+        item_id: *const c_char,
+        kind: *const c_char,
+        reference: *const c_char,
+    ) {
+        if let (Some(data_dir), Ok(item_id)) = (
+            crate::background::data_dir(),
+            Uuid::parse_str(&text(item_id)),
+        ) {
+            super::record_sent(data_dir, item_id, &text(kind), &text(reference));
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn ss_backup_resends() -> *mut c_char {
+        give(
+            crate::background::data_dir()
+                .map(|d| super::resends(d))
+                .unwrap_or_else(|| "[]".into()),
+        )
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn ss_backup_resolve(kind: *const c_char, reference: *const c_char) {
+        if let Some(data_dir) = crate::background::data_dir() {
+            super::resolve_resend(data_dir, &text(kind), &text(reference));
+        }
+    }
+
+    #[unsafe(no_mangle)]
+    pub extern "C" fn ss_backup_waiting() -> i64 {
+        crate::background::data_dir()
+            .map(|d| super::waiting_from_job(d))
+            .unwrap_or(-1)
+    }
 }
 
 #[cfg(test)]

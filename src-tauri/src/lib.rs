@@ -15,9 +15,14 @@ mod host;
 mod incoming;
 #[cfg(target_os = "ios")]
 mod ios;
+#[cfg(target_os = "ios")]
+mod keychain;
 mod manage;
 #[cfg(target_os = "android")]
 mod passkeys;
+mod paths;
+#[cfg(mobile)]
+mod secrets;
 mod security_key;
 mod viewer;
 
@@ -41,22 +46,37 @@ pub fn run() {
             // fallback secrets: they live in the app's own private storage.
             #[cfg(all(target_os = "android", debug_assertions))]
             android::stderr_to_logcat();
+            // The app group's container, from the release with AutoFill: what
+            // an earlier build kept in the app's own moves there first.
+            #[cfg(target_os = "ios")]
+            if let (Ok(old), Ok(new)) = (app.path().app_data_dir(), paths::data_dir(app.handle())) {
+                paths::move_into(&old, &new);
+            }
             background::remember(app.handle());
-            let data = app.path().app_data_dir()?;
+            #[cfg(target_os = "ios")]
+            ios::install_privacy_cover();
+            let data = paths::data_dir(app.handle())?;
             #[cfg(all(target_os = "ios", debug_assertions))]
             {
                 let _ = std::fs::create_dir_all(&data);
                 ios::stderr_to_file(&data.join("stderr.log"));
             }
             silentsilo_vault::set_work_base(data.join("work"));
+            // Before the first secret file is read or written.
+            #[cfg(target_os = "ios")]
+            let sealed = keychain::install_protector();
+            #[cfg(target_os = "android")]
+            let sealed = android::protector_ready();
             // OneDrive, Dropbox and Google Drive open through the tokens the
             // vault keeps.
             silentsilo_vault::install_cloud();
             // Nothing is unlocked yet: any scratch left is from a process
             // Android killed while a silo was open.
             let _ = app.state::<silentsilo_app::AppState>().sweep_scratch();
-            #[cfg(target_os = "android")]
-            android::seal_existing_secrets(&data);
+            #[cfg(mobile)]
+            if sealed {
+                secrets::seal_existing(&data);
+            }
             commands::rehome_silos(&data);
             let handle = app.handle().clone();
             commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());

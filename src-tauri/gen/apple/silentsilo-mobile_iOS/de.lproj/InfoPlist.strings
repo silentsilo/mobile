@@ -3,3 +3,5 @@
 "NFCReaderUsageDescription" = "SilentSilo liest einen ans iPhone gehaltenen Sicherheitsschlüssel, um deine Silos zu öffnen.";
 "NSCameraUsageDescription" = "SilentSilo nimmt ein Foto direkt in dein Silo auf, verschlüsselt auf diesem iPhone.";
 "NSPhotoLibraryAddUsageDescription" = "SilentSilo sichert eine Datei aus deinem Silo in Fotos, wenn du das wählst.";
+"NSPhotoLibraryUsageDescription" = "SilentSilo sichert die Fotos und Videos, die du auswählst, in deinem Silo, verschlüsselt auf diesem iPhone.";
+"NSContactsUsageDescription" = "SilentSilo sichert deine Kontakte in deinem Silo, verschlüsselt auf diesem iPhone.";

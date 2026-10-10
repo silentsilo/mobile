@@ -124,8 +124,8 @@ impl<R: Runtime> DeviceKey<R> {
 
 /// iPhone and iPad: the key is made and used in the Secure Enclave behind
 /// Face ID or Touch ID. Each call blocks while the system sheet is up, so
-/// it runs off the async runtime. Not yet on iOS: the sensitive clipboard,
-/// AutoFill and passkeys, the device name and haptics.
+/// it runs off the async runtime. Not yet on iOS: passkeys, and the device
+/// name, which iOS gives an app only with an entitlement Apple grants.
 #[cfg(target_os = "ios")]
 impl<R: Runtime> DeviceKey<R> {
     const NOT_YET: &str = "Not available on iPhone yet.";
@@ -180,12 +180,13 @@ impl<R: Runtime> DeviceKey<R> {
         .await?
     }
 
-    pub async fn copy_secret(&self, _text: &str) -> Result<(), String> {
-        Err(Self::NOT_YET.into())
+    pub async fn copy_secret(&self, text: &str) -> Result<(), String> {
+        let text = zeroize::Zeroizing::new(text.to_string());
+        blocking(move || crate::ios::copy_secret(&text)).await
     }
 
     pub async fn clear_secret(&self) -> Result<(), String> {
-        Ok(())
+        blocking(crate::ios::clear_secret).await
     }
 
     pub async fn remove(&self, credential_id: &str) -> Result<(), String> {
@@ -203,9 +204,10 @@ impl<R: Runtime> DeviceKey<R> {
     }
 
     pub async fn autofill_status(&self) -> Result<AutofillStatus, String> {
+        let enabled = blocking(crate::ios::autofill_enabled).await?;
         Ok(AutofillStatus {
-            supported: false,
-            enabled: false,
+            supported: true,
+            enabled,
         })
     }
 
@@ -214,7 +216,11 @@ impl<R: Runtime> DeviceKey<R> {
     }
 
     pub async fn autofill_enable(&self) -> Result<(), String> {
-        Err(Self::NOT_YET.into())
+        if blocking(crate::ios::autofill_open_settings).await? {
+            Ok(())
+        } else {
+            Err("This iPhone did not open its AutoFill settings.".into())
+        }
     }
 
     pub async fn passkeys_status(&self) -> Result<AutofillStatus, String> {
@@ -232,7 +238,8 @@ impl<R: Runtime> DeviceKey<R> {
         Ok(())
     }
 
-    pub async fn haptic(&self, _kind: &str) -> Result<(), String> {
+    pub async fn haptic(&self, kind: &str) -> Result<(), String> {
+        crate::ios::haptic(kind);
         Ok(())
     }
 }

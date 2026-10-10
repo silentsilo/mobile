@@ -252,3 +252,86 @@ public func ssPdfPage(
 public func ssFree(_ pointer: UnsafeMutableRawPointer?) {
   free(pointer)
 }
+
+// MARK: - The app switcher
+
+/// Android keeps the app out of its recents screenshot with FLAG_SECURE.
+/// iOS takes its snapshot after the scene enters the background, so a plain
+/// view laid over the window by then is what the app switcher shows.
+final class PrivacyCover {
+  static let shared = PrivacyCover()
+  private var covers: [UIView] = []
+
+  func install() {
+    let center = NotificationCenter.default
+    center.addObserver(
+      forName: UIScene.didEnterBackgroundNotification, object: nil, queue: .main
+    ) { [weak self] note in
+      self?.cover(note.object as? UIWindowScene)
+    }
+    center.addObserver(
+      forName: UIScene.willEnterForegroundNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      self?.uncover()
+    }
+  }
+
+  private func cover(_ scene: UIWindowScene?) {
+    guard covers.isEmpty, let window = scene?.windows.first else { return }
+    let view = UIView(frame: window.bounds)
+    view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    view.backgroundColor = .systemBackground
+    window.addSubview(view)
+    covers.append(view)
+  }
+
+  private func uncover() {
+    covers.forEach { $0.removeFromSuperview() }
+    covers.removeAll()
+  }
+}
+
+@_cdecl("ss_privacy_cover_install")
+public func ssPrivacyCoverInstall() {
+  DispatchQueue.main.async { PrivacyCover.shared.install() }
+}
+
+// MARK: - Files shared from other apps
+
+/// Moves what the share extension left in the app group's Inbox into this
+/// app's temporary folder, where the import reads and then deletes it, and
+/// returns `{"files": [...]}` in the shape the picker returns. Moved rather
+/// than listed, so each shared file is offered once.
+@_cdecl("ss_take_shared")
+public func ssTakeShared() -> UnsafeMutablePointer<CChar>? {
+  let manager = FileManager.default
+  var files: [[String: Any]] = []
+  if let inbox = manager.containerURL(forSecurityApplicationGroupIdentifier: "group.com.silentsilo.mobile")?
+    .appendingPathComponent("Inbox", isDirectory: true),
+    let folders = try? manager.contentsOfDirectory(at: inbox, includingPropertiesForKeys: nil)
+  {
+    let taken = manager.temporaryDirectory.appendingPathComponent("shared", isDirectory: true)
+    for folder in folders {
+      defer { try? manager.removeItem(at: folder) }
+      guard let file = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.first
+      else { continue }
+      let target = taken.appendingPathComponent(folder.lastPathComponent, isDirectory: true)
+      do {
+        try manager.createDirectory(at: target, withIntermediateDirectories: true)
+        let moved = target.appendingPathComponent(file.lastPathComponent)
+        try manager.moveItem(at: file, to: moved)
+        let size = (try? moved.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+        files.append([
+          "uri": moved.path,
+          "name": moved.lastPathComponent,
+          "size": size,
+          "mimeType": UTType(filenameExtension: moved.pathExtension)?.preferredMIMEType ?? "",
+        ])
+      } catch {
+        continue
+      }
+    }
+  }
+  let data = (try? JSONSerialization.data(withJSONObject: ["files": files])) ?? Data("{\"files\":[]}".utf8)
+  return owned(String(decoding: data, as: UTF8.self))
+}

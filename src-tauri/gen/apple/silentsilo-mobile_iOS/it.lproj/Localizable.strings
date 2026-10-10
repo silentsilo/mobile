@@ -4,3 +4,6 @@
 "pin_ok" = "OK";
 "pin_no_pin" = "Nessun PIN";
 "pin_cancel" = "Annulla";
+/* Phone backup reminder (Backup.swift): items waited for days. */
+"backup_title" = "Backup del telefono";
+"backup_waiting" = "Foto e contatti di questo iPhone sono in attesa. Apri SilentSilo per aggiungerli al tuo silo.";

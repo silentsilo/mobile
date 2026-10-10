@@ -3,3 +3,5 @@
 "NFCReaderUsageDescription" = "SilentSilo citește o cheie de securitate ținută lângă iPhone ca să-ți deschidă silozurile.";
 "NSCameraUsageDescription" = "SilentSilo face o poză direct în siloz, criptată pe acest iPhone.";
 "NSPhotoLibraryAddUsageDescription" = "SilentSilo salvează un fișier din siloz în Poze când alegi asta.";
+"NSPhotoLibraryUsageDescription" = "SilentSilo face backup în siloz pozelor și videoclipurilor pe care le alegi, criptate pe acest iPhone.";
+"NSContactsUsageDescription" = "SilentSilo face backup în siloz contactelor tale, criptate pe acest iPhone.";

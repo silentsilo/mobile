@@ -13,6 +13,7 @@ import { SiloHeader } from "./Passwords";
 import { announceSilo } from "./SiloSwitcher";
 import { haptic } from "../ui/haptics";
 import { useLeftOut } from "../ui/syncActivity";
+import { isIOS } from "../ui/platform";
 
 function historyLabel(policy: HistoryPolicy): string {
   return policy === "fit" ? t("silo.history_fit") : t("silo.history_last", { count: policy });
@@ -426,7 +427,11 @@ export function Silo({
       </Sheet>
 
       <Sheet open={aboutAutofill} onClose={() => setAboutAutofill(false)} title={t("silo.row_autofill")}>
-        <p className="hint">{autofill?.enabled ? t("silo.autofill_on_hint") : t("silo.autofill_off_hint")}</p>
+        <p className="hint">
+          {isIOS
+            ? autofill?.enabled ? t("silo.autofill_on_hint_ios") : t("silo.autofill_off_hint_ios")
+            : autofill?.enabled ? t("silo.autofill_on_hint") : t("silo.autofill_off_hint")}
+        </p>
         <button
           className="btn"
           onClick={() => {
@@ -434,7 +439,9 @@ export function Silo({
             api.enableAutofill().catch((e) => toast(formatAppError(e)));
           }}
         >
-          {autofill?.enabled ? t("silo.android_change") : t("silo.android_turn_on")}
+          {isIOS
+            ? autofill?.enabled ? t("silo.ios_change") : t("silo.ios_turn_on")
+            : autofill?.enabled ? t("silo.android_change") : t("silo.android_turn_on")}
         </button>
       </Sheet>
 

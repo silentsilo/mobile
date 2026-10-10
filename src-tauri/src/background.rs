@@ -321,7 +321,7 @@ pub fn app() -> Option<&'static AppHandle> {
 
 pub fn remember(app: &AppHandle) {
     let _ = APP.set(app.clone());
-    if let (Ok(data), Ok(cache)) = (app.path().app_data_dir(), app.path().app_cache_dir()) {
+    if let (Ok(data), Ok(cache)) = (crate::paths::data_dir(app), app.path().app_cache_dir()) {
         keep_the_old_default(&data);
         let _ = DIRS.set((data, cache));
     }

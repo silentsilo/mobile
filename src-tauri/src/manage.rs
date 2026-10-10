@@ -227,7 +227,7 @@ pub struct SiloChoice {
 
 #[tauri::command]
 pub fn silo_list(app: AppHandle, state: State<'_, AppState>) -> Result<Vec<SiloChoice>, String> {
-    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let data = crate::paths::data_dir(&app)?;
     let active = active_silo(&state).ok().map(|s| s.id);
     Ok(load_registry(&data)
         .silos
@@ -248,7 +248,7 @@ pub fn silo_switch(
     silo_id: String,
 ) -> Result<(), String> {
     let silo_id = id(&silo_id)?;
-    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let data = crate::paths::data_dir(&app)?;
     let mut registry = load_registry(&data);
     let entry = registry
         .get(silo_id)
@@ -270,7 +270,7 @@ pub async fn silo_remove(
     silo_id: String,
 ) -> Result<(), String> {
     let silo_id = id(&silo_id)?;
-    let data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let data = crate::paths::data_dir(&app)?;
     let mut registry = load_registry(&data);
     let silo = registry
         .get(silo_id)
