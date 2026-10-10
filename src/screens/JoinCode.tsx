@@ -1,5 +1,6 @@
 import { ClipboardPaste } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { api, type JoinPreview, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { isComplete } from "../shared/recoveryCode";
@@ -25,11 +26,33 @@ export function JoinCode({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [waitingForKey, setWaitingForKey] = useState(false);
+  // How far the join is: a large silo downloads and then rebuilds for
+  // minutes, and a button that only says "Joining" reads as a hang.
+  const [progress, setProgress] = useState<{ fetched: number; total: number; building: boolean } | null>(null);
   const toast = useToast();
+
+  useEffect(() => {
+    const stop = listen<{ fetched: number; total: number; building: boolean }>("join-progress", (event) =>
+      setProgress(event.payload),
+    );
+    return () => {
+      void stop.then((off) => off());
+    };
+  }, []);
+
+  const progressLine =
+    progress && (progress.building || progress.total > 0) ? (
+      <p className="hint" role="status">
+        {progress.building
+          ? t("start.join_building")
+          : t("start.join_downloading", { done: progress.fetched, total: progress.total })}
+      </p>
+    ) : null;
 
   // For someone with one of the silo's security keys and no code at hand.
   const joinWithKey = async () => {
     setError(null);
+    setProgress(null);
     setWaitingForKey(true);
     try {
       await api.joinWithSecurityKey(config, name.trim() || t("start.default_name"));
@@ -52,6 +75,7 @@ export function JoinCode({
   const join = async () => {
     setBusy(true);
     setError(null);
+    setProgress(null);
     try {
       await api.joinWithRecovery(config, code, name.trim() || t("start.default_name"));
       onJoined();
@@ -84,6 +108,7 @@ export function JoinCode({
           </div>
         </Field>
         {error && <Notice tone="error">{error}</Notice>}
+        {busy && progressLine}
         <div className="spacer" />
         <button className="btn" aria-busy={busy} disabled={!isComplete(code) || busy} onClick={join}>
           {busy ? t("start.joining") : t("start.continue")}
@@ -97,6 +122,7 @@ export function JoinCode({
 
       <Sheet open={waitingForKey} onClose={() => void api.cancelSecurityKey()} title={t("start.join_key_title")}>
         <SecurityKeyWait />
+        {progressLine}
         <button className="btn secondary" onClick={() => void api.cancelSecurityKey()}>
           {t("common.cancel")}
         </button>

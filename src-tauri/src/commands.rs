@@ -169,6 +169,8 @@ pub async fn vault_preview_join(config: StoreConfigInput) -> Result<JoinPreview,
 struct JoinProgress {
     fetched: usize,
     total: usize,
+    /// Downloaded; the silo is being built from it on this phone.
+    building: bool,
 }
 
 #[tauri::command]
@@ -274,12 +276,27 @@ async fn provision_joined(
         store,
         join.dek(),
         &mut move |fetched, total| {
-            let _ = emitter.emit("join-progress", JoinProgress { fetched, total });
+            let _ = emitter.emit(
+                "join-progress",
+                JoinProgress {
+                    fetched,
+                    total,
+                    building: false,
+                },
+            );
         },
     )
     .await
     .map_err(|e| e.to_string())?;
 
+    let _ = app.emit(
+        "join-progress",
+        JoinProgress {
+            fetched: 0,
+            total: 0,
+            building: true,
+        },
+    );
     tauri::async_runtime::spawn_blocking(move || flows::join_finish(session, plan))
         .await
         .map_err(|e| e.to_string())?
@@ -816,6 +833,8 @@ pub fn recovery_status(state: State<AppState>) -> Result<RecoveryStatus, String>
 pub fn spawn_auto_sync(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut last_pull: std::collections::HashMap<Uuid, i64> = Default::default();
+        // Silos told this phone's name since the app started.
+        let mut announced: std::collections::HashSet<Uuid> = Default::default();
         let mut first = true;
         loop {
             // The first tick straight away: what changed elsewhere while the
@@ -837,6 +856,9 @@ pub fn spawn_auto_sync(app: AppHandle) {
                 let Some(silo) = registry.get(id).cloned() else {
                     continue;
                 };
+                if announced.insert(id) {
+                    announce_this_phone(&app, &silo).await;
+                }
                 let waiting = state
                     .sessions
                     .lock()
@@ -872,6 +894,32 @@ pub fn spawn_auto_sync(app: AppHandle) {
             }
         }
     });
+}
+
+/// Tells the silo what this phone is called, as the desktop does, so its
+/// Devices list names the phone instead of "Unnamed device": the name of
+/// this phone's key in the silo, else the name the phone gives itself.
+/// Recorded only when it changed, so it costs nothing on later opens.
+async fn announce_this_phone(app: &AppHandle, silo: &SiloEntry) {
+    let label = crate::backup::phone_label(app, silo);
+    let name = if this_phone_key(app, silo).is_some() {
+        label
+    } else {
+        app.state::<crate::device_key::DeviceKey<tauri::Wry>>()
+            .device_name()
+            .await
+            .unwrap_or(label)
+    };
+    let platform = if cfg!(target_os = "ios") {
+        "iOS"
+    } else {
+        "Android"
+    };
+    let _ = app
+        .state::<AppState>()
+        .with_session_id(silo.id, |_session, vfs| {
+            vfs.announce_device(Some(&name), platform)
+        });
 }
 
 /// iOS can move an app's data container when the app is reinstalled or
