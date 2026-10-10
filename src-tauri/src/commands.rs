@@ -675,6 +675,7 @@ pub fn serve_file(
         let state = app.state::<AppState>();
         let response = match (id, active_silo(&state)) {
             (Some(file_id), Ok(silo)) => {
+                let _watch = crate::viewer::watch_download(&app, file_id);
                 match silentsilo_app::files::read_file(
                     &state,
                     &host(&app),
@@ -992,10 +993,10 @@ pub async fn vault_rebuild(app: AppHandle, state: State<'_, AppState>) -> Result
 
 /// Holds off sync passes while it lives: waits for one running to finish,
 /// then marks one as running.
-struct SyncHold<'a>(&'a AppState);
+pub(crate) struct SyncHold<'a>(&'a AppState);
 
 impl<'a> SyncHold<'a> {
-    async fn take(state: &'a AppState) -> SyncHold<'a> {
+    pub(crate) async fn take(state: &'a AppState) -> SyncHold<'a> {
         use std::sync::atomic::Ordering;
         while state
             .sync_in_flight

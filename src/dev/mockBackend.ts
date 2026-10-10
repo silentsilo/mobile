@@ -288,6 +288,11 @@ const handlers: Record<string, Handler> = {
   backup_target_remove: async () => {
     await wait(300);
   },
+  backup_target_fill: async () => {
+    await wait(1500);
+    return 42;
+  },
+  backup_target_fill_stop: async () => {},
   cloud_sign_in: async (args) => {
     await wait(900);
     return {

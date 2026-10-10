@@ -193,6 +193,9 @@ export const api = {
   copies: () => invoke<CopyView[]>("backup_targets_list"),
   addCopy: (config: StoreConfigInput) => invoke<void>("backup_target_add", { config }),
   removeCopy: (id: string) => invoke<void>("backup_target_remove", { id }),
+  /** Fills a copy from the main one; `fill-progress` reports it. */
+  fillCopy: (id: string) => invoke<number>("backup_target_fill", { id }),
+  stopFill: () => invoke<void>("backup_target_fill_stop"),
   cloudProviders: () => invoke<string[]>("cloud_providers"),
   cloudSignIn: (kind: CloudKind) => invoke<CloudSignIn>("cloud_sign_in", { kind }),
   cloudCancelSignIn: () => invoke<void>("cloud_cancel_sign_in"),

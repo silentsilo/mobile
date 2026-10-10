@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api, type CopyView, type StorageView, type StoreConfigInput } from "../api";
+import { formatBytes } from "../shared/format";
 import { formatAppError } from "../shared/errors";
 import { t, useLocale } from "../i18n";
 import { Notice, Sheet, Skeleton, TopBar, useToast } from "../ui/chrome";
@@ -66,7 +67,19 @@ export function Storage({ onBack }: { onBack: () => void }) {
   const [editing, setEditing] = useState(false);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<CopyView | null>(null);
+  /// A copy just added, offered a fill from the main one.
+  const [toFill, setToFill] = useState<CopyView | null>(null);
+  const [filling, setFilling] = useState<{ done: number; total: number } | null>(null);
+  const [stopping, setStopping] = useState(false);
   const toast = useToast();
+  useEffect(() => {
+    const stop = listen<{ bytes_done: number; bytes_total: number }>("fill-progress", (event) => {
+      setFilling({ done: event.payload.bytes_done, total: event.payload.bytes_total });
+    });
+    return () => {
+      void stop.then((unlisten) => unlisten());
+    };
+  }, []);
 
   const load = useCallback(() => {
     api.storageView().then(setCurrent, (e) => setError(formatAppError(e)));
@@ -92,11 +105,33 @@ export function Storage({ onBack }: { onBack: () => void }) {
   };
 
   const add = async (config: StoreConfigInput) => {
+    const before = new Set((copies ?? []).map((c) => c.id));
     await api.addCopy(config);
     toast(t("silo.toast_copy_added"));
     void api.syncNow().catch(() => undefined);
     setAdding(false);
     load();
+    // The records go at once; the files would only follow a hundred a day.
+    const after = await api.copies().catch(() => null);
+    const added = after?.find((c) => !before.has(c.id));
+    if (added) setToFill(added);
+  };
+
+  const fill = async (copy: CopyView) => {
+    setToFill(null);
+    setStopping(false);
+    setFilling({ done: 0, total: 0 });
+    await api.setBusy(true).catch(() => undefined);
+    try {
+      await api.fillCopy(copy.id);
+      toast(t("silo.toast_filled"));
+      load();
+    } catch (e) {
+      if (String(e) !== "Stopped.") setError(formatAppError(e));
+    } finally {
+      setFilling(null);
+      await api.setBusy(false).catch(() => undefined);
+    }
   };
 
   const remove = async (copy: CopyView) => {
@@ -122,6 +157,25 @@ export function Storage({ onBack }: { onBack: () => void }) {
           {copies && copies.length === 0 && <p className="hint">{t("silo.storage_none")}</p>}
         </div>
         {error && <Notice tone="error">{error}</Notice>}
+        {filling && (
+          <div className="notice" role="status" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span>
+              {filling.total > 0
+                ? t("silo.filling", { done: formatBytes(filling.done), total: formatBytes(filling.total) })
+                : t("silo.filling_start")}
+            </span>
+            <button
+              className="btn secondary"
+              disabled={stopping}
+              onClick={() => {
+                setStopping(true);
+                void api.stopFill().catch(() => undefined);
+              }}
+            >
+              {stopping ? t("silo.fill_stopping") : t("silo.fill_stop")}
+            </button>
+          </div>
+        )}
         {!copies && !error && <Skeleton avatar={false} rows={2} />}
 
         {copies && copies.length === 0 && current && (
@@ -204,6 +258,16 @@ export function Storage({ onBack }: { onBack: () => void }) {
           </>
         )}
       </div>
+
+      <Sheet open={toFill !== null} onClose={() => setToFill(null)} title={t("silo.fill_title")}>
+        <p className="hint">{t("silo.fill_body")}</p>
+        <button className="btn" onClick={() => toFill && void fill(toFill)}>
+          {t("silo.fill_now")}
+        </button>
+        <button className="btn secondary" onClick={() => setToFill(null)}>
+          {t("silo.fill_later")}
+        </button>
+      </Sheet>
 
       <Sheet open={removing !== null} onClose={() => setRemoving(null)} title={t("silo.remove_copy_title")}>
         <p className="hint">

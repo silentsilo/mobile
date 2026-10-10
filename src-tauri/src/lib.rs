@@ -198,6 +198,8 @@ pub fn run() {
             copies::backup_targets_list,
             copies::backup_target_add,
             copies::backup_target_remove,
+            copies::backup_target_fill,
+            copies::backup_target_fill_stop,
             security_key::security_key_status,
             security_key::security_key_cancel,
             security_key::security_key_count,

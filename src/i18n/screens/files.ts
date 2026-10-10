@@ -555,6 +555,17 @@ export const files = {
     "pt-BR": "Este tipo de arquivo não pode ser mostrado aqui. Abra-o com outro app no canto superior direito.",
     pl: "Tego rodzaju pliku nie można tu wyświetlić. Otwórz go w innej aplikacji przyciskiem w prawym górnym rogu.",
   },
+  "files.downloading_of": {
+    note: "Shown in place of a file that is only in backup storage while it downloads. {done} and {total} are sizes like 3.2 MB.",
+    en: "Downloading… {done} of {total}",
+    ro: "Se descarcă… {done} din {total}",
+    de: "Wird geladen… {done} von {total}",
+    fr: "Téléchargement… {done} sur {total}",
+    es: "Descargando… {done} de {total}",
+    it: "Download… {done} di {total}",
+    "pt-BR": "Baixando… {done} de {total}",
+    pl: "Pobieranie… {done} z {total}",
+  },
   "files.decrypting": {
     note: "Shown in place of a file while it is being decrypted for display.",
     en: "Decrypting…",

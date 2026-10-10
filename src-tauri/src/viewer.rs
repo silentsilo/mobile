@@ -2,12 +2,65 @@
 //! Android's renderer inside the app, and any file handed to another app.
 
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use silentsilo_app::AppState;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, Emitter, Manager, State};
 use uuid::Uuid;
 
 use crate::commands::{active_silo, host};
+
+#[derive(Clone, serde::Serialize)]
+struct FileDownload {
+    file_id: String,
+    done: u64,
+    total: u64,
+}
+
+/// Reports a file coming down from storage until dropped, by the size of
+/// the `.part` it streams into. A file that is on the phone gets none.
+pub struct DownloadWatch(Arc<AtomicBool>);
+
+impl Drop for DownloadWatch {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Relaxed);
+    }
+}
+
+/// The screen waiting on a file that is only in storage says how far the
+/// download is: on a phone it is the long part, the decrypt is quick.
+pub fn watch_download(app: &AppHandle, file_id: Uuid) -> Option<DownloadWatch> {
+    let state = app.state::<AppState>();
+    let silo = active_silo(&state).ok()?;
+    let entry = state.with_vfs(|_s, vfs| vfs.get_file(file_id)).ok()?;
+    let blob = silentsilo_vault::VaultPaths::new(silo.path.clone()).blob_path(entry.blob_id);
+    if blob.is_file() {
+        return None;
+    }
+    let mut part = blob.into_os_string();
+    part.push(".part");
+    let part = PathBuf::from(part);
+    let total = entry.size_bytes.max(0) as u64;
+    let stop = Arc::new(AtomicBool::new(false));
+    let watching = stop.clone();
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        while !watching.load(Ordering::Relaxed) {
+            let done = std::fs::metadata(&part).map(|m| m.len()).unwrap_or(0);
+            let _ = app.emit(
+                "file-download",
+                FileDownload {
+                    file_id: file_id.to_string(),
+                    done: done.min(total),
+                    total,
+                },
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+        }
+    });
+    Some(DownloadWatch(stop))
+}
 
 /// A decrypted copy of a PDF for the renderer, in the silo's scratch
 /// directory: every lock wipes it, and reopening the same file reuses it.
@@ -18,6 +71,7 @@ async fn pdf_copy(app: &AppHandle, file_id: Uuid) -> Result<PathBuf, String> {
     silentsilo_vault::create_private_dir(&dir).map_err(|e| e.to_string())?;
     let dest = dir.join(format!("pdf-{file_id}.pdf"));
     if !dest.is_file() {
+        let _watch = watch_download(app, file_id);
         silentsilo_app::files::decrypt_to_file(&state, &host(app), &silo, file_id, &dest).await?;
     }
     Ok(dest)
@@ -126,7 +180,10 @@ pub async fn file_open_with(
         name
     });
     crate::audit::file_opened(&app, file_id, "another app").await?;
-    silentsilo_app::files::decrypt_to_file(&state, &host(&app), &silo, file_id, &dest).await?;
+    {
+        let _watch = watch_download(&app, file_id);
+        silentsilo_app::files::decrypt_to_file(&state, &host(&app), &silo, file_id, &dest).await?;
+    }
 
     #[cfg(target_os = "android")]
     {

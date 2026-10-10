@@ -1,5 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { api } from "../api";
 import { formatBytes, formatDate } from "../shared/format";
 import type { FileEntry } from "../shared/types";
@@ -40,6 +41,20 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
   const url = api.fileUrl(file.id);
   const [shown, setShown] = useState<Shown>({ at: "loading" });
   const [confirmOpen, setConfirmOpen] = useState(false);
+  // A file only in storage comes down first: how far, in bytes.
+  const [download, setDownload] = useState<{ done: number; total: number } | null>(null);
+  useEffect(() => {
+    const stop = listen<{ file_id: string; done: number; total: number }>("file-download", (event) => {
+      if (event.payload.file_id === file.id) setDownload(event.payload);
+    });
+    return () => {
+      void stop.then((off) => off());
+    };
+  }, [file.id]);
+  const downloading =
+    download && download.total > 0 && download.done < download.total
+      ? t("files.downloading_of", { done: formatBytes(download.done), total: formatBytes(download.total) })
+      : null;
   const toast = useToast();
   // Pages drawn at the screen's real pixel width, so text stays sharp.
   const pageWidth = Math.min(2400, Math.round(window.innerWidth * (window.devicePixelRatio || 1)));
@@ -164,12 +179,12 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
             </div>
           )}
           {kind === "other" && placeholder(t("files.cannot_preview"))}
-          {kind !== "other" && shown.at === "loading" && placeholder(t("files.decrypting"))}
+          {kind !== "other" && shown.at === "loading" && placeholder(downloading ?? t("files.decrypting"))}
           {shown.at === "failed" && placeholder(shown.message)}
         </div>
         {opening && (
           <div className="notice" role="status">
-            {t("files.getting_ready", { name: file.name, size: formatBytes(file.size_bytes) })}
+            {downloading ?? t("files.getting_ready", { name: file.name, size: formatBytes(file.size_bytes) })}
           </div>
         )}
         <div className="muted caption" style={{ textAlign: "center" }}>
