@@ -126,4 +126,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: cargo clippy --locked --target aarch64-linux-android --all-targets -- -D warnings
+      # A build check, not a release: no secrets here.
       - run: npx tauri android build --apk --target aarch64
+        env:
+          SILENTSILO_WITHOUT_GOOGLE: "1"
