@@ -484,12 +484,12 @@ fn lock_soon(app: &AppHandle) {
     tauri::async_runtime::spawn_blocking(move || lock_all(&app));
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn lock_after_get(app: AppHandle) -> u64 {
     lock_after(&app)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn lock_after_set(app: AppHandle, seconds: u64) -> Result<(), String> {
     if !CHOICES.contains(&seconds) {
         return Err("That is not one of the choices.".into());
@@ -578,12 +578,12 @@ pub fn screen_off() {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn lock_on_screen_off_get(app: AppHandle) -> bool {
     lock_on_screen_off(&app)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn lock_on_screen_off_set(app: AppHandle, on: bool) -> Result<(), String> {
     let path = screen_off_path(&app).ok_or_else(|| "No place to save the setting.".to_string())?;
     std::fs::write(path, if on { "1" } else { "0" }).map_err(|e| e.to_string())

@@ -58,7 +58,7 @@ impl Described {
 }
 
 /// The providers this build can sign in to, as storage kinds.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn cloud_providers() -> Vec<&'static str> {
     [
         CloudProvider::OneDrive,
@@ -121,7 +121,7 @@ pub async fn cloud_sign_in(app: AppHandle, kind: String) -> Result<CloudSignIn, 
     outcome
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn cloud_cancel_sign_in(slot: tauri::State<'_, SignInSlot>) -> Result<(), String> {
     if let Some(stop) = slot.0.lock().map_err(|e| e.to_string())?.take() {
         let _ = stop.send(());

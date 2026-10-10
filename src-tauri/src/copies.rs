@@ -24,7 +24,7 @@ pub struct CopyView {
     archive: bool,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn backup_targets_list(state: State<'_, AppState>) -> Result<Vec<CopyView>, String> {
     let silo = active_silo(&state)?;
     let targets = silentsilo_vault::load_targets(silo.id);

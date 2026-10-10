@@ -120,7 +120,7 @@ pub async fn silo_resume_new(
 
 /// Makes the open silo's recovery code and returns it, the only time it is
 /// shown. A code made again replaces the old one once it syncs.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn recovery_create(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
@@ -166,7 +166,7 @@ pub struct StorageView {
     copies: usize,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn storage_view(state: State<'_, AppState>) -> Result<StorageView, String> {
     let silo = active_silo(&state)?;
     let targets = silentsilo_vault::load_targets(silo.id);

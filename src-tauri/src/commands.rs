@@ -97,7 +97,7 @@ pub struct Bootstrap {
     silo: Option<SiloView>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn app_bootstrap(app: AppHandle, state: State<AppState>) -> Result<Bootstrap, String> {
     let silo = active_silo(&state).ok();
     let locked = crate::background::past_deadline(&app) || state.focused_session()?.is_none();
@@ -523,13 +523,13 @@ pub async fn vault_lock(
     Ok(())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_read_passwords(state: State<AppState>) -> Result<String, String> {
     let entries = state.with_vfs(|_session, vfs| vfs.list_passwords())?;
     Ok(format!("[{}]", entries.join(",")))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_upsert_password(
     app: AppHandle,
     id: String,
@@ -561,7 +561,7 @@ pub fn vault_upsert_password(
     state.with_vfs(|_session, vfs| vfs.upsert_password(id, &json))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_delete_password(
     app: AppHandle,
     id: String,
@@ -593,7 +593,7 @@ pub async fn copy_secret_to_clipboard(
         .await
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_root_folder(state: State<AppState>) -> Result<FolderEntry, String> {
     state.with_vfs(|_session, vfs| {
         let id = vfs.root_folder_id()?;
@@ -601,7 +601,7 @@ pub fn vault_root_folder(state: State<AppState>) -> Result<FolderEntry, String> 
     })
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_list_folder(
     folder_id: String,
     state: State<AppState>,
@@ -708,7 +708,7 @@ pub struct SyncStatus {
     archive_targets: usize,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn sync_status(state: State<AppState>) -> Result<SyncStatus, String> {
     let silo = active_silo(&state).ok();
     let targets = silo
@@ -743,7 +743,7 @@ pub struct ListedKey {
     this_phone: bool,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn fido_list_keys(app: AppHandle, state: State<AppState>) -> Result<Vec<ListedKey>, String> {
     let silo = active_silo(&state)?;
     let own = this_phone_key(&app, &silo);
@@ -826,7 +826,7 @@ pub struct RecoveryStatus {
     created_at: Option<i64>,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn recovery_status(state: State<AppState>) -> Result<RecoveryStatus, String> {
     let silo = active_silo(&state)?;
     if !silentsilo_vault::has_recovery_code(&silo.path) {

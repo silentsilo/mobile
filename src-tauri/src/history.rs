@@ -95,7 +95,7 @@ pub fn keep_version(entry: &mut Value, policy: Policy) {
     entry["history"] = Value::Array(history);
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn history_policy_get(_app: AppHandle) -> String {
     match crate::background::data_dir().map(|d| policy(d)) {
         Some(Policy::Fit) => "fit".into(),
@@ -104,7 +104,7 @@ pub fn history_policy_get(_app: AppHandle) -> String {
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn history_policy_set(_app: AppHandle, policy: String) -> Result<(), String> {
     if !CHOICES.contains(&policy.as_str()) {
         return Err("That is not one of the choices.".into());

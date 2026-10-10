@@ -365,7 +365,7 @@ pub async fn security_key_cancel(app: AppHandle) -> Result<(), String> {
 }
 
 /// How many security keys the silo has, for the unlock screen's button.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn security_key_count(state: State<AppState>) -> Result<usize, String> {
     Ok(security_key_ids(&active_silo(&state)?.path).len())
 }

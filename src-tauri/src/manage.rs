@@ -17,7 +17,7 @@ fn id(raw: &str) -> Result<Uuid, String> {
 // Renames are logged before, like a trash; moves, restores and new folders
 // after, since they are done by then.
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_rename_file(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -38,7 +38,7 @@ pub fn vault_rename_file(
     state.with_vfs(|_session, vfs| vfs.rename_file(file_id, new_name))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_rename_folder(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -60,7 +60,7 @@ pub fn vault_rename_folder(
     state.with_vfs(|_session, vfs| vfs.rename_folder(folder_id, new_name))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_move_file(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -76,7 +76,7 @@ pub fn vault_move_file(
     Ok(file)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_move_folder(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -102,18 +102,18 @@ fn log_moved(app: &AppHandle, name: &str, to: &str) {
 }
 
 /// Every live folder, for choosing where to move something.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_list_all_folders(state: State<'_, AppState>) -> Result<Vec<FolderEntry>, String> {
     state.with_vfs(|_session, vfs| vfs.list_all_folders())
 }
 
 /// Names across the whole silo, capped as on the desktop.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_search(state: State<'_, AppState>, query: String) -> Result<Vec<SearchHit>, String> {
     state.with_vfs(|_session, vfs| vfs.search_entries(&query, 50))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_trash_file(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -128,7 +128,7 @@ pub fn vault_trash_file(
     state.with_vfs(|_session, vfs| vfs.trash_file(file_id))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_trash_folder(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -143,12 +143,12 @@ pub fn vault_trash_folder(
     state.with_vfs(|_session, vfs| vfs.trash_folder(folder_id))
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_list_trash(state: State<'_, AppState>) -> Result<Vec<TrashItem>, String> {
     state.with_vfs(|_session, vfs| vfs.list_trash())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_restore_file(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -164,7 +164,7 @@ pub fn vault_restore_file(
     Ok(file)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_restore_folder(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -184,7 +184,7 @@ pub fn vault_restore_folder(
 /// local copies of their content go once a copy holds them; storage copies are left to the
 /// orphan sweep, which removes only what stays unreferenced across passes,
 /// so a restore made meanwhile on another device loses nothing.
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_purge_trash(
     app: AppHandle,
     state: State<'_, AppState>,
@@ -225,7 +225,7 @@ pub struct SiloChoice {
     unlocked: bool,
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn silo_list(app: AppHandle, state: State<'_, AppState>) -> Result<Vec<SiloChoice>, String> {
     let data = crate::paths::data_dir(&app)?;
     let active = active_silo(&state).ok().map(|s| s.id);
@@ -241,7 +241,7 @@ pub fn silo_list(app: AppHandle, state: State<'_, AppState>) -> Result<Vec<SiloC
         .collect())
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn silo_switch(
     app: AppHandle,
     state: State<'_, AppState>,

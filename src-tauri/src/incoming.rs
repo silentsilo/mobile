@@ -331,7 +331,7 @@ pub async fn vault_import_photo(
     Ok(entry)
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 pub fn vault_create_folder(
     app: AppHandle,
     state: State<'_, AppState>,
