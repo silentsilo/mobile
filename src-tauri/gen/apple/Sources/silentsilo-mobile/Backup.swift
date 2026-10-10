@@ -211,11 +211,25 @@ enum BackupScheduler {
     BGTaskScheduler.shared.cancel(taskRequestWithIdentifier: taskId)
   }
 
-  /// While the app is open: a run now, on a thread of its own.
+  /// A run now, on a thread of its own, holding background time for as
+  /// long as it lasts: a run started while the app is open goes on when it
+  /// leaves, for the time iOS grants (about 30 seconds). An item that does
+  /// not fit is sent again later, under the same id.
   static func runNow() {
     guard !BackupPrefs.vaultId.isEmpty else { return }
+    let stop = StopFlag()
+    let ended = StopFlag()
+    var task = UIBackgroundTaskIdentifier.invalid
+    let end = {
+      if ended.setOnce(), task != .invalid { UIApplication.shared.endBackgroundTask(task) }
+    }
+    task = UIApplication.shared.beginBackgroundTask(withName: "backup") {
+      stop.set()
+      end()
+    }
     DispatchQueue.global(qos: .utility).async {
-      _ = BackupRunner().backUp { false }
+      _ = BackupRunner().backUp { stop.isSet }
+      DispatchQueue.main.async { end() }
     }
   }
 
@@ -228,22 +242,10 @@ enum BackupScheduler {
     runNow()
   }
 
-  /// When the app leaves the screen: one run in the time iOS grants for
-  /// finishing work, about 30 seconds. An item that does not fit is sent
-  /// again later, under the same id.
+  /// When the app leaves the screen. A run already going keeps its own
+  /// background time; this one then finds it running and ends at once.
   static func runOnLeaving() {
-    guard !BackupPrefs.vaultId.isEmpty else { return }
-    let stop = StopFlag()
-    var task = UIBackgroundTaskIdentifier.invalid
-    task = UIApplication.shared.beginBackgroundTask(withName: "backup") {
-      stop.set()
-      UIApplication.shared.endBackgroundTask(task)
-    }
-    guard task != .invalid else { return }
-    DispatchQueue.global(qos: .utility).async {
-      _ = BackupRunner().backUp { stop.isSet }
-      DispatchQueue.main.async { UIApplication.shared.endBackgroundTask(task) }
-    }
+    runNow()
   }
 }
 
@@ -302,7 +304,7 @@ final class BackupRunner {
   private static let running = NSLock()
 
   /// True when something failed that may work later.
-  func backUp(_ stopped: () -> Bool) -> Bool {
+  func backUp(_ stopped: @escaping () -> Bool) -> Bool {
     guard !BackupPrefs.vaultId.isEmpty, BackupRunner.running.try() else { return false }
     defer { BackupRunner.running.unlock() }
     // Rust learns where the app keeps its files when the app starts, and a
@@ -326,12 +328,24 @@ final class BackupRunner {
     if BackupPrefs.wifiOnly, !onWifi() {
       return true
     }
-    if sendAgain(stopped) { return true }
+    // Watched for the whole run: leaving Wi-Fi half way stops it before the
+    // next item, rather than sending the rest over mobile data.
+    let leftWifi = StopFlag()
+    let watch = NWPathMonitor()
+    if BackupPrefs.wifiOnly {
+      watch.pathUpdateHandler = { path in
+        if path.status != .satisfied || path.isExpensive || path.isConstrained { leftWifi.set() }
+      }
+      watch.start(queue: DispatchQueue(label: "backup.watch"))
+    }
+    defer { watch.cancel() }
+    let halt: () -> Bool = { stopped() || leftWifi.isSet }
+    if sendAgain(halt) { return true }
     if BackupPrefs.photos || BackupPrefs.videos, photosAllowed() {
       collectNew()
-      if sendQueue(stopped) { return true }
+      if sendQueue(halt) { return true }
     }
-    if BackupPrefs.contacts, contactsAllowed(), !stopped() {
+    if BackupPrefs.contacts, contactsAllowed(), !halt() {
       if sendContacts() { return true }
     }
     BackupPrefs.lastError = ""
@@ -734,7 +748,20 @@ public func ssBackupCall(_ command: UnsafePointer<CChar>, _ payload: UnsafePoint
 private func backupStatus() -> [String: Any] {
   let photos = PHPhotoLibrary.authorizationStatus(for: .readWrite)
   let allowed = photos == .authorized || photos == .limited
+  // Asked off the main thread, as every backup call is; a slow answer
+  // counts as allowed rather than as a warning that may be wrong.
+  let answered = DispatchSemaphore(value: 0)
+  let notifications = StopFlag()
+  UNUserNotificationCenter.current().getNotificationSettings { settings in
+    if settings.authorizationStatus == .denied { notifications.set() }
+    answered.signal()
+  }
+  _ = answered.wait(timeout: .now() + 2)
   return [
+    "photosLimited": photos == .limited,
+    // What the last run found and has not sent; new ones join at the next.
+    "pending": BackupQueue.load().count,
+    "notificationsAllowed": !notifications.isSet,
     "vaultId": BackupPrefs.vaultId,
     "photos": BackupPrefs.photos,
     "videos": BackupPrefs.videos,

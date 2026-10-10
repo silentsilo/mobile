@@ -134,6 +134,7 @@ pub fn stderr_to_file(path: &std::path::Path) {
 unsafe extern "C" {
     fn ss_pick_files() -> *mut c_char;
     fn ss_take_shared() -> *mut c_char;
+    fn ss_biometry_state() -> *mut c_char;
     fn ss_take_photo(folder: *const c_char) -> *mut c_char;
     fn ss_open_with(path: *const c_char) -> bool;
     fn ss_open_url(url: *const c_char) -> bool;
@@ -197,6 +198,12 @@ pub fn take_shared() -> serde_json::Value {
     take_owned(unsafe { ss_take_shared() })
         .and_then(|json| serde_json::from_str(&json).ok())
         .unwrap_or_else(|| serde_json::json!({ "files": [] }))
+}
+
+/// The enrolled faces or fingerprints as an opaque value, `None` with none.
+pub fn biometry_state() -> Option<String> {
+    // SAFETY: no arguments; the result is owned by us.
+    take_owned(unsafe { ss_biometry_state() }).filter(|s| !s.is_empty())
 }
 
 /// A photo from the camera, written into `folder`.
@@ -374,4 +381,11 @@ pub fn exclude_from_backup(dir: &std::path::Path) {
     let path = c(&dir.to_string_lossy());
     // SAFETY: a NUL-terminated string that outlives the call.
     unsafe { ss_exclude_from_backup(path.as_ptr()) }
+}
+
+/// Called by Swift when the scene enters the background, which only a real
+/// departure does (Control Center and banners only resign active).
+#[unsafe(no_mangle)]
+pub extern "C" fn ss_entered_background() {
+    crate::background::entered_background();
 }

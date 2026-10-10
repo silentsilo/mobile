@@ -44,6 +44,12 @@ export function SaveShared({ files, siloName, onDone }: { files: Offered[]; silo
   }, [load, siloName]);
 
   const here = trail[trail.length - 1];
+  // Cancel means not these: on iPhone they would otherwise be offered again
+  // at every opening.
+  const cancel = () => {
+    void api.discardShared(files.map((f) => f.uri)).catch(() => undefined);
+    onDone();
+  };
 
   const save = async () => {
     if (!here) return;
@@ -57,7 +63,7 @@ export function SaveShared({ files, siloName, onDone }: { files: Offered[]; silo
   return (
     <div className="screen">
       <TopBar
-        onBack={saving === null ? (trail.length > 1 ? () => { const next = trail.slice(0, -1); setTrail(next); void load(next[next.length - 1]!.id); } : onDone) : undefined}
+        onBack={saving === null ? (trail.length > 1 ? () => { const next = trail.slice(0, -1); setTrail(next); void load(next[next.length - 1]!.id); } : cancel) : undefined}
         backLabel={trail.length > 1 ? trail[trail.length - 2]!.name : t("common.cancel")}
         title={here?.name}
       />

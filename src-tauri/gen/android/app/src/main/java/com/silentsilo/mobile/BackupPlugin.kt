@@ -161,10 +161,28 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     invoke.resolve(statusObject())
   }
 
+  // Asked for on the screen: run here, in the app, rather than as a job.
+  // A job ends after about ten minutes, which a large video never fits in;
+  // the app can go on for as long as it stays open. Resolves when done.
   @Command
   fun runNow(invoke: Invoke) {
-    BackupScheduler.runNow(activity)
-    invoke.resolve()
+    val context = activity.applicationContext
+    val prefs = BackupPrefs(context)
+    Thread {
+      try {
+        BackupRunner(context).backUp { prefs.wifiOnly && !unmetered(context) }
+      } catch (e: Exception) {
+        prefs.lastError = e.message ?: e.toString()
+      }
+      invoke.resolve()
+    }.start()
+  }
+
+  private fun unmetered(context: android.content.Context): Boolean {
+    val connectivity = context.getSystemService(android.net.ConnectivityManager::class.java) ?: return false
+    val network = connectivity.activeNetwork ?: return false
+    val caps = connectivity.getNetworkCapabilities(network) ?: return false
+    return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
   }
 
   @Command
@@ -195,6 +213,12 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     result.put("waiting", prefs.waiting)
     result.put("photosAllowed", activity.checkSelfPermission(BackupRunner.photoPermission()) == PackageManager.PERMISSION_GRANTED)
     result.put("contactsAllowed", granted("contacts"))
+    result.put("photosLimited", false)
+    result.put("pending", BackupRunner(activity).pendingCount())
+    result.put(
+      "notificationsAllowed",
+      activity.getSystemService(android.app.NotificationManager::class.java)?.areNotificationsEnabled() ?: true,
+    )
     return result
   }
 

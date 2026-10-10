@@ -133,12 +133,21 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
     return { count, bytes };
   };
 
+  // Android runs it here in the app, for as long as it takes: the screen
+  // stays on meanwhile. iOS hands it to a thread and answers at once.
+  const [sending, setSending] = useState(false);
   const runNow = async () => {
+    setSending(true);
+    await api.setBusy(true).catch(() => undefined);
+    if (!isIOS) toast(t("files.backup_running_here"));
     try {
       await api.runBackupNow();
-      toast(t("files.backup_run_soon"));
+      toast(t(isIOS ? "files.backup_run_soon" : "files.backup_run_done"));
     } catch (e) {
       toast(formatAppError(e));
+    } finally {
+      setSending(false);
+      await api.setBusy(false).catch(() => undefined);
     }
   };
 
@@ -162,6 +171,17 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
         {!status && !error && <Skeleton avatar={false} rows={3} />}
         {status && (
           <>
+            {/* Access taken back in the phone's settings stops the backup
+                without a word from the job: said here. */}
+            {(status.photos && !status.photosAllowed) || (status.videos && !status.videosAllowed) ? (
+              <Notice tone="warning">{t("files.backup_photos_revoked")}</Notice>
+            ) : (
+              (status.photos || status.videos) && status.photosLimited && <Notice tone="warning">{t("files.backup_photos_limited")}</Notice>
+            )}
+            {status.contacts && !status.contactsAllowed && <Notice tone="warning">{t("files.backup_contacts_revoked")}</Notice>}
+            {status.remind && !status.notificationsAllowed && (status.photos || status.videos || status.contacts) && (
+              <Notice tone="warning">{t("files.backup_notifications_off")}</Notice>
+            )}
             <div className="panel">
               {toggle(t("files.backup_photos"), t("files.backup_photos_hint"), status.photos, () => (status.photos ? void apply({ photos: false }) : status.photosAllowed ? askAboutExisting("photos") : disclose("photos")), true)}
               {toggle(t("files.backup_videos"), t("files.backup_videos_hint"), status.videos, () => (status.videos ? void apply({ videos: false }) : status.videosAllowed ? askAboutExisting("videos") : disclose("videos")))}
@@ -196,6 +216,12 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
                   <span className="muted">{t("files.backup_sent")}</span>
                   <span>{num(status.sent)}</span>
                 </div>
+                {(status.photos || status.videos) && status.pending >= 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span className="muted">{t("files.backup_pending")}</span>
+                    <span>{num(status.pending)}</span>
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span className="muted">{t("files.backup_waiting")}</span>
                   <span>{waiting === null ? t("files.backup_unknown") : num(waiting)}</span>
@@ -205,7 +231,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
                   <span>{ago(status.lastRun)}</span>
                 </div>
                 {status.lastError && <Notice tone="error">{status.lastError}</Notice>}
-                <button className="btn secondary" onClick={runNow} disabled={busy}>
+                <button className="btn secondary" onClick={runNow} disabled={busy || sending} aria-busy={sending}>
                   <RefreshCw size={18} />
                   {t("files.backup_now")}
                 </button>

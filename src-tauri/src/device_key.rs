@@ -125,6 +125,36 @@ impl<R: Runtime> DeviceKey<R> {
     }
 }
 
+/// What a key iOS retired answers with; the unlock screen turns it into the
+/// recovery code offer, as for Android.
+#[cfg(target_os = "ios")]
+const GONE: &str = "[invalidated] This phone's Face ID or Touch ID key for this silo is gone. Unlock with the recovery code.";
+
+/// The enrolled faces or fingerprints when a key last worked. Keys are made
+/// with `BiometryCurrentSet`, so any change since retires every one of them.
+#[cfg(target_os = "ios")]
+fn biometry_file() -> Option<std::path::PathBuf> {
+    crate::background::data_dir().map(|d| d.join("biometry-state"))
+}
+
+#[cfg(target_os = "ios")]
+fn remember_biometry() {
+    if let (Some(file), Some(state)) = (biometry_file(), crate::ios::biometry_state()) {
+        let _ = std::fs::write(file, state);
+    }
+}
+
+/// True only when both the remembered and the current value are known and
+/// differ: a phone with no record yet is not told its key is gone.
+#[cfg(target_os = "ios")]
+fn biometry_changed() -> bool {
+    let before = biometry_file().and_then(|f| std::fs::read_to_string(f).ok());
+    match (before, crate::ios::biometry_state()) {
+        (Some(before), Some(now)) => before.trim() != now,
+        _ => false,
+    }
+}
+
 /// iPhone and iPad: the key is made and used in the Secure Enclave behind
 /// Face ID or Touch ID. Each call blocks while the system sheet is up, so
 /// it runs off the async runtime. Not yet on iOS: passkeys, and the device
@@ -152,6 +182,7 @@ impl<R: Runtime> DeviceKey<R> {
         let vault_id = vault_id.to_string();
         blocking(move || {
             silentsilo_fido::device_enclave::enrol(&vault_id)
+                .inspect(|_| remember_biometry())
                 .map(|m| Enrolled {
                     credential_id: hex::encode(&m.credential_id),
                     public_key: hex::encode(&m.device_public),
@@ -178,14 +209,24 @@ impl<R: Runtime> DeviceKey<R> {
             // fingerprints. Said the way Android says it, so the unlock
             // screen offers the recovery code instead of a bare error.
             if !silentsilo_fido::device_enclave::holds_any(&ids) {
-                return Err("[invalidated] This phone's Face ID or Touch ID key for this silo is gone. Unlock with the recovery code.".to_string());
+                return Err(GONE.to_string());
             }
             silentsilo_fido::device_enclave::derive_unlock_material(&ids, &vault_id)
+                .inspect(|_| remember_biometry())
                 .map(|m| Unlocked {
                     credential_id: hex::encode(&m.credential_id),
                     wrap_key: hex::encode(m.wrap_key),
                 })
-                .map_err(|e| e.to_string())
+                .map_err(|e| {
+                    // The key is still there, but the faces or fingerprints
+                    // changed since it last worked: iOS retired it.
+                    let e = e.to_string();
+                    if !e.to_lowercase().contains("cancel") && biometry_changed() {
+                        GONE.to_string()
+                    } else {
+                        e
+                    }
+                })
         })
         .await?
     }
@@ -211,8 +252,11 @@ impl<R: Runtime> DeviceKey<R> {
     /// the key for is only found out at its next use.
     pub async fn key_state(&self, credential_id: &str) -> Result<String, String> {
         let id = hex::decode(credential_id).map_err(|e| e.to_string())?;
-        let held = blocking(move || silentsilo_fido::device_enclave::holds_any(&[id])).await?;
-        Ok(if held { "ok" } else { "invalidated" }.into())
+        let usable = blocking(move || {
+            silentsilo_fido::device_enclave::holds_any(&[id]) && !biometry_changed()
+        })
+        .await?;
+        Ok(if usable { "ok" } else { "invalidated" }.into())
     }
 
     pub async fn autofill_status(&self) -> Result<AutofillStatus, String> {

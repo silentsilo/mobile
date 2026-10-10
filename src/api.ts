@@ -128,6 +128,11 @@ export type BackupStatus = {
   folders: string[];
   remind: boolean;
   waiting: number;
+  /** iOS: only the photos the user picked can be read. */
+  photosLimited: boolean;
+  notificationsAllowed: boolean;
+  /** Photos and videos on the phone not sent yet, -1 when not known. */
+  pending: number;
 };
 
 /** One folder of the phone's gallery. */
@@ -289,6 +294,8 @@ export const api = {
   importPhoto: (path: string, name: string, folderId: string) => invoke<FileEntry>("vault_import_photo", { path, name, folderId }),
   /** Photos the camera took that never reached the silo. */
   leftPhotos: () => invoke<string[]>("files_left_photos"),
+  /** Shared files the user chose not to save, so they are not offered again. */
+  discardShared: (uris: string[]) => invoke<void>("files_discard_shared", { uris }),
   discardLeftPhotos: () => invoke<void>("files_discard_left_photos"),
   createFolder: (parentId: string, name: string) => invoke<FolderEntry>("vault_create_folder", { parentId, name }),
   shareToInbox: (file: Offered) => invoke<void>("share_to_inbox", { file }),

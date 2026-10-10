@@ -37,7 +37,7 @@ import { useWide } from "./ui/useWide";
 type Phase =
   | { at: "loading" }
   | { at: "failed"; message: string }
-  | { at: "device"; check: Check; checking: boolean }
+  | { at: "device"; check: Check; checking: boolean; hasSilo: boolean }
   | { at: "welcome" }
   | { at: "join-storage" }
   | { at: "join-code"; config: StoreConfigInput; preview: JoinPreview }
@@ -121,7 +121,11 @@ export default function App() {
     try {
       const check = await api.deviceCheck();
       if (blockingFailures(check)) {
-        setPhase({ at: "device", check, checking: false });
+        // A phone whose fingerprints or lock were removed still holds its
+        // silos: the recovery code opens them, so the check must not stand
+        // in the way of that.
+        const boot = await api.bootstrap().catch(() => null);
+        setPhase({ at: "device", check, checking: false, hasSilo: Boolean(boot?.silo) });
         return;
       }
       await refresh();
@@ -203,6 +207,7 @@ export default function App() {
               setPhase({ ...phase, checking: true });
               void start();
             }}
+            onContinue={phase.hasSilo ? () => void refresh(false) : undefined}
           />
         );
       case "welcome":

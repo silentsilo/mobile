@@ -928,6 +928,17 @@ export const start = {
     "pt-BR": "Verificando",
     pl: "Sprawdzanie",
   },
+  "start.check_continue_code": {
+    note: "Button under a failed phone check, when this phone already holds a silo: goes to the unlock screen, where the recovery code still opens it.",
+    en: "Open with the recovery code",
+    ro: "Deschide cu codul de recuperare",
+    de: "Mit dem Wiederherstellungscode öffnen",
+    fr: "Ouvrir avec le code de récupération",
+    es: "Abrir con el código de recuperación",
+    it: "Apri con il codice di recupero",
+    "pt-BR": "Abrir com o código de recuperação",
+    pl: "Otwórz kodem odzyskiwania",
+  },
   "start.check_again": {
     note: "Button: runs the phone check again.",
     en: "Check again",

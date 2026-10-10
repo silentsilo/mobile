@@ -69,7 +69,18 @@ function linesFor(check: Check): Line[] {
   ];
 }
 
-export function DeviceCheck({ check, checking, onRetry }: { check: Check; checking: boolean; onRetry: () => void }) {
+export function DeviceCheck({
+  check,
+  checking,
+  onRetry,
+  onContinue,
+}: {
+  check: Check;
+  checking: boolean;
+  onRetry: () => void;
+  /** Goes on to the unlock screen, for a phone that already holds a silo. */
+  onContinue?: () => void;
+}) {
   useLocale();
   return (
     <div className="screen">
@@ -99,6 +110,11 @@ export function DeviceCheck({ check, checking, onRetry }: { check: Check; checki
         <button className="btn" aria-busy={checking} onClick={onRetry} disabled={checking}>
           {checking ? t("start.checking") : t("start.check_again")}
         </button>
+        {onContinue && (
+          <button className="btn secondary" disabled={checking} onClick={onContinue}>
+            {t("start.check_continue_code")}
+          </button>
+        )}
       </div>
     </div>
   );

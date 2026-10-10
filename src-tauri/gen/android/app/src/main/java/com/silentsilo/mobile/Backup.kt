@@ -363,14 +363,8 @@ class BackupRunner(private val context: Context) {
     }
   }
 
-  private fun sendMedia(media: Media, stopped: () -> Boolean): Boolean {
-    val columns = arrayOf(
-      MediaStore.MediaColumns._ID,
-      MediaStore.MediaColumns.DISPLAY_NAME,
-      MediaStore.MediaColumns.MIME_TYPE,
-      MediaStore.MediaColumns.DATE_TAKEN,
-      MediaStore.MediaColumns.DATE_ADDED,
-    )
+  // The rows not sent yet: after the marks, in the chosen folders.
+  private fun unsent(media: Media): Pair<String, Array<String>> {
     val (addedMark, idMark) = marks(media)
     val added = MediaStore.MediaColumns.DATE_ADDED
     val rowId = MediaStore.MediaColumns._ID
@@ -381,8 +375,40 @@ class BackupRunner(private val context: Context) {
       selection += " AND ${MediaStore.MediaColumns.BUCKET_ID} IN (${chosen.joinToString(",") { "?" }})"
       args += chosen
     }
+    return selection to args.toTypedArray()
+  }
+
+  // Photos and videos still to send, for the screen. -1 when unreadable.
+  fun pendingCount(): Long {
+    return try {
+      var count = prefs.deferred.split(',').count { it.isNotBlank() }.toLong()
+      for (media in listOf(Media.PHOTO, Media.VIDEO)) {
+        val on = if (media == Media.PHOTO) prefs.photos else prefs.videos
+        val permission = if (media == Media.PHOTO) photoPermission() else videoPermission()
+        if (!on || !granted(permission)) continue
+        val (selection, args) = unsent(media)
+        context.contentResolver.query(media.uri, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)
+          ?.use { count += it.count }
+      }
+      count
+    } catch (_: Exception) {
+      -1
+    }
+  }
+
+  private fun sendMedia(media: Media, stopped: () -> Boolean): Boolean {
+    val columns = arrayOf(
+      MediaStore.MediaColumns._ID,
+      MediaStore.MediaColumns.DISPLAY_NAME,
+      MediaStore.MediaColumns.MIME_TYPE,
+      MediaStore.MediaColumns.DATE_TAKEN,
+      MediaStore.MediaColumns.DATE_ADDED,
+    )
+    val added = MediaStore.MediaColumns.DATE_ADDED
+    val rowId = MediaStore.MediaColumns._ID
+    val (selection, args) = unsent(media)
     val order = "$added ASC, $rowId ASC"
-    context.contentResolver.query(media.uri, columns, selection, args.toTypedArray(), order)?.use { rows ->
+    context.contentResolver.query(media.uri, columns, selection, args, order)?.use { rows ->
       while (rows.moveToNext()) {
         if (stopped()) return true
         val id = rows.getLong(0)

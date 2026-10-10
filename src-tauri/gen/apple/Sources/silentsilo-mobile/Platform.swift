@@ -277,6 +277,10 @@ final class PrivacyCover {
     ) { [weak self] _ in
       self?.uncover()
     }
+    // Only a real departure: the lock set to "At once" waits for this.
+    center.addObserver(forName: UIScene.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
+      ss_entered_background()
+    }
   }
 
   private func cover(_ scene: UIWindowScene?) {
@@ -301,19 +305,35 @@ public func ssPrivacyCoverInstall() {
 
 // MARK: - Files shared from other apps
 
+/// Where shared files wait for the import: Application Support, which iOS
+/// never empties on its own, unlike the temporary folder it clears while
+/// the app is not running. Kept out of backups.
+private func sharedStore() -> URL {
+  let manager = FileManager.default
+  let base = manager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+    ?? manager.temporaryDirectory
+  var store = base.appendingPathComponent("SharedIncoming", isDirectory: true)
+  try? manager.createDirectory(at: store, withIntermediateDirectories: true)
+  var values = URLResourceValues()
+  values.isExcludedFromBackup = true
+  try? store.setResourceValues(values)
+  return store
+}
+
 /// Moves what the share extension left in the app group's Inbox into this
-/// app's temporary folder, where the import reads and then deletes it, and
-/// returns `{"files": [...]}` in the shape the picker returns. Moved rather
-/// than listed, so each shared file is offered once.
+/// app's own store, where the import reads and then deletes it, and returns
+/// `{"files": [...]}` in the shape the picker returns. Moved rather than
+/// listed, so each shared file is offered once.
 @_cdecl("ss_take_shared")
 public func ssTakeShared() -> UnsafeMutablePointer<CChar>? {
   let manager = FileManager.default
   var files: [[String: Any]] = []
+  let store = sharedStore()
   if let inbox = manager.containerURL(forSecurityApplicationGroupIdentifier: "group.com.silentsilo.mobile")?
     .appendingPathComponent("Inbox", isDirectory: true),
     let folders = try? manager.contentsOfDirectory(at: inbox, includingPropertiesForKeys: nil)
   {
-    let taken = manager.temporaryDirectory.appendingPathComponent("shared", isDirectory: true)
+    let taken = store
     // A folder whose name starts with "." is still being written.
     for folder in folders where !folder.lastPathComponent.hasPrefix(".") {
       guard let file = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.first
@@ -329,10 +349,15 @@ public func ssTakeShared() -> UnsafeMutablePointer<CChar>? {
     }
   }
   // Everything taken and not imported yet, this time's and earlier ones':
-  // the import deletes what it read, so nothing shared is lost to a cancel
-  // or a closed app. The app keeps each once, by path.
-  let taken = manager.temporaryDirectory.appendingPathComponent("shared", isDirectory: true)
-  for folder in (try? manager.contentsOfDirectory(at: taken, includingPropertiesForKeys: nil)) ?? [] {
+  // the import deletes what it read, so nothing shared is lost to a closed
+  // app; Cancel on the save screen deletes what it was offered. The app
+  // keeps each once, by path. The temporary folder is where builds before
+  // this one kept them.
+  let earlier = manager.temporaryDirectory.appendingPathComponent("shared", isDirectory: true)
+  let waiting = [store, earlier].flatMap {
+    (try? manager.contentsOfDirectory(at: $0, includingPropertiesForKeys: nil)) ?? []
+  }
+  for folder in waiting {
     guard let file = (try? manager.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil))?.first
     else { continue }
     let size = (try? file.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0

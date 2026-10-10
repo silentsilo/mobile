@@ -259,7 +259,28 @@ pub fn suspended(app: &AppHandle) {
     if delay > 0 {
         sync_on_the_way_out(app);
     }
+    // iOS sends this when the scene only resigns active: Control Center, a
+    // notification banner, the Face ID sheet of a protected entry. That is
+    // not leaving, so "At once" waits for `entered_background`, with this
+    // as the backstop.
+    #[cfg(target_os = "ios")]
+    let delay = if delay == 0 { RESIGN_GRACE } else { delay };
     arm(app, delay);
+}
+
+#[cfg(target_os = "ios")]
+const RESIGN_GRACE: u64 = 60;
+
+/// iOS: the app went to the background for real, from Swift. "At once"
+/// locks now.
+#[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+pub fn entered_background() {
+    if let Some(app) = APP.get() {
+        let lock = app.state::<BackgroundLock>();
+        if lock_after(app) == 0 && lock.prompts.load(Ordering::SeqCst) == 0 {
+            lock_soon(app);
+        }
+    }
 }
 
 /// The phone stops the app soon after it leaves the screen (iOS within

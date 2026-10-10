@@ -96,6 +96,9 @@ let backup = {
   lastError: "",
   photosAllowed: false,
   contactsAllowed: false,
+  photosLimited: false,
+  notificationsAllowed: true,
+  pending: 3,
   remind: true,
   waiting: 0,
   videos: false,
@@ -295,6 +298,7 @@ const handlers: Record<string, Handler> = {
   backup_target_fill_stop: async () => {},
   files_left_photos: async () => [],
   files_discard_left_photos: async () => {},
+  files_discard_shared: async () => {},
   cloud_sign_in: async (args) => {
     await wait(900);
     return {

@@ -4,6 +4,7 @@
 // AutoFill extension reads silos from.
 
 import AuthenticationServices
+import LocalAuthentication
 import UIKit
 import UniformTypeIdentifiers
 
@@ -147,3 +148,12 @@ public func ssExcludeFromBackup(_ path: UnsafePointer<CChar>) {
   try? url.setResourceValues(values)
 }
 
+/// The faces or fingerprints enrolled, as an opaque value that changes when
+/// they do. Empty when the phone has none.
+@_cdecl("ss_biometry_state")
+public func ssBiometryState() -> UnsafeMutablePointer<CChar>? {
+  let context = LAContext()
+  var error: NSError?
+  _ = context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &error)
+  return strdup(context.evaluatedPolicyDomainState?.base64EncodedString() ?? "")
+}

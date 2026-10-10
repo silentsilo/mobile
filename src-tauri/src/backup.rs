@@ -120,10 +120,23 @@ pub struct BackupStatus {
     pub remind: bool,
     #[serde(default)]
     pub waiting: i64,
+    /// iOS: access to the photos the user picked, not the whole library.
+    #[serde(default)]
+    pub photos_limited: bool,
+    /// Photos and videos on the phone not sent yet, -1 when not known.
+    #[serde(default = "unknown")]
+    pub pending: i64,
+    /// Whether the reminder can show at all.
+    #[serde(default = "yes")]
+    pub notifications_allowed: bool,
 }
 
 fn yes() -> bool {
     true
+}
+
+fn unknown() -> i64 {
+    -1
 }
 
 #[derive(Debug, Clone, Deserialize)]

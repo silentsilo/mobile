@@ -14,5 +14,7 @@ char *ss_backup_resends(void);
 void ss_backup_resolve(const char *kind, const char *reference);
 // Items in the silo's inbox not imported yet, or -1.
 int64_t ss_backup_waiting(void);
+// The scene entered the background: "At once" locks now.
+void ss_entered_background(void);
 // Frees a string Rust returned.
 void ss_rust_free(char *text);

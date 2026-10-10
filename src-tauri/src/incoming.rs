@@ -244,12 +244,7 @@ pub async fn vault_import_offered(
     #[cfg(target_os = "ios")]
     {
         let path = std::path::PathBuf::from(&file.uri);
-        let inside = path
-            .canonicalize()
-            .ok()
-            .zip(std::env::temp_dir().canonicalize().ok())
-            .is_some_and(|(p, tmp)| p.starts_with(tmp));
-        if !inside {
+        if !held_for_import(&path) {
             return Err("That is not a file picked for the silo.".into());
         }
         let app2 = app.clone();
@@ -280,6 +275,45 @@ pub async fn vault_import_offered(
         let _ = (app, silo, folder_id, file);
         Err("This build cannot reach the phone's files.".into())
     }
+}
+
+/// iOS: whether `path` is a file the app holds for an import, in the shared
+/// files' store (`SharedIncoming` under Application Support, as
+/// `Platform.swift` makes it) or the temporary folder. The import commands
+/// read the path they are given, so only these.
+#[cfg(target_os = "ios")]
+fn held_for_import(path: &std::path::Path) -> bool {
+    let Ok(path) = path.canonicalize() else {
+        return false;
+    };
+    let mut roots = vec![std::env::temp_dir()];
+    if let Some(home) = std::env::var_os("HOME") {
+        roots.push(
+            std::path::PathBuf::from(home).join("Library/Application Support/SharedIncoming"),
+        );
+    }
+    roots
+        .iter()
+        .filter_map(|r| r.canonicalize().ok())
+        .any(|r| path.starts_with(r))
+}
+
+/// Shared files the user chose not to save: deleted, so they are not
+/// offered again. Android holds nothing of its own for a share.
+#[tauri::command]
+pub async fn files_discard_shared(uris: Vec<String>) -> Result<(), String> {
+    #[cfg(target_os = "ios")]
+    for uri in uris {
+        let path = std::path::PathBuf::from(uri);
+        if held_for_import(&path)
+            && let Some(folder) = path.parent()
+        {
+            let _ = std::fs::remove_dir_all(folder);
+        }
+    }
+    #[cfg(not(target_os = "ios"))]
+    let _ = uris;
+    Ok(())
 }
 
 /// Photos the camera wrote that were never added: the app was closed while
@@ -393,7 +427,7 @@ pub async fn share_to_inbox(app: AppHandle, file: Offered) -> Result<(), String>
         let shared = std::path::PathBuf::from(&file.uri);
         #[cfg(target_os = "ios")]
         let mut source = {
-            if !shared.starts_with(std::env::temp_dir()) {
+            if !held_for_import(&shared) {
                 return Err("That file is not one this app was given.".into());
             }
             std::fs::File::open(&shared).map_err(|e| e.to_string())?
