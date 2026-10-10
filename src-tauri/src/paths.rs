@@ -74,12 +74,50 @@ pub fn take_work_back(group: &Path, own: &Path) {
     }
 }
 
+/// Present in a silo folder while a join fills it.
+pub fn joining_marker(silo_root: &Path) -> PathBuf {
+    silo_root.join(".joining")
+}
+
+#[cfg_attr(not(mobile), allow(dead_code))]
+/// Joins the phone stopped part way, cleared as a failed join is: the
+/// folder, its credentials and storage settings. Before `recover_silos`,
+/// which would otherwise list the half-made silo.
+pub fn clear_unfinished_joins(data: &Path) {
+    let registry = silentsilo_vault::load_registry(data);
+    let Ok(folders) = std::fs::read_dir(data.join("silos")) else {
+        return;
+    };
+    for folder in folders.flatten() {
+        let root = folder.path();
+        if !joining_marker(&root).exists() {
+            continue;
+        }
+        if let Ok(marker) = silentsilo_vault::read_marker(&root) {
+            if registry.get(marker.vault_id).is_some() {
+                // Listed after all: only the marker was left behind.
+                let _ = std::fs::remove_file(joining_marker(&root));
+                continue;
+            }
+            silentsilo_vault::clear_credentials(marker.vault_id);
+            silentsilo_vault::clear_s3_config(marker.vault_id);
+            let _ = std::fs::remove_dir_all(silentsilo_vault::workdir::secrets_dir_for(
+                marker.vault_id,
+            ));
+        }
+        silentsilo_vault::wipe_machine_state(&root);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+}
+
 /// A silo folder under `silos/` the registry does not list, put back in it.
 /// The registry is sealed with this device's key: when that key is gone (a
 /// restore to another phone, a Keychain that will not answer) it reads as
 /// empty, and the next save would drop every silo from the list. The
 /// unreadable file is kept aside rather than written over.
+#[cfg_attr(not(mobile), allow(dead_code))]
 pub fn recover_silos(data: &Path) {
+    take_back_unreadable(data);
     let mut registry = silentsilo_vault::load_registry(data);
     let Ok(folders) = std::fs::read_dir(data.join("silos")) else {
         return;
@@ -116,6 +154,41 @@ pub fn recover_silos(data: &Path) {
     let _ = silentsilo_vault::save_registry(data, &registry);
 }
 
+/// A registry set aside because it could not be read, read again now that
+/// the key is back: the names and the silo shown first return. What was
+/// listed meanwhile stays.
+fn take_back_unreadable(data: &Path) {
+    let file = silentsilo_vault::registry_path(data);
+    let aside = file.with_extension("json.unreadable");
+    if !aside.exists() {
+        return;
+    }
+    let meanwhile = silentsilo_vault::load_registry(data);
+    let kept = file.with_extension("json.meanwhile");
+    if std::fs::copy(&file, &kept).is_err() && file.exists() {
+        return;
+    }
+    if std::fs::copy(&aside, &file).is_err() {
+        return;
+    }
+    let mut earlier = silentsilo_vault::load_registry(data);
+    if earlier.silos.is_empty() {
+        // Still unreadable: put back what was there.
+        let _ = std::fs::copy(&kept, &file);
+        let _ = std::fs::remove_file(&kept);
+        return;
+    }
+    for silo in meanwhile.silos {
+        if earlier.get(silo.id).is_none() {
+            earlier.silos.push(silo);
+        }
+    }
+    if silentsilo_vault::save_registry(data, &earlier).is_ok() {
+        let _ = std::fs::remove_file(&aside);
+    }
+    let _ = std::fs::remove_file(&kept);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -133,6 +206,38 @@ mod tests {
         assert_eq!(registry.silos[0].path, folder);
         recover_silos(data.path());
         assert_eq!(silentsilo_vault::load_registry(data.path()).silos.len(), 1);
+    }
+
+    #[test]
+    fn names_set_aside_come_back_with_what_was_listed_meanwhile() {
+        let data = tempfile::tempdir().unwrap();
+        let entry = |name: &str| silentsilo_vault::SiloEntry {
+            id: uuid::Uuid::new_v4(),
+            name: name.into(),
+            path: data.path().join(name),
+            last_opened: 0,
+            auto_lock_minutes: None,
+        };
+        let (named, recovered) = (entry("Personal"), entry("Silo"));
+        let earlier = silentsilo_vault::SiloRegistry {
+            silos: vec![named.clone()],
+            ..Default::default()
+        };
+        silentsilo_vault::save_registry(data.path(), &earlier).unwrap();
+        let file = silentsilo_vault::registry_path(data.path());
+        std::fs::copy(&file, file.with_extension("json.unreadable")).unwrap();
+        let meanwhile = silentsilo_vault::SiloRegistry {
+            silos: vec![recovered.clone()],
+            ..Default::default()
+        };
+        silentsilo_vault::save_registry(data.path(), &meanwhile).unwrap();
+
+        take_back_unreadable(data.path());
+
+        let now = silentsilo_vault::load_registry(data.path());
+        assert_eq!(now.get(named.id).unwrap().name, "Personal");
+        assert!(now.get(recovered.id).is_some());
+        assert!(!file.with_extension("json.unreadable").exists());
     }
 
     #[test]

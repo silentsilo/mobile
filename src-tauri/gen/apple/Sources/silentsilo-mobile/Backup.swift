@@ -115,6 +115,10 @@ enum SenderKeys {
     return try? softwareKey(vault, create: false)?.signature(for: message).derRepresentation
   }
 
+  /// Whether this iPhone still holds the key: one restored from another
+  /// phone's backup does not.
+  static func exists(_ vault: String) -> Bool { stored(vault) != nil }
+
   static func remove(_ vault: String) {
     let query: [String: Any] = [
       kSecClass as String: kSecClassGenericPassword,
@@ -307,6 +311,15 @@ final class BackupRunner {
       Thread.sleep(forTimeInterval: 0.1)
     }
     guard ss_backup_ready() else { return true }
+    // Settings restored onto another iPhone come without the signing key,
+    // which never leaves the phone that made it: every item would be
+    // refused for good. Backup is turned off and says why.
+    if !SenderKeys.exists(BackupPrefs.vaultId) {
+      BackupScheduler.cancel()
+      BackupPrefs.clear()
+      BackupPrefs.lastError = "Phone backup has to be turned on again on this iPhone."
+      return false
+    }
     Self.sweepContacts()
     BackupPrefs.lastRun = Int(Date().timeIntervalSince1970)
     defer { checkWaiting() }

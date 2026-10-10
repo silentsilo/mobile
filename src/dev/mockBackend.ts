@@ -394,6 +394,7 @@ const handlers: Record<string, Handler> = {
   },
   files_pick: () => [{ uri: "content://mock/1", name: "Scan.pdf", size: 120000, mimeType: "application/pdf" }],
   files_take_shared: () => [],
+  app_busy: () => null,
   files_take_photo: () => null,
   vault_import_offered: async () => {
     await wait(300);

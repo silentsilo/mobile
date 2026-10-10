@@ -149,6 +149,8 @@ unsafe extern "C" {
     fn ss_autofill_open_settings() -> bool;
     fn ss_group_dir() -> *mut c_char;
     fn ss_background_begin() -> isize;
+    fn ss_keep_awake(on: bool);
+    fn ss_exclude_from_backup(path: *const c_char);
     fn ss_background_end(task: isize);
     fn ss_backup_call(command: *const c_char, payload: *const c_char) -> *mut c_char;
     fn ss_sender_sign(
@@ -358,4 +360,18 @@ pub fn background_begin() -> isize {
 pub fn background_end(task: isize) {
     // SAFETY: an id `background_begin` returned.
     unsafe { ss_background_end(task) }
+}
+
+/// The screen stays on, and the app keeps running for a while if it is
+/// left, while long work runs.
+pub fn keep_awake(on: bool) {
+    // SAFETY: a plain flag; Swift moves to the main thread.
+    unsafe { ss_keep_awake(on) }
+}
+
+/// Keeps `dir` out of the iPhone's backups: its keys never leave this phone.
+pub fn exclude_from_backup(dir: &std::path::Path) {
+    let path = c(&dir.to_string_lossy());
+    // SAFETY: a NUL-terminated string that outlives the call.
+    unsafe { ss_exclude_from_backup(path.as_ptr()) }
 }

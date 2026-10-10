@@ -199,5 +199,9 @@
             android:name="android.support.FILE_PROVIDER_PATHS"
             android:resource="@xml/file_paths" />
         </provider>
+        <!-- Clears a copied secret 45 s later even if the app was frozen (ClipClear.kt). -->
+        <receiver
+            android:name=".ClipClearReceiver"
+            android:exported="false" />
     </application>
 </manifest>

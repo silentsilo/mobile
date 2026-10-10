@@ -12,7 +12,7 @@ import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
 import { announceSilo } from "./SiloSwitcher";
 import { haptic } from "../ui/haptics";
-import { useLeftOut } from "../ui/syncActivity";
+import { useBehind, useLeftOut } from "../ui/syncActivity";
 import { isIOS } from "../ui/platform";
 
 function historyLabel(policy: HistoryPolicy): string {
@@ -86,6 +86,10 @@ export function Silo({
   const [screenOff, setScreenOff] = useState<boolean | null>(null);
   const [removing, setRemoving] = useState(false);
   const leftOut = useLeftOut();
+  const behindNow = useBehind();
+  const [behindSaid, setBehindSaid] = useState(false);
+  const behind = behindNow || behindSaid;
+  const [rebuilding, setRebuilding] = useState<string | null>(null);
   const [autofill, setAutofill] = useState<{ supported: boolean; enabled: boolean } | null>(null);
   const [aboutAutofill, setAboutAutofill] = useState(false);
   const [passkeys, setPasskeys] = useState<{ supported: boolean; enabled: boolean } | null>(null);
@@ -126,11 +130,41 @@ export function Silo({
     };
   }, []);
 
+  // Rebuilding from storage after this phone fell behind: what it says as it
+  // goes, since a long history takes minutes.
+  useEffect(() => {
+    if (rebuilding === null) return;
+    const stop = listen<{ fetched: number; total: number; building: boolean }>("join-progress", (event) => {
+      const p = event.payload;
+      setRebuilding(p.building ? t("start.join_building") : t("start.join_downloading", { done: p.fetched, total: p.total }));
+    });
+    return () => {
+      void stop.then((off) => off());
+    };
+  }, [rebuilding !== null]);
+
+  const rebuild = async () => {
+    setRebuilding(t("silo.behind_starting"));
+    await api.setBusy(true).catch(() => {});
+    try {
+      await api.rebuild();
+      setBehindSaid(false);
+      toast(t("silo.behind_done"));
+      onSynced();
+    } catch (e) {
+      toast(formatAppError(e));
+    } finally {
+      await api.setBusy(false).catch(() => {});
+      setRebuilding(null);
+    }
+  };
+
   const syncNow = async () => {
     setSyncing(true);
     try {
       const report = await api.syncNow();
       if (report.needs_rejoin) toast(t("silo.sync_left_out"));
+      else if (report.needs_rebuild) setBehindSaid(true);
       else if (report.key_material_replaced) toast(t("silo.sync_key_replaced"));
       else if (report.skipped) toast(t("silo.sync_already_running"));
       else if (report.blobs_failed > 0) toast(t("silo.sync_files_failed", { count: report.blobs_failed }));
@@ -223,15 +257,24 @@ export function Silo({
             <span className="label" style={{ padding: "0 4px" }}>{t("silo.section_backup")}</span>
             <div className="panel" style={{ gap: 12, padding: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Cloud size={20} color={waiting || leftOut ? "var(--warning)" : "var(--success)"} />
+                <Cloud size={20} color={waiting || leftOut || behind ? "var(--warning)" : "var(--success)"} />
                 <span style={{ flex: 1 }}>
-                  {leftOut
+                  {leftOut || behind
                     ? t("silo.status_not_syncing")
                     : waiting
                       ? t("silo.status_waiting", { count: waiting })
                       : t("silo.status_synced")}
                 </span>
               </div>
+              {behind && (
+                <>
+                  <p className="hint">{t("silo.behind_hint")}</p>
+                  {rebuilding && <p className="hint" role="status">{rebuilding}</p>}
+                  <button className="btn" aria-busy={rebuilding !== null} disabled={rebuilding !== null} onClick={() => void rebuild()}>
+                    {t("silo.behind_rebuild")}
+                  </button>
+                </>
+              )}
               <button className="btn secondary" aria-busy={syncing} onClick={syncNow} disabled={syncing}>
                 {!syncing && <RefreshCw size={18} />}
                 {syncing ? t("silo.syncing") : t("silo.sync_now")}

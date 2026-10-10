@@ -63,6 +63,14 @@ pub fn run() {
                 ios::stderr_to_file(&data.join("stderr.log"));
             }
             silentsilo_vault::set_work_base(paths::work_dir(app.handle())?);
+            // Out of iCloud and computer backups: the keys stay on this phone.
+            #[cfg(target_os = "ios")]
+            for dir in [Some(data.clone()), app.path().app_data_dir().ok()]
+                .into_iter()
+                .flatten()
+            {
+                ios::exclude_from_backup(&dir);
+            }
             // Before the first secret file is read or written.
             #[cfg(target_os = "ios")]
             let sealed = keychain::install_protector();
@@ -79,7 +87,13 @@ pub fn run() {
                 secrets::seal_existing(&data);
             }
             commands::rehome_silos(&data);
-            paths::recover_silos(&data);
+            // Only with the key that seals the registry: without it the
+            // registry reads as empty, and this would rename every silo.
+            #[cfg(mobile)]
+            if sealed {
+                paths::clear_unfinished_joins(&data);
+                paths::recover_silos(&data);
+            }
             let handle = app.handle().clone();
             commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());
             commands::spawn_auto_sync(handle);
@@ -130,6 +144,7 @@ pub fn run() {
             commands::vault_list_folder,
             commands::sync_status,
             commands::sync_now,
+            commands::vault_rebuild,
             commands::fido_list_keys,
             commands::fido_remove_key,
             commands::recovery_status,
@@ -139,6 +154,7 @@ pub fn run() {
             history::history_policy_set,
             background::lock_on_screen_off_get,
             background::lock_on_screen_off_set,
+            background::app_busy,
             backup::backup_status,
             backup::backup_configure,
             backup::backup_disable,

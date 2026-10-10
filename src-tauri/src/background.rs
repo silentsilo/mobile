@@ -37,8 +37,21 @@ fn since_boot() -> Duration {
     }
 }
 
+/// iOS: `Instant` is CLOCK_UPTIME_RAW there, which stops while the iPhone
+/// sleeps, so a silo left open at night came back counting only the minutes
+/// the phone was awake. Darwin's CLOCK_MONOTONIC keeps counting asleep.
+#[cfg(target_os = "ios")]
+fn since_boot() -> Duration {
+    const CLOCK_MONOTONIC: u32 = 6;
+    unsafe extern "C" {
+        fn clock_gettime_nsec_np(clock: u32) -> u64;
+    }
+    // SAFETY: a plain query; 0 means it failed.
+    Duration::from_nanos(unsafe { clock_gettime_nsec_np(CLOCK_MONOTONIC) })
+}
+
 /// Elsewhere, only for building and testing on a computer.
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn since_boot() -> Duration {
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
     START.get_or_init(std::time::Instant::now).elapsed()
@@ -71,6 +84,14 @@ pub struct BackgroundLock {
     /// A biometric prompt covers the activity and pauses it. That is the
     /// user unlocking, not leaving.
     prompts: AtomicUsize,
+    /// Long work under way (a join, an import): the screen stays on and a
+    /// lock that falls due waits for it to end.
+    busy: AtomicUsize,
+    /// A lock fell due while busy work ran.
+    lock_held: AtomicBool,
+    /// When the armed lock falls due, on the clock that counts sleep. Read on
+    /// every way in, because Android may freeze the timer's process past it.
+    deadline: Mutex<Option<Duration>>,
 }
 
 impl Default for BackgroundLock {
@@ -83,6 +104,9 @@ impl Default for BackgroundLock {
             visible: AtomicBool::new(true),
             generation: AtomicU64::new(0),
             prompts: AtomicUsize::new(0),
+            busy: AtomicUsize::new(0),
+            lock_held: AtomicBool::new(false),
+            deadline: Mutex::new(None),
         }
     }
 }
@@ -163,8 +187,29 @@ pub fn lock_after(app: &AppHandle) -> u64 {
 }
 
 pub fn lock_all(app: &AppHandle) {
+    // What was saved and not sent yet goes first: once locked, nothing can
+    // send it until the next unlock on this phone, which may be days away.
+    let unsent = with_unsent(&app.state::<AppState>());
+    if !unsent.is_empty() {
+        #[cfg(target_os = "ios")]
+        let task = crate::ios::background_begin();
+        tauri::async_runtime::block_on(push_unsent(app, unsent, PUSH_LIMIT));
+        #[cfg(target_os = "ios")]
+        crate::ios::background_end(task);
+    }
+    close_all(app);
+}
+
+/// The longest a lock waits for unsent changes to go out.
+const PUSH_LIMIT: Duration = Duration::from_secs(20);
+
+/// Locks without sending first: for a deadline already past.
+fn close_all(app: &AppHandle) {
     let state = app.state::<AppState>();
     let host = MobileHost(app.clone());
+    if let Ok(mut deadline) = app.state::<BackgroundLock>().deadline.lock() {
+        *deadline = None;
+    }
     let open = state.open_silo_ids();
     if open.is_empty() {
         return;
@@ -209,25 +254,49 @@ pub fn suspended(app: &AppHandle) {
     if let Ok(mut at) = lock.suspended_at.lock() {
         *at = Some(since_boot());
     }
-    // AutoFill opens the silo from its snapshot, in another process: what
-    // was saved since the last lock goes into it as the app leaves.
-    #[cfg(target_os = "ios")]
-    {
-        app.state::<AppState>().flush_all(&MobileHost(app.clone()));
+    let delay = lock_after(app);
+    // "At once" locks right away, and the lock sends what is waiting itself.
+    if delay > 0 {
         sync_on_the_way_out(app);
     }
-    arm(app, lock_after(app));
+    arm(app, delay);
 }
 
-/// iOS suspends the app seconds after it leaves the screen, and the sync
-/// loop with it: what was saved just before would wait for the next time the
-/// app is opened. So a silo with changes not sent yet gets one pass now, in
-/// the time iOS grants for it (about 30 seconds). A larger upload that does
-/// not fit goes on at the next opening, as before.
-#[cfg(target_os = "ios")]
+/// The phone stops the app soon after it leaves the screen (iOS within
+/// seconds, Android once it is cached), and the sync loop with it: what was
+/// saved just before would wait for the next time the app is opened. So a
+/// silo with changes not sent yet gets one pass now; on iOS in the time it
+/// grants for it, about 30 seconds. An upload that does not fit goes on at
+/// the next opening. On iOS the snapshot is written first, off the main
+/// thread: AutoFill opens the silo from it, in another process.
 fn sync_on_the_way_out(app: &AppHandle) {
-    let state = app.state::<AppState>();
-    let waiting: Vec<uuid::Uuid> = state
+    let waiting = with_unsent(&app.state::<AppState>());
+    if waiting.is_empty() && !cfg!(target_os = "ios") {
+        return;
+    }
+    #[cfg(target_os = "ios")]
+    let task = crate::ios::background_begin();
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        #[cfg(target_os = "ios")]
+        {
+            let flushing = app.clone();
+            let _ = tauri::async_runtime::spawn_blocking(move || {
+                flushing
+                    .state::<AppState>()
+                    .flush_all(&MobileHost(flushing.clone()));
+            })
+            .await;
+        }
+        push_unsent(&app, waiting, PUSH_LIMIT).await;
+        #[cfg(target_os = "ios")]
+        crate::ios::background_end(task);
+    });
+}
+
+/// The open silos with changes not sent yet.
+pub fn with_unsent(state: &AppState) -> Vec<uuid::Uuid> {
+    state
         .open_silo_ids()
         .into_iter()
         .filter(|id| {
@@ -242,26 +311,82 @@ fn sync_on_the_way_out(app: &AppHandle) {
                 .unwrap_or(0)
                 > 0
         })
-        .collect();
+        .collect()
+}
+
+/// One sync pass for each silo, within `limit`. A pass already running is
+/// waited out, then this one sends what is left.
+pub async fn push_unsent(app: &AppHandle, silos: Vec<uuid::Uuid>, limit: Duration) {
     let Some(data) = data_dir().cloned() else {
         return;
     };
-    if waiting.is_empty() {
-        return;
-    }
-    let task = crate::ios::background_begin();
-    let app = app.clone();
-    tauri::async_runtime::spawn(async move {
-        let state = app.state::<AppState>();
-        let registry = silentsilo_vault::load_registry(&data);
-        for id in waiting {
-            if let Some(silo) = registry.get(id).cloned() {
-                let _ =
-                    silentsilo_app::run_sync_pass(&state, &MobileHost(app.clone()), &silo).await;
+    let registry = silentsilo_vault::load_registry(&data);
+    let state = app.state::<AppState>();
+    let _ = tokio::time::timeout(limit, async {
+        for id in silos {
+            let Some(silo) = registry.get(id).cloned() else {
+                continue;
+            };
+            loop {
+                match silentsilo_app::run_sync_pass(&state, &MobileHost(app.clone()), &silo).await {
+                    Ok(report) if report.skipped => {
+                        tokio::time::sleep(Duration::from_millis(300)).await;
+                    }
+                    _ => break,
+                }
             }
         }
-        crate::ios::background_end(task);
-    });
+    })
+    .await;
+}
+
+/// Long work starts or ends, from the page: a join, an import of many
+/// files. While any runs, the screen stays on, iOS grants time if the app is
+/// left, and a lock that falls due waits for the work to end.
+#[tauri::command]
+pub async fn app_busy(app: AppHandle, on: bool) -> Result<(), String> {
+    let lock = app.state::<BackgroundLock>();
+    if on {
+        if lock.busy.fetch_add(1, Ordering::SeqCst) == 0 {
+            keep_awake(&app, true).await;
+        }
+    } else if lock
+        .busy
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+        == Ok(1)
+    {
+        keep_awake(&app, false).await;
+        if lock.lock_held.swap(false, Ordering::SeqCst) {
+            lock_soon(&app);
+        }
+    }
+    Ok(())
+}
+
+async fn keep_awake(app: &AppHandle, on: bool) {
+    let _ = app
+        .state::<crate::device_key::DeviceKey<tauri::Wry>>()
+        .keep_awake(on)
+        .await;
+}
+
+/// Whether the armed lock's deadline passed while the process could not act
+/// on it (Android freezes a cached app's timers). If so the lock starts now,
+/// and the caller treats the silo as locked: nothing is read from a session
+/// that is overdue. Asked first on every way in from outside the window.
+pub fn past_deadline(app: &AppHandle) -> bool {
+    let lock = app.state::<BackgroundLock>();
+    let due = lock
+        .deadline
+        .lock()
+        .ok()
+        .and_then(|d| *d)
+        .is_some_and(|d| since_boot() >= d);
+    if due && lock.busy.load(Ordering::SeqCst) == 0 {
+        lock_soon(app);
+        return true;
+    }
+    false
 }
 
 /// Locks after `delay` unless the app comes back or goes away again first.
@@ -275,6 +400,9 @@ fn arm(app: &AppHandle, delay: u64) {
     let app = app.clone();
     let armed = since_boot();
     let delay = Duration::from_secs(delay);
+    if let Ok(mut deadline) = lock.deadline.lock() {
+        *deadline = Some(armed + delay);
+    }
     tauri::async_runtime::spawn(async move {
         // In steps, reading the clock that counts sleep each time, so a
         // phone that slept past the deadline locks soon after it wakes.
@@ -321,6 +449,9 @@ pub fn resumed(app: &AppHandle) {
     lock.generation.fetch_add(1, Ordering::SeqCst);
     lock.foreground.store(true, Ordering::SeqCst);
     lock.visible.store(true, Ordering::SeqCst);
+    if let Ok(mut deadline) = lock.deadline.lock() {
+        *deadline = None;
+    }
     crate::viewer::wipe_opened(app);
     let away = lock
         .suspended_at
@@ -344,6 +475,11 @@ pub fn resumed(app: &AppHandle) {
 /// Window events arrive on the main thread, which closing a silo must not
 /// hold: it writes the database and then needs that thread to tell the page.
 fn lock_soon(app: &AppHandle) {
+    let lock = app.state::<BackgroundLock>();
+    if lock.busy.load(Ordering::SeqCst) > 0 {
+        lock.lock_held.store(true, Ordering::SeqCst);
+        return;
+    }
     let app = app.clone();
     tauri::async_runtime::spawn_blocking(move || lock_all(&app));
 }
@@ -414,8 +550,9 @@ pub fn lock_from_outside() {
 
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 pub fn any_open() -> bool {
-    APP.get()
-        .is_some_and(|app| !app.state::<AppState>().open_silo_ids().is_empty())
+    APP.get().is_some_and(|app| {
+        !past_deadline(app) && !app.state::<AppState>().open_silo_ids().is_empty()
+    })
 }
 
 fn screen_off_path(_app: &AppHandle) -> Option<PathBuf> {

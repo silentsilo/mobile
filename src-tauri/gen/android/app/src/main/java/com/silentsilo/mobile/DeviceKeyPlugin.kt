@@ -10,13 +10,12 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import android.view.HapticFeedbackConstants
+import android.view.WindowManager
 import android.view.autofill.AutofillManager
 import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.CancellationSignal
-import android.os.Handler
-import android.os.Looper
 import android.os.PersistableBundle
 import android.os.StatFs
 import android.security.keystore.KeyGenParameterSpec
@@ -50,13 +49,9 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     const val TRANSFORM = "AES/GCM/NoPadding"
     const val MIN_WEBVIEW_MAJOR = 105
     const val PROBE_ALIAS = "silentsilo-probe"
-    const val CLIP_LABEL = "SilentSilo secret"
+    const val CLIP_LABEL = ClipClear.LABEL
     const val CLIP_TTL_MS = 45_000L
   }
-
-  private var clipSerial = 0
-  // Whether a secret copied here may still be on the clipboard.
-  private var clipPending = false
 
   // A secret on the clipboard: marked sensitive so the keyboard and the
   // clipboard preview do not show it, and cleared after 45 s if still ours.
@@ -71,18 +66,9 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
         putBoolean("android.content.extra.IS_SENSITIVE", true)
       }
       clipboard.setPrimaryClip(clip)
-      clipPending = true
-      val serial = ++clipSerial
-      Handler(Looper.getMainLooper()).postDelayed({
-        // The description is readable only while the app has focus. From the
-        // background it is null and the secret may well still be there, so
-        // null clears too; a later copy from here restarts the wait.
-        val label = clipboard.primaryClipDescription?.label
-        if (serial == clipSerial && (label == null || label == CLIP_LABEL)) {
-          clipboard.clearPrimaryClip()
-          clipPending = false
-        }
-      }, CLIP_TTL_MS)
+      // A system alarm, not a timer here: Android freezes or kills an app
+      // that left the screen, and its timer with it.
+      ClipClear.schedule(activity, CLIP_TTL_MS)
       invoke.resolve()
     }
   }
@@ -93,13 +79,7 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun clearSecret(invoke: Invoke) {
     activity.runOnUiThread {
-      if (clipPending) {
-        val clipboard = activity.getSystemService(ClipboardManager::class.java)
-        val label = clipboard.primaryClipDescription?.label
-        if (label == null || label == CLIP_LABEL) clipboard.clearPrimaryClip()
-        clipPending = false
-        clipSerial++
-      }
+      if (ClipClear.pending(activity)) ClipClear.clearIfOurs(activity)
       invoke.resolve()
     }
   }
@@ -131,6 +111,18 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     }
     activity.runOnUiThread {
       activity.window.decorView.performHapticFeedback(feedback)
+      invoke.resolve()
+    }
+  }
+
+  // The screen stays on while long work runs (a join, an import), so the
+  // screen-off lock does not stop it half way.
+  @Command
+  fun keepAwake(invoke: Invoke) {
+    val on = invoke.getArgs().getBoolean("on", false)
+    activity.runOnUiThread {
+      if (on) activity.window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+      else activity.window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
       invoke.resolve()
     }
   }

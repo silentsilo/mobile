@@ -113,3 +113,37 @@ public func ssBackgroundEnd(_ raw: Int) {
   guard task != .invalid else { return }
   DispatchQueue.main.async { UIApplication.shared.endBackgroundTask(task) }
 }
+
+/// While long work runs: the screen stays on, and if the app is left anyway
+/// iOS grants it time to finish, about 30 seconds.
+private var awakeTask = UIBackgroundTaskIdentifier.invalid
+
+@_cdecl("ss_keep_awake")
+public func ssKeepAwake(_ on: Bool) {
+  DispatchQueue.main.async {
+    UIApplication.shared.isIdleTimerDisabled = on
+    if on, awakeTask == .invalid {
+      awakeTask = UIApplication.shared.beginBackgroundTask(withName: "work") {
+        UIApplication.shared.endBackgroundTask(awakeTask)
+        awakeTask = .invalid
+      }
+    } else if !on, awakeTask != .invalid {
+      UIApplication.shared.endBackgroundTask(awakeTask)
+      awakeTask = .invalid
+    }
+  }
+}
+
+/// Keeps a folder out of iCloud and computer backups. Its keys stay on this
+/// iPhone (Keychain, this device only), so a copy restored elsewhere could
+/// not be opened; the phone joins its silos again with the recovery code,
+/// as Android does.
+@_cdecl("ss_exclude_from_backup")
+public func ssExcludeFromBackup(_ path: UnsafePointer<CChar>) {
+  var url = URL(fileURLWithPath: String(cString: path), isDirectory: true)
+  try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+  var values = URLResourceValues()
+  values.isExcludedFromBackup = true
+  try? url.setResourceValues(values)
+}
+

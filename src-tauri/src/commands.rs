@@ -100,7 +100,7 @@ pub struct Bootstrap {
 #[tauri::command]
 pub fn app_bootstrap(app: AppHandle, state: State<AppState>) -> Result<Bootstrap, String> {
     let silo = active_silo(&state).ok();
-    let locked = state.focused_session()?.is_none();
+    let locked = crate::background::past_deadline(&app) || state.focused_session()?.is_none();
     let platform_enrolled = silo
         .as_ref()
         .is_some_and(|s| this_phone_key(&app, s).is_some());
@@ -223,6 +223,10 @@ pub(crate) async fn finish_join(
     let root = app_data.join("silos").join(join.vault_id.to_string());
     std::fs::create_dir_all(&root).map_err(|e| e.to_string())?;
     silentsilo_vault::write_marker(&root, join.vault_id).map_err(|e| e.to_string())?;
+    // Until the silo is in the list: a join the phone stops part way (the
+    // app killed during a long download) is cleared at the next start
+    // instead of coming back as a silo that does not open.
+    std::fs::write(crate::paths::joining_marker(&root), b"").map_err(|e| e.to_string())?;
     let entry = SiloEntry {
         id: join.vault_id,
         name: name.to_string(),
@@ -247,6 +251,7 @@ pub(crate) async fn finish_join(
     registry.upsert(entry.clone());
     registry.active = Some(entry.id);
     save_registry(&app_data, &registry).map_err(|e| e.to_string())?;
+    let _ = std::fs::remove_file(crate::paths::joining_marker(&root));
     *state.active_silo.lock().map_err(|e| e.to_string())? = Some(entry.clone());
     state.open_session(&host(app), entry.id, session)?;
     crate::audit::set_unlocked_with(entry.id, None);
@@ -498,6 +503,14 @@ pub async fn vault_lock(
         Some(id) => vec![Uuid::parse_str(&id).map_err(|e| e.to_string())?],
         None => state.open_silo_ids(),
     };
+    // What was saved and not sent yet goes before the key does.
+    let unsent: Vec<Uuid> = crate::background::with_unsent(&state)
+        .into_iter()
+        .filter(|id| ids.contains(id))
+        .collect();
+    if !unsent.is_empty() {
+        crate::background::push_unsent(&app, unsent, std::time::Duration::from_secs(10)).await;
+    }
     for id in ids {
         state.close_session(&host(&app), id)?;
     }
@@ -894,6 +907,113 @@ pub fn spawn_auto_sync(app: AppHandle) {
             }
         }
     });
+}
+
+/// Rebuilds this phone's copy of the silo from the latest snapshot in storage,
+/// for a phone that fell behind a compaction: without it nothing syncs in
+/// either direction. This phone's changes not sent yet are kept and sent
+/// after. Progress as a join's.
+#[tauri::command]
+pub async fn vault_rebuild(app: AppHandle, state: State<'_, AppState>) -> Result<usize, String> {
+    let silo = active_silo(&state)?;
+    let targets = silentsilo_vault::load_targets(silo.id);
+    if targets.is_empty() {
+        return Err("This silo has no backup storage set up.".into());
+    }
+    let dek = {
+        let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        sessions
+            .get(&silo.id)
+            .ok_or("Unlock the silo first.")?
+            .dek
+            .clone()
+    };
+    // No pass alongside: it would replay what it fetched against the old
+    // horizon onto the rebuilt tree.
+    let _held = SyncHold::take(&state).await;
+    let mut best: Option<(
+        silentsilo_vfs::snapshot::Snapshot,
+        Vec<silentsilo_vfs::OpRecord>,
+    )> = None;
+    for target in &targets {
+        let Ok(store) = target.config.open() else {
+            continue;
+        };
+        let emitter = app.clone();
+        let mut report = move |fetched: usize, total: usize| {
+            let _ = emitter.emit(
+                "join-progress",
+                JoinProgress {
+                    fetched,
+                    total,
+                    building: false,
+                },
+            );
+        };
+        if let Ok(Some(found)) =
+            silentsilo_sync::fetch_rebuild_reporting(&*store, &dek, &mut report).await
+        {
+            let better = best.as_ref().is_none_or(|(snapshot, ops)| {
+                (found.0.horizon, found.1.len()) > (snapshot.horizon, ops.len())
+            });
+            if better {
+                best = Some(found);
+            }
+        }
+    }
+    let (snapshot, incoming) =
+        best.ok_or("Backup storage holds nothing to rebuild this silo from.")?;
+    let _ = app.emit(
+        "join-progress",
+        JoinProgress {
+            fetched: 0,
+            total: 0,
+            building: true,
+        },
+    );
+    let handle = app.clone();
+    let applied = tauri::async_runtime::spawn_blocking(move || {
+        let state = handle.state::<AppState>();
+        let mut sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        let session = sessions
+            .get_mut(&silo.id)
+            .ok_or("The silo was locked during the rebuild.")?;
+        let applied = silentsilo_sync::apply_rebuild(&mut session.conn, &snapshot, incoming)
+            .map_err(|e| e.to_string())?
+            .replay
+            .applied;
+        Ok::<_, String>(applied)
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let _ = app.emit("vault-changed", ());
+    Ok(applied)
+}
+
+/// Holds off sync passes while it lives: waits for one running to finish,
+/// then marks one as running.
+struct SyncHold<'a>(&'a AppState);
+
+impl<'a> SyncHold<'a> {
+    async fn take(state: &'a AppState) -> SyncHold<'a> {
+        use std::sync::atomic::Ordering;
+        while state
+            .sync_in_flight
+            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
+            .is_err()
+        {
+            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        }
+        SyncHold(state)
+    }
+}
+
+impl Drop for SyncHold<'_> {
+    fn drop(&mut self) {
+        self.0
+            .sync_in_flight
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+    }
 }
 
 /// Tells the silo what this phone is called, as the desktop does, so its

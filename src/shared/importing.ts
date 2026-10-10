@@ -6,14 +6,20 @@ import { t } from "../i18n";
 export async function addAll(files: Offered[], folderId: string, onProgress: (done: number) => void): Promise<string> {
   let added = 0;
   let lastError = "";
-  for (const [i, file] of files.entries()) {
-    onProgress(i);
-    try {
-      await api.importOffered(file, folderId);
-      added++;
-    } catch (e) {
-      lastError = `${file.name}: ${formatAppError(e)}`;
+  // The screen stays on and a lock waits, so a long import is not cut half way.
+  await api.setBusy(true).catch(() => {});
+  try {
+    for (const [i, file] of files.entries()) {
+      onProgress(i);
+      try {
+        await api.importOffered(file, folderId);
+        added++;
+      } catch (e) {
+        lastError = `${file.name}: ${formatAppError(e)}`;
+      }
     }
+  } finally {
+    await api.setBusy(false).catch(() => {});
   }
   onProgress(files.length);
   const summary = t("pw.files_added", { count: added });

@@ -55,7 +55,12 @@ export function JoinCode({
     setProgress(null);
     setWaitingForKey(true);
     try {
-      await api.joinWithSecurityKey(config, name.trim() || t("start.default_name"));
+      await api.setBusy(true).catch(() => {});
+      try {
+        await api.joinWithSecurityKey(config, name.trim() || t("start.default_name"));
+      } finally {
+        await api.setBusy(false).catch(() => {});
+      }
       setWaitingForKey(false);
       onJoined();
     } catch (e) {
@@ -77,7 +82,12 @@ export function JoinCode({
     setError(null);
     setProgress(null);
     try {
-      await api.joinWithRecovery(config, code, name.trim() || t("start.default_name"));
+      await api.setBusy(true).catch(() => {});
+      try {
+        await api.joinWithRecovery(config, code, name.trim() || t("start.default_name"));
+      } finally {
+        await api.setBusy(false).catch(() => {});
+      }
       onJoined();
     } catch (e) {
       setError(formatAppError(e));

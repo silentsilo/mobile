@@ -276,6 +276,10 @@ export const api = {
   runBackupNow: () => invoke<void>("backup_run_now"),
   pickFiles: () => invoke<Offered[]>("files_pick"),
   openLink: (url: string) => invoke<void>("app_open_link", { url }),
+  /** Long work starts or ends: the screen stays on and a lock waits for it. */
+  setBusy: (on: boolean) => invoke<void>("app_busy", { on }),
+  /** Rebuilds this phone's copy from storage, after it fell behind. */
+  rebuild: () => invoke<number>("vault_rebuild"),
   takeShared: () => invoke<Offered[]>("files_take_shared"),
   takePhoto: () => invoke<string | null>("files_take_photo"),
   importOffered: (file: Offered, folderId: string) => invoke<FileEntry>("vault_import_offered", { file, folderId }),

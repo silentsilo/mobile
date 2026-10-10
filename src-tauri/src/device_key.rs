@@ -120,6 +120,9 @@ impl<R: Runtime> DeviceKey<R> {
     pub async fn haptic(&self, _kind: &str) -> Result<(), String> {
         Ok(())
     }
+    pub async fn keep_awake(&self, _on: bool) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// iPhone and iPad: the key is made and used in the Secure Enclave behind
@@ -242,6 +245,13 @@ impl<R: Runtime> DeviceKey<R> {
         crate::ios::haptic(kind);
         Ok(())
     }
+
+    /// The screen stays on, and the app gets time if it is left, while long
+    /// work runs.
+    pub async fn keep_awake(&self, on: bool) -> Result<(), String> {
+        crate::ios::keep_awake(on);
+        Ok(())
+    }
 }
 
 #[cfg(target_os = "ios")]
@@ -345,6 +355,13 @@ impl<R: Runtime> DeviceKey<R> {
     /// A short vibration: `tick`, `confirm`, `reject` or `heavy`.
     pub async fn haptic(&self, kind: &str) -> Result<(), String> {
         self.call::<serde_json::Value>("haptic", serde_json::json!({ "kind": kind }))
+            .await
+            .map(|_| ())
+    }
+
+    /// The screen stays on while long work runs.
+    pub async fn keep_awake(&self, on: bool) -> Result<(), String> {
+        self.call::<serde_json::Value>("keepAwake", serde_json::json!({ "on": on }))
             .await
             .map(|_| ())
     }

@@ -77,17 +77,19 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_passkeyOverview(
     let Some(silo) = front_silo(Path::new(&data_dir)) else {
         return answer(&mut env, serde_json::json!({}));
     };
-    let open_rows = crate::background::app().and_then(|app| {
-        let state = app.state::<AppState>();
-        state
-            .session_is_open(silo.id)
-            .then(|| {
-                state
-                    .with_session_id(silo.id, |_session, vfs| vfs.list_passwords())
-                    .ok()
-            })
-            .flatten()
-    });
+    let open_rows = crate::background::app()
+        .filter(|app| !crate::background::past_deadline(app))
+        .and_then(|app| {
+            let state = app.state::<AppState>();
+            state
+                .session_is_open(silo.id)
+                .then(|| {
+                    state
+                        .with_session_id(silo.id, |_session, vfs| vfs.list_passwords())
+                        .ok()
+                })
+                .flatten()
+        });
     let json = match open_rows {
         Some(rows) => {
             let records = held(&rows);

@@ -58,8 +58,9 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_autofillSilo(
     let Some(silo) = front_silo(Path::new(&data_dir)) else {
         return answer(&mut env, serde_json::json!({}));
     };
-    let open = crate::background::app()
-        .is_some_and(|app| app.state::<AppState>().session_is_open(silo.id));
+    let open = crate::background::app().is_some_and(|app| {
+        !crate::background::past_deadline(app) && app.state::<AppState>().session_is_open(silo.id)
+    });
     let ids = flows::device_key_ids(&silo.path, KIND_ANDROID_KEYSTORE);
     answer(
         &mut env,
@@ -113,7 +114,9 @@ pub(crate) fn with_front_silo<T>(
             .map(|(session, _)| session)
     };
 
-    match crate::background::app() {
+    // A session past its lock deadline is not used: the fill opens the silo
+    // on its own, with the key it was given, as when the app is not running.
+    match crate::background::app().filter(|app| !crate::background::past_deadline(app)) {
         Some(app) => {
             let state = app.state::<AppState>();
             if !state.session_is_open(silo.id) {
