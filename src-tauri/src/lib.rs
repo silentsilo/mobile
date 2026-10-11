@@ -178,6 +178,7 @@ pub fn run() {
             incoming::vault_create_folder,
             incoming::share_to_inbox,
             viewer::file_open_with,
+            viewer::file_on_phone,
             viewer::password_open_attachment,
             manage::vault_rename_file,
             manage::vault_rename_folder,

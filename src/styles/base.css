@@ -1535,3 +1535,97 @@ textarea.masked-text {
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
+
+/* A file's details: what it is on top, then what can be done with it. */
+.file-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 4px 0;
+  text-align: center;
+}
+
+.file-hero-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  margin-bottom: 6px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.file-thumb {
+  display: block;
+  margin-bottom: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.file-thumb img {
+  display: block;
+  max-width: 220px;
+  max-height: 180px;
+  object-fit: cover;
+}
+
+.file-hero-name {
+  overflow-wrap: anywhere;
+}
+
+.file-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.file-actions .hint {
+  margin: 0;
+  text-align: center;
+}
+
+.file-action-row {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  gap: 10px;
+}
+
+.file-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 76px;
+  padding: 10px 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  color: var(--accent-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.file-action span {
+  color: var(--ink);
+  font-size: var(--fs-caption);
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.file-action:disabled {
+  opacity: 0.55;
+}
+
+.file-action:active:not(:disabled) {
+  background: var(--accent-soft);
+}

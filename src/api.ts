@@ -303,6 +303,8 @@ export const api = {
   /** A file out of the silo: saved on the phone, shared or opened in
    * another app. False when the user backed out of a save. */
   openWith: (fileId: string, how: HandOverHow = "open") => invoke<boolean>("file_open_with", { fileId, how }),
+  /** Whether the file is on this phone or only in storage. */
+  fileOnPhone: (fileId: string) => invoke<boolean>("file_on_phone", { fileId }),
   /** A password entry's attached file, the same ways. */
   openAttachment: (entry: PasswordEntry, attachment: PasswordAttachment, how: HandOverHow = "open") =>
     invoke<boolean>("password_open_attachment", {

@@ -476,6 +476,7 @@ const handlers: Record<string, Handler> = {
   vault_purge_trash: () => 0,
   silo_list: () => silos.map((s) => ({ id: s.id, name: s.name, active: s.id === silo.id, unlocked: s.id === silo.id && unlocked })),
   // A large file coming down from storage before another app gets it.
+  file_on_phone: async (args) => args.fileId !== "g3",
   file_open_with: async () => {
     await wait(2500);
   },

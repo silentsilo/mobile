@@ -17,6 +17,7 @@ import { Keys } from "./screens/Keys";
 import { Passwords } from "./screens/Passwords";
 import { PhoneBackup } from "./screens/PhoneBackup";
 import { Preview } from "./screens/Preview";
+import { FileDetails } from "./screens/FileDetails";
 import { SaveShared } from "./screens/SaveShared";
 import { Health } from "./screens/Health";
 import { Activity } from "./screens/Activity";
@@ -301,6 +302,7 @@ type Tab = "passwords" | "files" | "silo";
 type Detail =
   | { at: "entry"; entry: PasswordEntry }
   | { at: "edit"; entry: PasswordEntry | null; category?: string | null; type?: CredentialType }
+  | { at: "file"; file: FileEntry }
   | { at: "preview"; file: FileEntry }
   | { at: "keys" }
   | { at: "backup" }
@@ -364,8 +366,8 @@ function OpenSiloScreens({
     ? ""
     : detail.at === "entry" || detail.at === "edit"
       ? `${detail.at}:${detail.entry?.id ?? "new"}:${detail.entry?.updated_at ?? ""}`
-      : detail.at === "preview"
-        ? `preview:${detail.file.id}`
+      : detail.at === "preview" || detail.at === "file"
+        ? `${detail.at}:${detail.file.id}`
         : detail.at;
 
   const detailScreen = () => <Fragment key={detailKey}>{detailBody()}</Fragment>;
@@ -404,8 +406,18 @@ function OpenSiloScreens({
             }}
           />
         );
+      case "file":
+        return (
+          <FileDetails
+            file={detail.file}
+            siloName={siloName}
+            onBack={() => setDetail(null)}
+            onPreview={(file) => setDetail({ at: "preview", file })}
+            onChanged={changed}
+          />
+        );
       case "preview":
-        return <Preview file={detail.file} onBack={() => setDetail(null)} />;
+        return <Preview file={detail.file} onBack={() => setDetail({ at: "file", file: detail.file })} />;
       case "keys":
         return <Keys sync={sync} onBack={() => setDetail(null)} />;
       case "backup":
@@ -434,7 +446,7 @@ function OpenSiloScreens({
   // the folder, the search and the scroll stay, so the list is kept mounted
   // under the detail. Screens reached from Silo still start fresh, since they
   // change what Silo shows.
-  const parksList = detail !== null && (detail.at === "preview" || detail.at === "entry" || detail.at === "edit");
+  const parksList = detail !== null && (detail.at === "file" || detail.at === "preview" || detail.at === "entry" || detail.at === "edit");
   if (detail && !wide && !parksList) return detailScreen();
 
   const tabs: { id: Tab; label: string; Icon: typeof KeyRound }[] = [
@@ -470,7 +482,7 @@ function OpenSiloScreens({
           onAdd={(category, type) => setDetail({ at: "edit", entry: null, category, type })}
         />
       )}
-      {tab === "files" && <Files siloName={siloName} sync={sync} reloadKey={reloadKey} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
+      {tab === "files" && <Files siloName={siloName} sync={sync} reloadKey={reloadKey} onOpenFile={(file) => setDetail({ at: "file", file })} />}
       {tab === "silo" && <Silo siloId={siloId} siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onActivity={() => setDetail({ at: "activity" })} onDevices={() => setDetail({ at: "devices" })} onStorage={() => setDetail({ at: "storage" })} onLocked={onLocked} />}
     </PullToRefresh>
   );

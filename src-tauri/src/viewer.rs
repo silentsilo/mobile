@@ -151,6 +151,18 @@ pub fn wipe_opened(app: &AppHandle) {
     }
 }
 
+/// Whether a file's content is on this phone, or comes down from storage
+/// before it can be shown or handed over: the details page says which.
+#[tauri::command(async)]
+pub fn file_on_phone(state: State<'_, AppState>, file_id: String) -> Result<bool, String> {
+    let file_id = Uuid::parse_str(&file_id).map_err(|e| e.to_string())?;
+    let silo = active_silo(&state)?;
+    let entry = state.with_vfs(|_session, vfs| vfs.get_file(file_id))?;
+    Ok(silentsilo_vault::VaultPaths::new(silo.path.clone())
+        .blob_path(entry.blob_id)
+        .is_file())
+}
+
 #[tauri::command]
 pub async fn file_open_with(
     app: AppHandle,

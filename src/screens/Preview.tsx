@@ -10,13 +10,13 @@ import { HandOverSheet, type HandOverHow } from "../ui/HandOver";
 import { fileIcon } from "./Files";
 import { t, useLocale } from "../i18n";
 
-type Kind = "image" | "text" | "pdf" | "other";
+export type Kind = "image" | "text" | "pdf" | "other";
 
 const TEXT_LIMIT = 2 * 1024 * 1024;
 
 // Decided by type first and extension second: a photo imported without a
 // type still has a name that says what it is.
-function kindOf(file: FileEntry): Kind {
+export function kindOf(file: FileEntry): Kind {
   const mime = file.mime_type ?? "";
   const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (mime.startsWith("image/") || ["jpg", "jpeg", "png", "gif", "webp", "avif", "bmp"].includes(ext)) {
@@ -27,6 +27,19 @@ function kindOf(file: FileEntry): Kind {
     return file.size_bytes <= TEXT_LIMIT ? "text" : "other";
   }
   return "other";
+}
+
+/** The largest image and PDF the app shows itself; past them, another app
+ * on the phone does it better and without holding it all in memory. */
+const IMAGE_LIMIT = 40 * 1024 * 1024;
+const PDF_LIMIT = 100 * 1024 * 1024;
+
+/** Whether the details page offers Preview at all. */
+export function canPreview(file: FileEntry): boolean {
+  const kind = kindOf(file);
+  if (kind === "image") return file.size_bytes <= IMAGE_LIMIT;
+  if (kind === "pdf") return file.size_bytes <= PDF_LIMIT;
+  return kind === "text";
 }
 
 type Shown =
