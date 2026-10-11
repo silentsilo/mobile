@@ -36,5 +36,20 @@
 	     until it has a compliance code (the French declaration brings one). -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<true/>
+	<!-- iCloud Drive as backup storage (planuri/icloud.md): the container's
+	     Documents show as a "SilentSilo" folder in Files, in Finder and in
+	     iCloud for Windows. -->
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.com.silentsilo.mobile</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>SilentSilo</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
 </dict>
 </plist>

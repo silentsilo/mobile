@@ -80,6 +80,9 @@ pub fn run() {
             // OneDrive, Dropbox and Google Drive open through the tokens the
             // vault keeps.
             silentsilo_vault::install_cloud();
+            // iCloud Drive: only Swift can ask iOS where the container is.
+            #[cfg(target_os = "ios")]
+            silentsilo_store::set_icloud_locator(ios::icloud_documents);
             // Nothing is unlocked yet: any scratch left is from a process
             // Android killed while a silo was open.
             let _ = app.state::<silentsilo_app::AppState>().sweep_scratch();
@@ -205,6 +208,7 @@ pub fn run() {
             create::storage_view,
             create::storage_save,
             cloud::cloud_providers,
+            cloud::icloud_status,
             cloud::cloud_sign_in,
             cloud::cloud_cancel_sign_in,
             cloud::cloud_discard_sign_in,

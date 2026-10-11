@@ -206,6 +206,10 @@ pub fn storage_view(state: State<'_, AppState>) -> Result<StorageView, String> {
             };
         }
         StoreConfig::Folder { .. } => view.kind = "folder".into(),
+        StoreConfig::ICloud(c) => {
+            view.kind = "icloud".into();
+            view.path = c.folder.clone();
+        }
         // Set up on a computer; the phone shows it and cannot sign in yet.
         StoreConfig::OneDrive(c) | StoreConfig::Dropbox(c) | StoreConfig::GoogleDrive(c) => {
             view.kind = match &first.config {

@@ -51,7 +51,11 @@ export type StoreConfigInput =
       hostFingerprint: string | null;
     }
   // The account comes from the sign-in the app holds; `signIn` names it.
-  | { kind: CloudKind; signIn: string | null; folder: string };
+  | { kind: CloudKind; signIn: string | null; folder: string }
+  | { kind: "icloud"; folder: string };
+
+/** iCloud Drive on this phone, as `icloud_status` answers. */
+export type ICloudStatus = { supported: boolean; found: boolean; folders: string[] };
 
 export type CloudKind = "onedrive" | "dropbox" | "google-drive";
 
@@ -64,7 +68,8 @@ export type CopyView = {
     | { kind: "web-dav"; url: string; username: string }
     | { kind: "sftp"; host: string; username: string; path: string }
     | { kind: "folder"; path: string }
-    | { kind: CloudKind; account: string; folder: string };
+    | { kind: CloudKind; account: string; folder: string }
+    | { kind: "icloud"; folder: string };
   primary: boolean;
   /** Unix seconds; 0 for never, or not known while locked. */
   lastSuccess: number;
@@ -217,6 +222,8 @@ export const api = {
   fillCopy: (id: string) => invoke<number>("backup_target_fill", { id }),
   stopFill: () => invoke<void>("backup_target_fill_stop"),
   cloudProviders: () => invoke<string[]>("cloud_providers"),
+  /** Whether iCloud Drive is here, and the silos already in it. */
+  icloudStatus: () => invoke<ICloudStatus>("icloud_status"),
   cloudSignIn: (kind: CloudKind) => invoke<CloudSignIn>("cloud_sign_in", { kind }),
   cloudCancelSignIn: () => invoke<void>("cloud_cancel_sign_in"),
   cloudListSilos: (signIn: string) => invoke<string[]>("cloud_list_silos", { signIn }),

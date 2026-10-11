@@ -16,8 +16,8 @@ wrote.
 ## What a phone does
 
 A phone creates a silo of its own or sets up one that already exists from
-the backup storage that silo syncs to (OneDrive, Dropbox, Google Drive, an
-S3 bucket, WebDAV or SFTP). It unlocks with a key held in the phone's own
+the backup storage that silo syncs to (OneDrive, Dropbox, Google Drive,
+iCloud Drive on the iPhone, an S3 bucket, WebDAV or SFTP). It unlocks with a key held in the phone's own
 hardware (Android Keystore, StrongBox where the phone has it) behind its
 fingerprint, or with a security key over NFC or USB. The recovery code opens the silo when every key is gone.
 

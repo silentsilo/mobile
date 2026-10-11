@@ -13,6 +13,7 @@ const BRAND_NAME: Record<string, string> = {
   onedrive: "OneDrive",
   dropbox: "Dropbox",
   "google-drive": "Google Drive",
+  icloud: "iCloud Drive",
 };
 
 function kindName(kind: string): string {
@@ -32,6 +33,8 @@ function whereIs(config: CopyView["config"]): string {
       return `${config.username}@${config.host}`;
     case "folder":
       return config.path;
+    case "icloud":
+      return `iCloud Drive, ${config.folder}`;
     default:
       return t("silo.where_cloud", { account: config.account, folder: config.folder });
   }

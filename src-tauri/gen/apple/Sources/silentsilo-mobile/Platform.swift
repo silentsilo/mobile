@@ -414,3 +414,20 @@ public func ssTakeShared() -> UnsafeMutablePointer<CChar>? {
   let data = (try? JSONSerialization.data(withJSONObject: ["files": files])) ?? Data("{\"files\":[]}".utf8)
   return owned(String(decoding: data, as: UTF8.self))
 }
+
+// MARK: - iCloud Drive
+
+/// SilentSilo's `Documents` in iCloud Drive, made on first use, for the
+/// backup storage kind `icloud`; nil when iCloud Drive is off or signed out.
+/// Called from Rust's worker threads, never the main one: iOS may take a
+/// while the first time it sets the container up.
+@_cdecl("ss_icloud_documents")
+public func ssICloudDocuments() -> UnsafeMutablePointer<CChar>? {
+  let manager = FileManager.default
+  guard manager.ubiquityIdentityToken != nil,
+    let root = manager.url(forUbiquityContainerIdentifier: "iCloud.com.silentsilo.mobile")
+  else { return nil }
+  let documents = root.appendingPathComponent("Documents", isDirectory: true)
+  try? manager.createDirectory(at: documents, withIntermediateDirectories: true)
+  return strdup(documents.path)
+}

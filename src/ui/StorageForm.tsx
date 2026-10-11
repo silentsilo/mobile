@@ -1,6 +1,6 @@
 import { Eye, EyeOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { api, type CloudKind, type StorageView, type StoreConfigInput } from "../api";
+import { api, type CloudKind, type ICloudStatus, type StorageView, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import { Field, Notice, Sheet } from "./chrome";
@@ -141,6 +141,30 @@ export function StorageForm({
     return () => document.removeEventListener("visibilitychange", seen);
   }, [signingIn]);
   const [clouds, setClouds] = useState<CloudKind[]>([]);
+  // iCloud Drive: only an iPhone has it; asked again with Check again.
+  const [icloud, setICloud] = useState<ICloudStatus | null>(null);
+  const [icloudFolder, setICloudFolder] = useState(known === "icloud" ? current?.path ?? "Silo" : "Silo");
+  const [checking, setChecking] = useState(false);
+  const checkICloud = async () => {
+    setChecking(true);
+    try {
+      const status = await api.icloudStatus();
+      setICloud(status);
+      // Setting up from iCloud picks a silo that is there.
+      if (joining && status.folders.length > 0) {
+        setICloudFolder((prev) => (status.folders.includes(prev) ? prev : status.folders[0]!));
+      }
+    } catch {
+      setICloud(null);
+    } finally {
+      setChecking(false);
+    }
+  };
+  useEffect(() => {
+    void checkICloud();
+    // Once; Check again asks after that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => {
     let live = true;
     api
@@ -203,7 +227,9 @@ export function StorageForm({
   // A server the desktop set up with a private key keeps signing in with it.
   const keyKept = secretKept && kind === "sftp" && current?.authMethod === "key";
 
-  const ready = isCloud(kind)
+  const ready = kind === "icloud"
+    ? icloud?.found && !folderProblem(icloudFolder)
+    : isCloud(kind)
     ? (cloud.signIn || (known === kind && cloud.account)) && !folderProblem(cloud.folder)
     : kind === "s3"
       ? f.endpoint && f.bucket && f.accessKeyId && (f.secret || secretKept)
@@ -212,6 +238,7 @@ export function StorageForm({
         : f.host && f.username && f.path && (f.password || secretKept);
 
   const configFor = (hostFingerprint: string | null): StoreConfigInput => {
+    if (kind === "icloud") return { kind, folder: icloudFolder.trim() };
     if (isCloud(kind)) return { kind, signIn: cloud.signIn, folder: cloud.folder.trim() };
     if (kind === "s3") {
       return {
@@ -303,10 +330,15 @@ export function StorageForm({
 
   return (
     <>
-      {clouds.length > 0 && (
+      {(clouds.length > 0 || icloud?.supported) && (
         <>
           <p className="hint small">{t("silo.group_accounts")}</p>
           <div className="segmented" role="group" aria-label={t("silo.account")}>
+            {icloud?.supported && (
+              <button aria-pressed={kind === "icloud"} onClick={() => choose("icloud")}>
+                iCloud Drive
+              </button>
+            )}
             {clouds.map((k) => (
               <button key={k} aria-pressed={kind === k} onClick={() => choose(k)}>
                 {CLOUD[k].name}
@@ -324,6 +356,56 @@ export function StorageForm({
         ))}
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {kind === "icloud" && icloud && (
+          <>
+            {!icloud.found && (
+              <>
+                <Notice tone="warning">{t("silo.icloud_off_phone")}</Notice>
+                <button className="btn secondary" aria-busy={checking} disabled={checking} onClick={() => void checkICloud()}>
+                  {t("silo.icloud_check_again")}
+                </button>
+              </>
+            )}
+            {icloud.found &&
+              (joining ? (
+                icloud.folders.length > 0 ? (
+                  <Field label={t("silo.cloud_silo_folder")}>
+                    <div className="input">
+                      <select
+                        value={icloudFolder}
+                        onChange={(e) => setICloudFolder(e.target.value)}
+                        style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", font: "inherit", color: "inherit" }}
+                      >
+                        {icloud.folders.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </Field>
+                ) : (
+                  <Notice tone="error">{t("silo.icloud_no_silo")}</Notice>
+                )
+              ) : (
+                <>
+                  <Field label={t("silo.cloud_folder_name")}>
+                    <div className="input">
+                      <input
+                        value={icloudFolder}
+                        onChange={(e) => setICloudFolder(e.target.value)}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                      />
+                    </div>
+                  </Field>
+                  <p className="hint small">{folderProblem(icloudFolder) ?? t("silo.icloud_folder_hint")}</p>
+                </>
+              ))}
+            <p className="hint small">{t("silo.icloud_platforms")}</p>
+          </>
+        )}
         {isCloud(kind) && (
           <>
             {signingIn ? (

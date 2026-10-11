@@ -19,13 +19,13 @@ strip = "symbols"
 
 # Pinned to a core tag, never a branch; the lockfile pins the commit.
 [workspace.dependencies]
-silentsilo-core = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.7" }
-silentsilo-crypto = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.7" }
-silentsilo-vault = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.7" }
-silentsilo-vfs = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.7" }
-silentsilo-store = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.7" }
-silentsilo-sync = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.7" }
-silentsilo-app = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.7" }
-silentsilo-audit = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.7" }
+silentsilo-core = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.8" }
+silentsilo-crypto = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.8" }
+silentsilo-vault = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.8" }
+silentsilo-vfs = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.8" }
+silentsilo-store = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.8" }
+silentsilo-sync = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.8" }
+silentsilo-app = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.8" }
+silentsilo-audit = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.8" }
 # No HID stack on a phone: only the key-agreement math.
-silentsilo-fido = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.7", default-features = false }
+silentsilo-fido = { git = "https://github.com/silentsilo/core", tag = "v1.10.0-beta.8", default-features = false }

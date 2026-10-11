@@ -149,6 +149,7 @@ unsafe extern "C" {
     fn ss_autofill_enabled() -> bool;
     fn ss_autofill_open_settings() -> bool;
     fn ss_group_dir() -> *mut c_char;
+    fn ss_icloud_documents() -> *mut c_char;
     fn ss_background_begin() -> isize;
     fn ss_keep_awake(on: bool);
     fn ss_exclude_from_backup(path: *const c_char);
@@ -321,6 +322,13 @@ pub fn group_data_dir() -> Option<std::path::PathBuf> {
         Some(dir)
     })
     .clone()
+}
+
+/// SilentSilo's folder in iCloud Drive, for core's `icloud` kind. Asked
+/// every time, since iCloud Drive can be turned off while the app runs.
+pub fn icloud_documents() -> Option<std::path::PathBuf> {
+    // SAFETY: no arguments; the result is owned by us.
+    take_owned(unsafe { ss_icloud_documents() }).map(std::path::PathBuf::from)
 }
 
 /// A secret on the clipboard, this iPhone only, for 45 seconds.

@@ -272,6 +272,7 @@ const handlers: Record<string, Handler> = {
   },
   // A sign-in "in the browser" after a short wait.
   cloud_providers: () => ["onedrive", "dropbox", "google-drive"],
+  icloud_status: () => ({ supported: onIPhone, found: onIPhone, folders: onIPhone ? ["Silo"] : [] }),
   backup_targets_list: () => [
     {
       id: "11111111-1111-1111-1111-111111111111",

@@ -71,6 +71,13 @@ pub fn cloud_providers() -> Vec<&'static str> {
     .collect()
 }
 
+/// iCloud Drive on this phone: only an iPhone has it. Async, off the main
+/// thread: the first answer from iOS can take a moment.
+#[tauri::command(async)]
+pub fn icloud_status() -> silentsilo_store::ICloudStatus {
+    silentsilo_store::icloud_status()
+}
+
 /// Opens the provider's sign-in page and waits for it to come back, for at
 /// most five minutes.
 #[tauri::command]

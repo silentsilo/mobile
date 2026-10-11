@@ -69,6 +69,13 @@ targets:
         BGTaskSchedulerPermittedIdentifiers: [com.silentsilo.mobile.backup]
         UIBackgroundModes: [processing]
         ITSAppUsesNonExemptEncryption: true
+        # iCloud Drive as backup storage (planuri/icloud.md): the container's
+        # Documents show as a "SilentSilo" folder in Files and in Finder.
+        NSUbiquitousContainers:
+          iCloud.com.silentsilo.mobile:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: SilentSilo
+            NSUbiquitousContainerSupportedFolderLevels: Any
     entitlements:
       path: silentsilo-mobile_iOS/silentsilo-mobile_iOS.entitlements
       # Written into that file by xcodegen on every build: an entitlement
@@ -82,6 +89,10 @@ targets:
         # The Face ID key and the local secrets' key, which AutoFill uses too.
         # The app's own group, first, so nothing already stored moves.
         keychain-access-groups: [$(AppIdentifierPrefix)com.silentsilo.mobile]
+        # iCloud Drive as backup storage: documents only, no CloudKit database.
+        com.apple.developer.icloud-container-identifiers: [iCloud.com.silentsilo.mobile]
+        com.apple.developer.icloud-services: [CloudDocuments]
+        com.apple.developer.ubiquity-container-identifiers: [iCloud.com.silentsilo.mobile]
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full
