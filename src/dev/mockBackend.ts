@@ -325,9 +325,13 @@ const handlers: Record<string, Handler> = {
     const now = Date.now();
     return {
       entries: [
-        { device: "d1", what: "unlocked", i: 3, t: now - 60_000, c: 1, x: { via: "phone key" } },
-        { device: "d1", what: "password_copied", i: 2, t: now - 3_600_000, c: 21, o: "e1", l: "GitHub" },
-        { device: "d2", what: "file_added", i: 1, t: now - 90_000_000, c: 40, o: "f1", l: "report.pdf" },
+        { device: "d1", what: "unlocked", i: 7, t: now - 60_000, c: 1, x: { via: "phone key" } },
+        { device: "d1", what: "password_copied", i: 6, t: now - 1_800_000, c: 11, o: "e1", l: "GitHub", x: { field: "password" } },
+        { device: "d1", what: "entry_edited", i: 5, t: now - 3_600_000, c: 21, o: "e2", l: "Proton Mail" },
+        { device: "d2", what: "unlock_refused", i: 4, t: now - 7_200_000, c: 2 },
+        { device: "d2", what: "file_added", i: 3, t: now - 90_000_000, c: 30, o: "f1", l: "report.pdf", x: { folder: "Documents" } },
+        { device: "d2", what: "file_trashed", i: 2, t: now - 92_000_000, c: 31, o: "f2", l: "old-invoice.pdf" },
+        { device: "d2", what: "key_added", i: 1, t: now - 95_000_000, c: 50, o: "k1", l: "YubiKey 5C", x: { kind: "fido2" } },
       ],
       names: { d1: "Pixel 8", d2: "Office PC" },
       unreadable: 0,

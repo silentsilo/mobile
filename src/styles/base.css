@@ -1447,3 +1447,91 @@ textarea.masked-text {
   box-shadow: var(--shadow-md);
   pointer-events: none;
 }
+
+/* Activity: a day heading that stays while its events scroll under it,
+   then one line per event with its picture. */
+.activity-day {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-day-label {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 14px 4px 8px;
+  background: var(--bg);
+  font-size: var(--fs-caption);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.activity-list {
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+}
+
+.activity-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.activity-event + .activity-event {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.activity-icon {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.activity-event.is-notice .activity-icon {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.activity-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.activity-sentence {
+  color: var(--ink);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.activity-sentence strong {
+  font-weight: 650;
+}
+
+.activity-details {
+  font-size: var(--fs-caption);
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.activity-meta {
+  font-size: var(--fs-caption);
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}

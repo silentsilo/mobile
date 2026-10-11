@@ -1147,4 +1147,15 @@ export const activity = {
     "pt-BR": "Atacantes testam primeiro as senhas vazadas, em qualquer site. Altere cada uma no site e depois aqui.",
     pl: "Atakujący najpierw próbują wyciekłych haseł, na każdej stronie. Zmień każde na stronie, potem tutaj.",
   },
+  "silo.activity_all": {
+    note: "First filter on the activity log: every event. Agrees with 'events' (masculine in fr, es, it, pt-BR).",
+    en: "All",
+    ro: "Toate",
+    de: "Alle",
+    fr: "Tous",
+    es: "Todos",
+    it: "Tutti",
+    "pt-BR": "Todos",
+    pl: "Wszystkie",
+  },
 } satisfies Screen;
