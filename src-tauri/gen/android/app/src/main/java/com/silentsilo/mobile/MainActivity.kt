@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.View
@@ -36,6 +37,7 @@ class MainActivity : TauriActivity() {
     // cache in the clear.
     BackupRunner.sweepCache(applicationContext)
     super.onCreate(savedInstanceState)
+    holdUpright()
     Appearance.systemBars(this)
     registerReceiver(screenOff, IntentFilter(Intent.ACTION_SCREEN_OFF))
   }
@@ -45,6 +47,7 @@ class MainActivity : TauriActivity() {
   // restart dropped an import or a join half way.
   override fun onConfigurationChanged(newConfig: Configuration) {
     super.onConfigurationChanged(newConfig)
+    holdUpright()
     Appearance.systemBars(this)
     webView?.settings?.textZoom = (newConfig.fontScale * 100).toInt()
   }
@@ -55,6 +58,26 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     webView.importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO_EXCLUDE_DESCENDANTS
     this.webView = webView
+  }
+
+  // Upright on a phone, where the screens are laid out for it. A tablet or
+  // an unfolded phone turns freely and shows the list beside the open item.
+  private fun holdUpright() {
+    requestedOrientation =
+      if (resources.configuration.smallestScreenWidthDp < 600) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+      else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+  }
+
+  // Back on screen: the app syncs by itself, so the service goes.
+  override fun onStart() {
+    super.onStart()
+    OpenSiloService.stop(this)
+  }
+
+  // Leaving with a silo open: keep syncing until it locks.
+  override fun onStop() {
+    super.onStop()
+    if (!isChangingConfigurations && Native.keepsSyncing()) OpenSiloService.start(this)
   }
 
   override fun onDestroy() {

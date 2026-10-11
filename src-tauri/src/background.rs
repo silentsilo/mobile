@@ -569,6 +569,35 @@ pub fn lock_from_outside() {
     }
 }
 
+/// Whether leaving the screen now should keep the app syncing: a silo open,
+/// a delay before it locks, and no picker or key sheet of the app's own on
+/// top, which is not leaving.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn keeps_syncing() -> bool {
+    APP.get().is_some_and(|app| {
+        let lock = app.state::<BackgroundLock>();
+        lock_after(app) > 0 && lock.prompts.load(Ordering::SeqCst) == 0 && any_open()
+    })
+}
+
+/// One pass for every open silo, for the service that keeps the app
+/// syncing in the background. Blocks its caller's thread, at most a minute.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn sync_open() -> bool {
+    let Some(app) = APP.get().cloned() else {
+        return false;
+    };
+    if !any_open() {
+        return false;
+    }
+    let open = app.state::<AppState>().open_silo_ids();
+    tauri::async_runtime::block_on(push_unsent(&app, open, SYNC_LIMIT));
+    true
+}
+
+/// The longest one background pass may take.
+const SYNC_LIMIT: Duration = Duration::from_secs(60);
+
 #[cfg_attr(not(target_os = "android"), allow(dead_code))]
 pub fn any_open() -> bool {
     APP.get().is_some_and(|app| {

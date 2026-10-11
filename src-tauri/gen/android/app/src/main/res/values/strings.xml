@@ -40,4 +40,9 @@
         <item quantity="one">%d item is waiting to be added to your silo.</item>
         <item quantity="other">%d items are waiting to be added to your silo.</item>
     </plurals>
+    <string name="silo_open_channel">Silo open</string>
+    <string name="silo_open_title">A silo is open</string>
+    <string name="silo_open_text">Syncing every few minutes until it locks.</string>
+    <string name="silo_open_synced">Synced at %1$s. Locks by itself after the delay you chose.</string>
+    <string name="silo_open_lock">Lock now</string>
 </resources>

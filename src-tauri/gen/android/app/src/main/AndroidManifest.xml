@@ -15,6 +15,9 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- The backup schedule survives a restart. -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Syncing while a silo stays open with the app away, until it locks. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
 
     <!-- Security keys, held to the phone or plugged in; neither is required. -->
     <uses-permission android:name="android.permission.NFC" />
@@ -184,6 +187,11 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <service
+            android:name=".OpenSiloService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
 
         <service
             android:name=".BackupJobService"

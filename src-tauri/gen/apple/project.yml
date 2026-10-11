@@ -47,10 +47,10 @@ targets:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
         UIRequiredDeviceCapabilities: [arm64, metal]
+        # Portrait only: iPhone only for now, and the screens are laid out
+        # for a phone held upright.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-          - UIInterfaceOrientationLandscapeLeft
-          - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 1.4.0
         # The build number, set by `tauri ios build` (agvtool) for every
         # target at once, so the extensions always match the app.

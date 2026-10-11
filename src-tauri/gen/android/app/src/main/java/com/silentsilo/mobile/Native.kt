@@ -83,6 +83,13 @@ object Native {
 
   @JvmStatic external fun anyOpen(): Boolean
 
+  // Whether the app, as it leaves the screen, should keep syncing: a silo
+  // open, a lock delay, and no system sheet of its own on top.
+  @JvmStatic external fun keepsSyncing(): Boolean
+
+  // One sync pass for every open silo; false when none was open.
+  @JvmStatic external fun syncOpen(): Boolean
+
   // The screen turned off; Rust locks if the user asked for that.
   @JvmStatic external fun screenOff()
 

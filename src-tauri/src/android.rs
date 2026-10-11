@@ -240,6 +240,24 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_anyOpen(
     crate::background::any_open().into()
 }
 
+/// `Native.keepsSyncing`, as the activity stops.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_silentsilo_mobile_Native_keepsSyncing(
+    _env: JNIEnv,
+    _class: JClass,
+) -> jni::sys::jboolean {
+    crate::background::keeps_syncing().into()
+}
+
+/// `Native.syncOpen`, from the service, on its own thread.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_silentsilo_mobile_Native_syncOpen(
+    _env: JNIEnv,
+    _class: JClass,
+) -> jni::sys::jboolean {
+    crate::background::sync_open().into()
+}
+
 /// `Native.screenOff`, from the activity's receiver.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_silentsilo_mobile_Native_screenOff(_env: JNIEnv, _class: JClass) {

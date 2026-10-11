@@ -37,4 +37,9 @@
         <item quantity="one">%d Element wartet darauf, ins Silo aufgenommen zu werden.</item>
         <item quantity="other">%d Elemente warten darauf, ins Silo aufgenommen zu werden.</item>
     </plurals>
+    <string name="silo_open_channel">Silo geöffnet</string>
+    <string name="silo_open_title">Ein Silo ist geöffnet</string>
+    <string name="silo_open_text">Synchronisiert alle paar Minuten, bis es sich sperrt.</string>
+    <string name="silo_open_synced">Synchronisiert um %1$s. Sperrt sich nach der gewählten Zeit selbst.</string>
+    <string name="silo_open_lock">Jetzt sperren</string>
 </resources>

@@ -39,4 +39,9 @@
         <item quantity="many">%d elementów czeka na dodanie do silosu.</item>
         <item quantity="other">%d elementu czeka na dodanie do silosu.</item>
     </plurals>
+    <string name="silo_open_channel">Silo otwarte</string>
+    <string name="silo_open_title">Silo jest otwarte</string>
+    <string name="silo_open_text">Synchronizuje się co kilka minut, aż się zablokuje.</string>
+    <string name="silo_open_synced">Zsynchronizowano o %1$s. Zablokuje się samo po wybranym czasie.</string>
+    <string name="silo_open_lock">Zablokuj teraz</string>
 </resources>
