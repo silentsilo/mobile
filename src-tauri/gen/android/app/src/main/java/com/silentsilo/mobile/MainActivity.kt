@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.WindowManager
@@ -31,6 +32,9 @@ class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     // No screenshots, screen recordings or recents thumbnail of the silo.
     window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+    // The recents card shows the app's icon instead of an empty one, which
+    // read as an app that had not drawn yet.
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setRecentsScreenshotEnabled(false)
     // Before the app reads its first secret.
     Native.start(applicationContext)
     // A backup run that was killed may have left the contacts vCard in the
