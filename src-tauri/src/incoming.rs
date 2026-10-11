@@ -314,6 +314,8 @@ pub async fn password_attach_offered(
         #[cfg(target_os = "android")]
         let source = open_offered(&app, &file.uri).await?;
         #[cfg(target_os = "ios")]
+        let _ = &app;
+        #[cfg(target_os = "ios")]
         let picked = {
             let path = std::path::PathBuf::from(&file.uri);
             if !held_for_import(&path) {

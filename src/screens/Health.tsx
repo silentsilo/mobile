@@ -48,9 +48,20 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
       .catch((e) => setError(formatAppError(e)));
   }, []);
 
+  // Only a hash prefix leaves the phone; the rest is compared here.
+  const [breaches, setBreaches] = useState<
+    { kind: "idle" } | { kind: "busy"; done: number; total: number } | { kind: "done"; report: PwnedReport } | { kind: "unavailable" }
+  >({ kind: "idle" });
+  // What the check found counts as a finding to fix, like a reused password.
+  const breached = useMemo(() => {
+    const found = new Map<string, number>();
+    if (breaches.kind === "done")
+      for (const exposure of breaches.report.exposures) for (const id of exposure.entryIds) found.set(id, exposure.count);
+    return found;
+  }, [breaches]);
   const all = useMemo(
-    () => (inputs ? analyseHealth(inputs.entries, inputs.silo) : null),
-    [inputs, locale],
+    () => (inputs ? analyseHealth(inputs.entries, inputs.silo, Date.now(), breached) : null),
+    [inputs, locale, breached],
   );
   // Set aside on this phone, as desktop does on the computer: what is not
   // critical, until it grows.
@@ -67,10 +78,6 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
     setIgnored(next);
   };
 
-  // Only a hash prefix leaves the phone; the rest is compared here.
-  const [breaches, setBreaches] = useState<
-    { kind: "idle" } | { kind: "busy"; done: number; total: number } | { kind: "done"; report: PwnedReport } | { kind: "unavailable" }
-  >({ kind: "idle" });
   const runBreachCheck = async () => {
     if (!inputs) return;
     setBreaches({ kind: "busy", done: 0, total: 0 });
@@ -83,7 +90,6 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
       setBreaches({ kind: "unavailable" });
     }
   };
-  const nameOf = (id: string) => inputs?.entries.find((e) => e.id === id);
 
   return (
     <div className="screen">
@@ -125,7 +131,14 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
                       <button key={entry.id} className="row divide" style={{ paddingLeft: 40 }} onClick={() => onOpen(entry)}>
                         <span className="row-text">
                           <span className="row-title">{entry.service}</span>
-                          <span className="row-sub">{subtitleFor(entry)}</span>
+                          <span className="row-sub">
+                            {finding.seen?.has(entry.id)
+                              ? t("dlg.health_seen", {
+                                  count: finding.seen.get(entry.id)!,
+                                  times: finding.seen.get(entry.id)!.toLocaleString(dateLocale()),
+                                })
+                              : subtitleFor(entry)}
+                          </span>
                         </span>
                         <ChevronRight size={18} color="var(--text-dim)" />
                       </button>
@@ -162,25 +175,7 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
                   {breaches.report.unavailable > 0 && ` ${t("dlg.health_breach_partial", { count: breaches.report.unavailable })}`}
                 </p>
               ) : (
-                <>
-                  <p className="small" style={{ fontWeight: 600 }}>{t("dlg.health_breach_found", { count: breaches.report.exposures.length })}</p>
-                  {breaches.report.exposures.flatMap((exposure) =>
-                    exposure.entryIds.map((id) => {
-                      const entry = nameOf(id);
-                      return (
-                        <button key={id} className="row divide" onClick={() => entry && onOpen(entry)}>
-                          <span className="row-text">
-                            <span className="row-title">{entry?.service || t("dlg.untitled")}</span>
-                            <span className="row-sub">
-                              {t("dlg.health_seen", { count: exposure.count, times: exposure.count.toLocaleString(dateLocale()) })}
-                            </span>
-                          </span>
-                          <ChevronRight size={18} color="var(--text-dim)" />
-                        </button>
-                      );
-                    }),
-                  )}
-                </>
+                <p className="small" style={{ fontWeight: 600 }}>{t("dlg.health_breach_found", { count: breaches.report.exposures.length })}</p>
               ))}
           </div>
         )}
