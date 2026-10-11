@@ -3,34 +3,56 @@ import { useEffect, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { withEdits } from "../shared/passwordEntry";
+import { categoryChoices, categoryLabel, FALLBACK_CATEGORY, hashColor, resolveCategories } from "../shared/passwordUtil";
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, parseTotpInput } from "../shared/totp";
-import type { CustomField, PasswordEntry } from "../shared/types";
+import type { CustomField, PasswordCategory, PasswordEntry } from "../shared/types";
 import { useBackLayer } from "../ui/back";
 import { Field, Notice, Sheet } from "../ui/chrome";
 import { GeneratorSheet } from "../ui/GeneratorSheet";
 import { haptic } from "../ui/haptics";
 import { t, useLocale, type Key } from "../i18n";
 
-function blankEntry(): PasswordEntry {
+function blankEntry(category: string | null): PasswordEntry {
   const now = Date.now();
-  return { id: crypto.randomUUID(), service: "", username: "", password: "", url: "", notes: "", category: "General", created_at: now, updated_at: now, type: "login" };
+  return { id: crypto.randomUUID(), service: "", username: "", password: "", url: "", notes: "", category: category ?? FALLBACK_CATEGORY, created_at: now, updated_at: now, type: "login" };
 }
+
+/** The choice that opens a field for a category not in the list yet. */
+const NEW_CATEGORY = "new-category:choice";
 
 export function EntryEdit({
   entry,
+  category: startCategory = null,
   sync,
   onCancel,
   onSaved,
   onDeleted,
 }: {
   entry: PasswordEntry | null;
+  /** For a new entry: the category the list was showing. */
+  category?: string | null;
   sync: SyncStatus | null;
   onCancel: () => void;
   onSaved: (entry: PasswordEntry) => void;
   onDeleted: () => void;
 }) {
   useLocale();
-  const [original] = useState(() => entry ?? blankEntry());
+  const [original] = useState(() => entry ?? blankEntry(startCategory));
+  const [category, setCategory] = useState(original.category || FALLBACK_CATEGORY);
+  const [newCategory, setNewCategory] = useState("");
+  const [stored, setStored] = useState<PasswordCategory[] | null>(null);
+  const [inUse, setInUse] = useState<PasswordEntry[]>([]);
+  useEffect(() => {
+    api.readPasswordStore().then(
+      (store) => {
+        setStored(store.categories);
+        setInUse(store.entries);
+      },
+      () => undefined,
+    );
+  }, []);
+  const known = resolveCategories(stored, inUse);
+  const choices = categoryChoices(known);
   const [service, setService] = useState(original.service);
   const [username, setUsername] = useState(original.username);
   const [password, setPassword] = useState(original.password);
@@ -60,7 +82,19 @@ export function EntryEdit({
     }
     // A row left with neither a name nor a value was added and never used.
     const kept = fields.filter((f) => f.name.trim() || f.value);
+    const typed = newCategory.trim();
+    const chosen = category === NEW_CATEGORY ? typed || FALLBACK_CATEGORY : category;
+    // A name typed here joins the list, so desktop shows it too.
+    if (category === NEW_CATEGORY && typed && !known.some((c) => c.name === typed)) {
+      try {
+        await api.saveCategories([...known, { name: typed, color: hashColor(typed) }]);
+      } catch (e) {
+        setError(formatAppError(e));
+        return;
+      }
+    }
     const changes: Partial<PasswordEntry> = {
+      category: chosen,
       service: service.trim(),
       username,
       password,
@@ -149,6 +183,29 @@ export function EntryEdit({
         <Field label={t("pw.field_name")} error={errorFor("name")} errorId="name-error">
           {input(service, setService, { autoCapitalize: "words", autoFocus: !entry }, "name")}
         </Field>
+        <Field label={t("pw.field_category")}>
+          <div className="input">
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              style={{ flex: 1, minWidth: 0, border: "none", background: "transparent", font: "inherit", color: "inherit" }}
+            >
+              {(choices.includes(category) || category === NEW_CATEGORY ? choices : [category, ...choices]).map((name) => (
+                <option key={name} value={name}>
+                  {categoryLabel(name)}
+                </option>
+              ))}
+              <option value={NEW_CATEGORY}>{t("pw.new_category")}</option>
+            </select>
+          </div>
+        </Field>
+        {category === NEW_CATEGORY && (
+          <Field label={t("pw.new_category_name")}>
+            <div className="input">
+              <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} autoCapitalize="words" autoFocus />
+            </div>
+          </Field>
+        )}
         <Field label={t("pw.field_username")}>{input(username, setUsername, { inputMode: "email" })}</Field>
         <Field label={t("pw.field_password")}>
           <div style={{ display: "flex", gap: 8 }}>

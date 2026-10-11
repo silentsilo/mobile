@@ -223,15 +223,19 @@ pub enum EntryChange {
     Edited,
     Restored,
     HistoryCleared,
+    /// Starred, unstarred or moved to another category: what it says did
+    /// not change, so nothing is logged, as on desktop.
+    Arranged,
 }
 
 impl EntryChange {
-    pub fn code(self) -> u16 {
+    pub fn code(self) -> Option<u16> {
         match self {
-            EntryChange::Created => codes::ENTRY_CREATED,
-            EntryChange::Edited => codes::ENTRY_EDITED,
-            EntryChange::Restored => codes::ENTRY_RESTORED,
-            EntryChange::HistoryCleared => codes::HISTORY_CLEARED,
+            EntryChange::Created => Some(codes::ENTRY_CREATED),
+            EntryChange::Edited => Some(codes::ENTRY_EDITED),
+            EntryChange::Restored => Some(codes::ENTRY_RESTORED),
+            EntryChange::HistoryCleared => Some(codes::HISTORY_CLEARED),
+            EntryChange::Arranged => None,
         }
     }
 }

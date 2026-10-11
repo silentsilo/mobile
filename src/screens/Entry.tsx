@@ -1,8 +1,9 @@
-import { Copy, Eye, EyeOff, History } from "lucide-react";
+import { Copy, Eye, EyeOff, History, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatDate, formatDay } from "../shared/format";
+import { withEdits } from "../shared/passwordEntry";
 import { changedLabels, restoredFrom, withoutHistory } from "../shared/entryHistory";
 import { cardDigits, groupCardNumber, avatarColor, inkOn, notesAreSecret, serviceInitials, typeOf } from "../shared/passwordUtil";
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, generateTotp, totpSecondsRemaining } from "../shared/totp";
@@ -136,6 +137,15 @@ export function Entry({
   const totp = useTotp(entry);
   const bg = avatarColor(entry.service);
   const editable = typeOf(entry) === "login";
+  // Starring changes nothing the entry says, so it is not an edit.
+  const star = async () => {
+    try {
+      onChanged(await api.savePassword(entry, withEdits(entry, { favorite: !entry.favorite }), "arranged"));
+      haptic("tick");
+    } catch (e) {
+      toast(formatAppError(e));
+    }
+  };
 
   // An entry marked to ask again shows and copies nothing until the
   // fingerprint confirms it; one confirmation covers a few minutes.
@@ -216,11 +226,21 @@ export function Entry({
         onBack={onBack}
         backLabel={t("pw.back_passwords")}
         right={
-          editable ? (
-            <button className="text-btn" onClick={() => void confirm().then((ok) => ok && onEdit())}>
-              {t("pw.edit")}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <button
+              className="icon-btn"
+              aria-pressed={Boolean(entry.favorite)}
+              aria-label={entry.favorite ? t("pw.unfavorite") : t("pw.favorite")}
+              onClick={() => void star()}
+            >
+              <Star size={22} fill={entry.favorite ? "var(--warning)" : "none"} color={entry.favorite ? "var(--warning)" : undefined} />
             </button>
-          ) : undefined
+            {editable && (
+              <button className="text-btn" onClick={() => void confirm().then((ok) => ok && onEdit())}>
+                {t("pw.edit")}
+              </button>
+            )}
+          </div>
         }
       />
       <div className="screen-body tight" style={{ gap: 18 }}>

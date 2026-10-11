@@ -1,5 +1,5 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import { isCategoriesRow } from "./shared/passwordUtil";
+import { CATEGORIES_ROW_ID, isCategoriesRow } from "./shared/passwordUtil";
 import {
   DEFAULT_HISTORY_POLICY,
   withBaseFields,
@@ -12,6 +12,7 @@ import type {
   EntryChange,
   FileEntry,
   FolderEntry,
+  PasswordCategory,
   PasswordEntry,
   RecoveryStatus,
   SecurityKeyInfo,
@@ -224,10 +225,22 @@ export const api = {
   lockOnScreenOff: () => invoke<boolean>("lock_on_screen_off_get"),
   setLockOnScreenOff: (on: boolean) => invoke<void>("lock_on_screen_off_set", { on }),
 
-  readPasswords: async (): Promise<PasswordEntry[]> => {
+  readPasswords: async (): Promise<PasswordEntry[]> => (await api.readPasswordStore()).entries,
+  /** The entries and the stored category list, `null` before any was saved. */
+  readPasswordStore: async (): Promise<{ entries: PasswordEntry[]; categories: PasswordCategory[] | null }> => {
     const rows = JSON.parse(await invoke<string>("vault_read_passwords")) as unknown[];
-    return (rows.filter((row) => !isCategoriesRow(row)) as PasswordEntry[]).map(withBaseFields);
+    const meta = rows.find(isCategoriesRow);
+    return {
+      entries: (rows.filter((row) => !isCategoriesRow(row)) as PasswordEntry[]).map(withBaseFields),
+      categories: meta ? meta.categories : null,
+    };
   },
+  /** The whole list under its fixed id, as desktop writes it. */
+  saveCategories: (categories: PasswordCategory[]) =>
+    invoke<void>("vault_upsert_password", {
+      id: CATEGORIES_ROW_ID,
+      json: JSON.stringify({ id: CATEGORIES_ROW_ID, type: "meta:categories", categories }),
+    }),
   /** `change` says what the save was, for the silo's activity log. */
   upsertPassword: (entry: PasswordEntry, change: EntryChange) =>
     invoke<void>("vault_upsert_password", { id: entry.id, json: JSON.stringify(entry), change }),

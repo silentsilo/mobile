@@ -1,9 +1,10 @@
-import { Check, ChevronDown, Copy, KeyRound, Paperclip, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Copy, FolderInput, KeyRound, Paperclip, RefreshCw, Search, Star, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
-import { avatarColor, inkOn, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
-import type { PasswordEntry } from "../shared/types";
+import { avatarColor, categoryLabel, inkOn, resolveCategories, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
+import { withEdits } from "../shared/passwordEntry";
+import type { PasswordCategory, PasswordEntry } from "../shared/types";
 import { AddButton, EmptyState, Notice, Sheet, Skeleton, useToast } from "../ui/chrome";
 import { useBackLayer } from "../ui/back";
 import { isIOS } from "../ui/platform";
@@ -67,25 +68,53 @@ export function Passwords({
   sync: SyncStatus | null;
   reloadKey: number;
   onOpen: (entry: PasswordEntry) => void;
-  onAdd: () => void;
+  /** A new entry, in the category the list is showing. */
+  onAdd: (category: string | null) => void;
 }) {
   const [entries, setEntries] = useState<PasswordEntry[] | null>(null);
+  const [stored, setStored] = useState<PasswordCategory[] | null>(null);
+  // What the list shows: everything, the starred ones, or one category.
+  const [showing, setShowing] = useState<{ kind: "all" } | { kind: "favorites" } | { kind: "category"; name: string }>({ kind: "all" });
+  const [moving, setMoving] = useState(false);
+  const addCategory = showing.kind === "category" ? showing.name : null;
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
   useLocale();
 
   useEffect(() => {
-    api.readPasswords().then(
-      (rows) => setEntries([...rows].sort((a, b) => a.service.localeCompare(b.service))),
+    api.readPasswordStore().then(
+      (store) => {
+        setEntries([...store.entries].sort((a, b) => a.service.localeCompare(b.service)));
+        setStored(store.categories);
+      },
       (e) => setError(formatAppError(e)),
     );
   }, [reloadKey]);
 
+  const categories = useMemo(() => resolveCategories(stored, entries ?? []), [stored, entries]);
+  const counts = useMemo(() => {
+    const by = new Map<string, number>();
+    for (const e of entries ?? []) by.set(e.category, (by.get(e.category) ?? 0) + 1);
+    return by;
+  }, [entries]);
+  const starred = (entries ?? []).filter((e) => e.favorite).length;
+
+  // A category emptied or a last star removed leaves nothing to show.
+  useEffect(() => {
+    if (showing.kind === "category" && !counts.get(showing.name)) setShowing({ kind: "all" });
+    if (showing.kind === "favorites" && starred === 0) setShowing({ kind: "all" });
+  }, [counts, showing, starred]);
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (entries ?? []).filter((e) => !q || searchTextFor(e).includes(q));
-  }, [entries, query]);
+    return (entries ?? []).filter(
+      (e) =>
+        (showing.kind === "all" ||
+          (showing.kind === "favorites" ? e.favorite : e.category === showing.name)) &&
+        (!q || searchTextFor(e).includes(q)),
+    );
+  }, [entries, query, showing]);
 
   // A long press ticks an entry, as in Files; then a tap ticks or unticks,
   // and the bar at the top deletes what is ticked.
@@ -144,6 +173,22 @@ export function Passwords({
     }
   };
 
+  // One save per entry: each is its own change, as on desktop.
+  const moveSelected = async (category: string) => {
+    setMoving(false);
+    const going = (entries ?? []).filter((e) => selected.has(e.id) && e.category !== category);
+    try {
+      const saved: PasswordEntry[] = [];
+      for (const entry of going) saved.push(await api.savePassword(entry, withEdits(entry, { category }), "arranged"));
+      const byId = new Map(saved.map((e) => [e.id, e]));
+      setEntries((prev) => (prev ?? []).map((e) => byId.get(e.id) ?? e));
+      toast(t("pw.bulk_moved", { count: going.length, category: categoryLabel(category) }));
+      setSelected(new Set());
+    } catch (e) {
+      toast(formatAppError(e));
+    }
+  };
+
   const copyPassword = async (entry: PasswordEntry) => {
     try {
       await ensureVerified(entry);
@@ -163,6 +208,9 @@ export function Passwords({
             <X size={22} />
           </button>
           <span style={{ flex: 1, fontWeight: 650 }}>{t("files.selected", { count: selected.size })}</span>
+          <button className="icon-btn" aria-label={t("pw.bulk_move")} onClick={() => setMoving(true)}>
+            <FolderInput size={22} />
+          </button>
           <button className="icon-btn" aria-label={t("pw.bulk_delete_label")} onClick={() => setConfirmDelete(true)}>
             <Trash2 size={22} />
           </button>
@@ -171,7 +219,7 @@ export function Passwords({
         <SiloHeader
           siloName={siloName}
           sync={sync}
-          action={isIOS ? <AddButton label={t("pw.new_entry")} onClick={onAdd} /> : undefined}
+          action={isIOS ? <AddButton label={t("pw.new_entry")} onClick={() => onAdd(addCategory)} /> : undefined}
         />
       )}
       <div style={{ padding: "0 16px 10px" }}>
@@ -187,6 +235,38 @@ export function Passwords({
           />
         </div>
       </div>
+      {/* Every category in one row that scrolls sideways, so the list keeps
+          the screen; only those with entries, and the stars when any. */}
+      {entries && entries.length > 0 && (categories.length > 1 || starred > 0) && (
+        <div className="chips" role="tablist" aria-label={t("pw.categories")}>
+          <button className="chip" role="tab" aria-selected={showing.kind === "all"} onClick={() => setShowing({ kind: "all" })}>
+            {t("pw.all_entries")}
+            <span className="chip-count">{entries.length}</span>
+          </button>
+          {starred > 0 && (
+            <button className="chip" role="tab" aria-selected={showing.kind === "favorites"} onClick={() => setShowing({ kind: "favorites" })}>
+              <Star size={14} aria-hidden />
+              {t("pw.favorites")}
+              <span className="chip-count">{starred}</span>
+            </button>
+          )}
+          {categories
+            .filter((c) => counts.get(c.name))
+            .map((c) => (
+              <button
+                key={c.name}
+                className="chip"
+                role="tab"
+                aria-selected={showing.kind === "category" && showing.name === c.name}
+                onClick={() => setShowing({ kind: "category", name: c.name })}
+              >
+                <span className="chip-dot" style={{ background: c.color }} aria-hidden />
+                {categoryLabel(c.name)}
+                <span className="chip-count">{counts.get(c.name)}</span>
+              </button>
+            ))}
+        </div>
+      )}
       <div className="list-area">
         <div className="list-scroll">
           {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
@@ -199,7 +279,7 @@ export function Passwords({
                 icon={<KeyRound size={26} />}
                 title={t("pw.empty_title")}
                 hint={t("pw.empty_hint")}
-                action={{ label: t("pw.add_password"), onClick: onAdd }}
+                action={{ label: t("pw.add_password"), onClick: () => onAdd(addCategory) }}
               />
             ))}
           {shown.map((entry) => {
@@ -243,8 +323,24 @@ export function Passwords({
             );
           })}
         </div>
-        {!isIOS && !selecting && <AddButton label={t("pw.new_entry")} onClick={onAdd} />}
+        {!isIOS && !selecting && <AddButton label={t("pw.new_entry")} onClick={() => onAdd(addCategory)} />}
       </div>
+
+      <Sheet open={moving} onClose={() => setMoving(false)} title={t("pw.bulk_move")}>
+        <div className="panel">
+          {categories.map((c, i) => (
+            <button key={c.name} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 52 }} onClick={() => void moveSelected(c.name)}>
+              <span className="chip-dot" style={{ background: c.color }} aria-hidden />
+              <span className="row-text">
+                <span className="row-title">{categoryLabel(c.name)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+        <button className="btn secondary" onClick={() => setMoving(false)}>
+          {t("common.cancel")}
+        </button>
+      </Sheet>
 
       <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t("pw.bulk_delete_title", { count: selected.size })}>
         <p className="hint">

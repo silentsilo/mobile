@@ -555,8 +555,9 @@ pub fn vault_upsert_password(
             .get("service")
             .and_then(|v| v.as_str())
             .unwrap_or_default();
-        let code = change.unwrap_or(crate::audit::EntryChange::Edited).code();
-        crate::audit::record(&app, crate::audit::event(code).on(id.to_string(), label))?;
+        if let Some(code) = change.unwrap_or(crate::audit::EntryChange::Edited).code() {
+            crate::audit::record(&app, crate::audit::event(code).on(id.to_string(), label))?;
+        }
     }
     state.with_vfs(|_session, vfs| vfs.upsert_password(id, &json))
 }

@@ -296,7 +296,7 @@ type Tab = "passwords" | "files" | "silo";
 
 type Detail =
   | { at: "entry"; entry: PasswordEntry }
-  | { at: "edit"; entry: PasswordEntry | null }
+  | { at: "edit"; entry: PasswordEntry | null; category?: string | null }
   | { at: "preview"; file: FileEntry }
   | { at: "keys" }
   | { at: "backup" }
@@ -383,6 +383,7 @@ function OpenSiloScreens({
         return (
           <EntryEdit
             entry={detail.entry}
+            category={detail.category ?? null}
             sync={sync}
             onCancel={() => setDetail(detail.entry ? { at: "entry", entry: detail.entry } : null)}
             onSaved={(saved) => {
@@ -444,7 +445,7 @@ function OpenSiloScreens({
           sync={sync}
           reloadKey={reloadKey}
           onOpen={(entry) => setDetail({ at: "entry", entry })}
-          onAdd={() => setDetail({ at: "edit", entry: null })}
+          onAdd={(category) => setDetail({ at: "edit", entry: null, category })}
         />
       )}
       {tab === "files" && <Files siloName={siloName} sync={sync} reloadKey={reloadKey} onOpenFile={(file) => setDetail({ at: "preview", file })} />}

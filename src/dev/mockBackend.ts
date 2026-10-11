@@ -146,13 +146,13 @@ const entry = (id: string, service: string, username: string, url: string, extra
 });
 
 let entries: PasswordEntry[] = [
-  entry("e1", "GitHub", "you@example.com", "https://github.com", { totp_secret: "JBSWY3DPEHPK3PXP" }),
-  entry("e2", "Hetzner Cloud", "you@example.com", "https://console.hetzner.cloud"),
+  entry("e1", "GitHub", "you@example.com", "https://github.com", { totp_secret: "JBSWY3DPEHPK3PXP", category: "Development", favorite: true }),
+  entry("e2", "Hetzner Cloud", "you@example.com", "https://console.hetzner.cloud", { category: "Development" }),
   entry("e3", "Home router", "admin", "http://192.168.1.1"),
   entry("e4", "Namecheap", "you-example", "https://namecheap.com"),
   entry("e5", "Nextcloud", "you", "https://cloud.example.com"),
-  entry("e6", "Proton Mail", "you@proton.me", "https://mail.proton.me"),
-  entry("e7", "Revolut", "+40 7xx xxx xxx", "https://revolut.com"),
+  entry("e6", "Proton Mail", "you@proton.me", "https://mail.proton.me", { category: "Email" }),
+  entry("e7", "Revolut", "+40 7xx xxx xxx", "https://revolut.com", { category: "Banking", favorite: true, attachments: [{ blob_id: "b1", name: "card.pdf", size: 1200, mime_type: "application/pdf", key: "" } as never] }),
 ];
 
 // A security key "arrives" 2 s after it is asked for, unless cancelled.

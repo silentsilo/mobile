@@ -376,4 +376,4 @@ export type AuditStatus = {
 };
 
 /** What a save was, for the silo's activity log. */
-export type EntryChange = "created" | "edited" | "restored" | "history_cleared";
+export type EntryChange = "created" | "edited" | "restored" | "history_cleared" | "arranged";
