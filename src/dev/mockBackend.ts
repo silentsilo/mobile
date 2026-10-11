@@ -152,7 +152,7 @@ let entries: PasswordEntry[] = [
   entry("e4", "Namecheap", "you-example", "https://namecheap.com"),
   entry("e5", "Nextcloud", "you", "https://cloud.example.com"),
   entry("e6", "Proton Mail", "you@proton.me", "https://mail.proton.me", { category: "Email" }),
-  entry("e7", "Revolut", "+40 7xx xxx xxx", "https://revolut.com", { category: "Banking", favorite: true, attachments: [{ blob_id: "b1", name: "card.pdf", size: 1200, mime_type: "application/pdf", key: "" } as never] }),
+  entry("e7", "Revolut", "+40 7xx xxx xxx", "https://revolut.com", { category: "Banking", favorite: true, attachments: [{ blob_id: "b1", name: "card.pdf", size_bytes: 1200, blob_key: "" }] }),
 ];
 
 // A security key "arrives" 2 s after it is asked for, unless cancelled.
@@ -299,6 +299,9 @@ const handlers: Record<string, Handler> = {
   files_left_photos: async () => [],
   files_discard_left_photos: async () => {},
   files_discard_shared: async () => {},
+  password_open_attachment: async () => {
+    await wait(800);
+  },
   cloud_sign_in: async (args) => {
     await wait(900);
     return {

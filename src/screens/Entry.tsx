@@ -1,13 +1,13 @@
-import { Copy, Eye, EyeOff, History, Star } from "lucide-react";
+import { Copy, Eye, EyeOff, History, Paperclip, Star } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
-import { formatDate, formatDay } from "../shared/format";
+import { formatBytes, formatDate, formatDay } from "../shared/format";
 import { withEdits } from "../shared/passwordEntry";
 import { changedLabels, restoredFrom, withoutHistory } from "../shared/entryHistory";
 import { cardDigits, groupCardNumber, avatarColor, inkOn, notesAreSecret, serviceInitials, typeOf } from "../shared/passwordUtil";
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, generateTotp, totpSecondsRemaining } from "../shared/totp";
-import type { HistoryVersion, PasswordEntry } from "../shared/types";
+import type { HistoryVersion, PasswordAttachment, PasswordEntry } from "../shared/types";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
 import { ensureVerified, recentlyVerified } from "../ui/reverify";
 import { haptic } from "../ui/haptics";
@@ -137,6 +137,19 @@ export function Entry({
   const totp = useTotp(entry);
   const bg = avatarColor(entry.service);
   const editable = typeOf(entry) === "login";
+  // An attached file opens in another app; the one being readied is shown.
+  const [opening, setOpening] = useState<string | null>(null);
+  const openAttachment = async (attachment: PasswordAttachment) => {
+    setOpening(attachment.blob_id);
+    try {
+      await ensureVerified(entry);
+      await api.openAttachment(entry, attachment);
+    } catch (e) {
+      toast(formatAppError(e));
+    } finally {
+      setOpening(null);
+    }
+  };
   // Starring changes nothing the entry says, so it is not an edit.
   const star = async () => {
     try {
@@ -334,6 +347,34 @@ export function Entry({
                   {t("pw.passkey_added", { date: formatDay(entry.passkey.created_at) })}
                 </span>
               </div>
+            </div>
+          </div>
+        )}
+
+        {(entry.attachments ?? []).length > 0 && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <span className="label" style={{ padding: "0 4px" }}>
+              {t("pw.attachments")}
+            </span>
+            <div className="panel">
+              {(entry.attachments ?? []).map((attachment, i) => (
+                <button
+                  key={attachment.blob_id}
+                  className={`row${i > 0 ? " divide" : ""}`}
+                  style={{ minHeight: 60, width: "100%" }}
+                  disabled={opening !== null}
+                  aria-busy={opening === attachment.blob_id}
+                  onClick={() => void openAttachment(attachment)}
+                >
+                  <Paperclip size={20} aria-hidden />
+                  <span className="row-text">
+                    <span className="row-title">{attachment.name}</span>
+                    <span className="row-sub">
+                      {opening === attachment.blob_id ? t("pw.attachment_opening") : formatBytes(attachment.size_bytes)}
+                    </span>
+                  </span>
+                </button>
+              ))}
             </div>
           </div>
         )}

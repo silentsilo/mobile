@@ -12,6 +12,7 @@ import type {
   EntryChange,
   FileEntry,
   FolderEntry,
+  PasswordAttachment,
   PasswordCategory,
   PasswordEntry,
   RecoveryStatus,
@@ -284,6 +285,14 @@ export const api = {
   pdfPagesUrl: (fileId: string) => `${convertFileSrc("", "silo")}pdf/${fileId}/pages`,
   pdfPageUrl: (fileId: string, page: number, width: number) => `${convertFileSrc("", "silo")}pdf/${fileId}/${page}?w=${width}`,
   openWith: (fileId: string) => invoke<void>("file_open_with", { fileId }),
+  /** A password entry's attached file, in another app. */
+  openAttachment: (entry: PasswordEntry, attachment: PasswordAttachment) =>
+    invoke<void>("password_open_attachment", {
+      blobId: attachment.blob_id,
+      name: attachment.name,
+      blobKey: attachment.blob_key,
+      entryLabel: entry.service,
+    }),
 
   syncStatus: () => invoke<SyncStatus>("sync_status"),
   syncNow: () => invoke<SyncReport>("sync_now"),

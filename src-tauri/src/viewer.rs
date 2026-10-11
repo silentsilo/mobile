@@ -184,7 +184,106 @@ pub async fn file_open_with(
         let _watch = watch_download(&app, file_id);
         silentsilo_app::files::decrypt_to_file(&state, &host(&app), &silo, file_id, &dest).await?;
     }
+    hand_over(&app, dest, entry.mime_type.unwrap_or_default()).await
+}
 
+/// Opens a password entry's attached file in another app, as a file of the
+/// silo opens: fetched from backup storage when this phone does not hold
+/// it, decrypted with its own key, then handed over.
+#[tauri::command]
+pub async fn password_open_attachment(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    blob_id: String,
+    name: String,
+    blob_key: String,
+    entry_label: Option<String>,
+) -> Result<(), String> {
+    let blob_id = Uuid::parse_str(&blob_id).map_err(|e| e.to_string())?;
+    let silo = active_silo(&state)?;
+    let kek = {
+        let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+        sessions
+            .get(&silo.id)
+            .ok_or("Unlock the silo first.")?
+            .kek
+            .clone()
+    };
+    let blob_path = silentsilo_vault::VaultPaths::new(silo.path.clone()).blob_path(blob_id);
+    if !blob_path.is_file() {
+        let configured = silentsilo_vault::load_targets(silo.id);
+        let every_target: Vec<Uuid> = configured.iter().map(|t| t.config.target_id()).collect();
+        let opened: Vec<(Uuid, Box<dyn silentsilo_store::ObjectStore>)> = configured
+            .into_iter()
+            .filter_map(|t| {
+                t.config
+                    .open()
+                    .ok()
+                    .map(|store| (t.config.target_id(), store))
+            })
+            .collect();
+        if opened.is_empty() {
+            return Err(
+                "This file isn't on this phone, and no backup storage is connected.".into(),
+            );
+        }
+        let stores: Vec<(Uuid, &dyn silentsilo_store::ObjectStore)> =
+            opened.iter().map(|(id, s)| (*id, &**s)).collect();
+        let every_copy = stores.len() == every_target.len();
+        silentsilo_sync::fetch_blob_from_targets(&stores, &silo.path, blob_id, every_copy)
+            .await
+            .map_err(|e| format!("The file could not be downloaded: {e}"))?;
+        let _ = silentsilo_vault::settle_blob_delivery(&silo.path, &every_target);
+    }
+    crate::audit::record_off_thread(
+        &app,
+        crate::audit::event(crate::audit::codes::FILE_OPENED)
+            .on(blob_id.to_string(), &name)
+            .with("in", "another app")
+            .with("entry", entry_label.unwrap_or_default()),
+    )
+    .await?;
+
+    let dir = opened_dir(&app)?.join(Uuid::new_v4().to_string());
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let dest = dir.join(safe_name(&name));
+    let key = silentsilo_crypto::unwrap_content_key(&blob_key, &kek)
+        .map_err(|_| "This file's key could not be read, so it cannot be opened.".to_string())?;
+    let target = dest.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        silentsilo_crypto::decrypt_blob(&blob_path, &target, &key, blob_id).map_err(|e| {
+            let _ = std::fs::remove_file(&target);
+            e.to_string()
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+    let mime = silentsilo_vfs::guess_mime(&dest).unwrap_or_default();
+    hand_over(&app, dest, mime).await
+}
+
+/// The name another app shows, made safe as a file name.
+fn safe_name(name: &str) -> String {
+    let name: String = name
+        .chars()
+        .map(|c| {
+            if c == '/' || c == '\\' || c.is_control() {
+                '_'
+            } else {
+                c
+            }
+        })
+        .collect();
+    if name.trim().is_empty() {
+        "file".into()
+    } else {
+        name
+    }
+}
+
+/// Hands a decrypted copy to another app: the share sheet on iOS, the
+/// "open with" chooser on Android.
+async fn hand_over(app: &AppHandle, dest: PathBuf, mime: String) -> Result<(), String> {
     #[cfg(target_os = "android")]
     {
         let lock = app.state::<crate::background::BackgroundLock>();
@@ -194,7 +293,7 @@ pub async fn file_open_with(
                 "openWith",
                 serde_json::json!({
                     "path": dest.to_string_lossy(),
-                    "mimeType": entry.mime_type.unwrap_or_default(),
+                    "mimeType": mime,
                 }),
             )
             .await
@@ -204,7 +303,7 @@ pub async fn file_open_with(
     {
         let lock = app.state::<crate::background::BackgroundLock>();
         let _prompt = lock.prompt();
-        let _ = entry;
+        let _ = mime;
         let shown = tauri::async_runtime::spawn_blocking(move || crate::ios::open_with(&dest))
             .await
             .map_err(|e| e.to_string())?;
@@ -216,6 +315,7 @@ pub async fn file_open_with(
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
+        let _ = (app, mime);
         let _ = std::fs::remove_file(dest);
         Err("This build cannot open files in other apps.".into())
     }
