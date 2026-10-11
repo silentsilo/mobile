@@ -15,6 +15,11 @@ const scenario = params.get("mock") ?? import.meta.env.VITE_MOCK_SCENARIO ?? "";
 const syncOutcome = params.get("sync") ?? "";
 /** `?syncStep=` milliseconds between progress reports, to watch one go by. */
 const syncStepMs = Number(params.get("syncStep") ?? 250);
+/** Opened with an iPhone's user agent (the App Store captures): this phone is
+ * an iPhone, with its own key, and has no passkeys. */
+const onIPhone = /iPhone|iPad/.test(navigator.userAgent);
+const PHONE_NAME = onIPhone ? "iPhone" : "Pixel 8";
+const PHONE_KEY_KIND = onIPhone ? "secure-enclave" : "android-keystore";
 
 // Listeners the front end registered, so a mocked pass can report itself the
 // way the Rust side does. Without these the status line never moves here.
@@ -175,7 +180,7 @@ let keys: SecurityKeyInfo[] = [
   { kind: "fido2", credential_id: "9d02b7e1", public_key: "3059", key_slot: 2, rp_id: "silentsilo.com", label: "Office PC", wrapped_dek: "ef", platform: true },
 ];
 if (phoneKey) {
-  keys.unshift({ kind: "android-keystore", credential_id: "a1b2c3d4", public_key: "04", key_slot: 3, rp_id: "silentsilo.com", label: "Pixel 8", wrapped_dek: "ef", platform: true });
+  keys.unshift({ kind: PHONE_KEY_KIND, credential_id: "a1b2c3d4", public_key: "04", key_slot: 3, rp_id: "silentsilo.com", label: PHONE_NAME, wrapped_dek: "ef", platform: true });
 }
 
 const folder = (id: string, name: string, path: string) => ({
@@ -312,7 +317,7 @@ const handlers: Record<string, Handler> = {
   vault_set_favorite: async () => {},
   vault_list_favorites: async () => [],
   vault_list_devices: async () => [
-    { id: "d1", label: null, system_name: "Pixel 8", platform: "Android 15", is_this_device: true, operations: 40, last_change_at: Date.now() - 60_000 },
+    { id: "d1", label: null, system_name: PHONE_NAME, platform: onIPhone ? "iOS 18" : "Android 15", is_this_device: true, operations: 40, last_change_at: Date.now() - 60_000 },
     { id: "d2", label: "Office PC", system_name: "DESKTOP-7Q", platform: "Windows 11 Pro", is_this_device: false, operations: 900, last_change_at: Date.now() - 86_400_000 },
   ],
   vault_set_device_label: async () => {},
@@ -333,7 +338,7 @@ const handlers: Record<string, Handler> = {
         { device: "d2", what: "file_trashed", i: 2, t: now - 92_000_000, c: 31, o: "f2", l: "old-invoice.pdf" },
         { device: "d2", what: "key_added", i: 1, t: now - 95_000_000, c: 50, o: "k1", l: "YubiKey 5C", x: { kind: "fido2" } },
       ],
-      names: { d1: "Pixel 8", d2: "Office PC" },
+      names: { d1: PHONE_NAME, d2: "Office PC" },
       unreadable: 0,
       copies_unread: [],
     };
@@ -359,7 +364,7 @@ const handlers: Record<string, Handler> = {
     await wait(900);
     phoneKey = true;
     keyInvalidated = false;
-    keys = [{ kind: "android-keystore", credential_id: "a1b2c3d4", public_key: "04", key_slot: 3, rp_id: "silentsilo.com", label: String(args.label), wrapped_dek: "ef", platform: true }, ...keys];
+    keys = [{ kind: PHONE_KEY_KIND, credential_id: "a1b2c3d4", public_key: "04", key_slot: 3, rp_id: "silentsilo.com", label: String(args.label), wrapped_dek: "ef", platform: true }, ...keys];
   },
 
   // ?mock=locked&invalidated acts like a phone whose fingerprints changed.
@@ -484,12 +489,12 @@ const handlers: Record<string, Handler> = {
     silo = silos.find((s) => s.id === args.siloId) ?? silo;
   },
   silo_remove: () => undefined,
-  device_name: () => "Pixel 10 Pro",
+  device_name: () => (onIPhone ? "iPhone" : "Pixel 10 Pro"),
   app_theme_set: () => undefined,
   haptic: () => undefined,
   autofill_status: () => ({ supported: true, enabled: false }),
   autofill_enable: () => undefined,
-  passkeys_status: () => ({ supported: true, enabled: false }),
+  passkeys_status: () => ({ supported: !onIPhone, enabled: false }),
   passkeys_enable: () => undefined,
   backup_waiting: () => (backup.photos || backup.contacts ? 3 : null),
   backup_media_folders: () => [
