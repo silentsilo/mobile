@@ -1,5 +1,6 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { CATEGORIES_ROW_ID, isCategoriesRow } from "./shared/passwordUtil";
+import type { HandOverHow } from "./ui/HandOver";
 import {
   DEFAULT_HISTORY_POLICY,
   withBaseFields,
@@ -12,6 +13,7 @@ import type {
   EntryChange,
   FileEntry,
   FolderEntry,
+  AuditEntry,
   PasswordAttachment,
   PasswordCategory,
   PasswordEntry,
@@ -174,6 +176,17 @@ export type StorageView = {
   copies: number;
 };
 
+/** A device that has changed this silo. */
+export type DeviceInfo = {
+  id: string;
+  label: string | null;
+  system_name: string | null;
+  platform: string | null;
+  is_this_device: boolean;
+  operations: number;
+  last_change_at: number;
+};
+
 export type Offered = { uri: string; name: string; size: number; mimeType: string };
 
 export const api = {
@@ -276,6 +289,9 @@ export const api = {
     invoke<void>("audit_note", { note: "entry_revealed", entryId: entry.id, label: entry.service }),
   auditStatus: () => invoke<AuditStatus>("audit_status"),
   setAuditLog: (enabled: boolean) => invoke<AuditStatus>("audit_set_enabled", { enabled }),
+  /** The newest events of the open silo's log, from here and every copy. */
+  readActivity: () =>
+    invoke<{ entries: AuditEntry[]; names: Record<string, string>; unreadable: number; copies_unread: string[] }>("audit_read"),
 
   rootFolder: () => invoke<FolderEntry>("vault_root_folder"),
   listFolder: (folderId: string) => invoke<VaultEntry[]>("vault_list_folder", { folderId }),
@@ -284,15 +300,22 @@ export const api = {
   /** A PDF's page count, and each page drawn as an image. */
   pdfPagesUrl: (fileId: string) => `${convertFileSrc("", "silo")}pdf/${fileId}/pages`,
   pdfPageUrl: (fileId: string, page: number, width: number) => `${convertFileSrc("", "silo")}pdf/${fileId}/${page}?w=${width}`,
-  openWith: (fileId: string) => invoke<void>("file_open_with", { fileId }),
-  /** A password entry's attached file, in another app. */
-  openAttachment: (entry: PasswordEntry, attachment: PasswordAttachment) =>
-    invoke<void>("password_open_attachment", {
+  /** A file out of the silo: saved on the phone, shared or opened in
+   * another app. False when the user backed out of a save. */
+  openWith: (fileId: string, how: HandOverHow = "open") => invoke<boolean>("file_open_with", { fileId, how }),
+  /** A password entry's attached file, the same ways. */
+  openAttachment: (entry: PasswordEntry, attachment: PasswordAttachment, how: HandOverHow = "open") =>
+    invoke<boolean>("password_open_attachment", {
       blobId: attachment.blob_id,
       name: attachment.name,
       blobKey: attachment.blob_key,
       entryLabel: entry.service,
+      how,
     }),
+  /** Seals a file picked on the phone for an entry; the entry's save keeps it. */
+  attachFile: (file: Offered) => invoke<PasswordAttachment>("password_attach_offered", { file }),
+  /** The content of an attachment the entry no longer names. */
+  deleteAttachment: (blobId: string) => invoke<void>("password_delete_attachment", { blobId }),
 
   syncStatus: () => invoke<SyncStatus>("sync_status"),
   syncNow: () => invoke<SyncReport>("sync_now"),
@@ -328,6 +351,15 @@ export const api = {
   listAllFolders: () => invoke<FolderEntry[]>("vault_list_all_folders"),
   /** Names across the whole silo, each with the path of its folder. */
   search: (query: string) => invoke<(VaultEntry & { folder_path: string })[]>("vault_search", { query }),
+  /** Stars or unstars a file or a folder. */
+  setFavorite: (entry: VaultEntry, favorite: boolean) =>
+    invoke<void>("vault_set_favorite", { id: entry.id, kind: entry.kind, favorite }),
+  /** Every starred file and folder, with where each is. */
+  listFavorites: () => invoke<(VaultEntry & { folder_path: string })[]>("vault_list_favorites"),
+  listDevices: () => invoke<DeviceInfo[]>("vault_list_devices"),
+  /** One hash prefix's range from the breach service. */
+  pwnedRange: (prefix: string) => invoke<string>("pwned_range", { prefix }),
+  setDeviceLabel: (deviceId: string, label: string) => invoke<void>("vault_set_device_label", { deviceId, label }),
   renameFolder: (folderId: string, newName: string) => invoke<FolderEntry>("vault_rename_folder", { folderId, newName }),
   trashFile: (fileId: string) => invoke<void>("vault_trash_file", { fileId }),
   trashFolder: (folderId: string) => invoke<void>("vault_trash_folder", { folderId }),

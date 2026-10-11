@@ -1,4 +1,4 @@
-import { ChevronRight, Cloud, Code, FileText, Fingerprint, HardDrive, HeartPulse, History, Images, KeyRound, Languages, LockKeyhole, MonitorOff, RefreshCw, Scale, ScrollText, ShieldCheck, Smartphone, TextCursorInput, Trash2 } from "lucide-react";
+import { ChevronRight, Cloud, Code, FileText, Fingerprint, HardDrive, HeartPulse, History, Images, KeyRound, Languages, LockKeyhole, MonitorOff, MonitorSmartphone, RefreshCw, Scale, ScrollText, ShieldCheck, Smartphone, TextCursorInput, Trash2 } from "lucide-react";
 import { LOCALES, dateLocale, languagePreference, setLanguage, systemLocale, t, useLocale } from "../i18n";
 import { RecoveryCodeShow } from "../ui/RecoveryCodeShow";
 import { useEffect, useState } from "react";
@@ -53,6 +53,8 @@ export function Silo({
   onBackup,
   onTrash,
   onHealth,
+  onActivity,
+  onDevices,
   onStorage,
   onLocked,
 }: {
@@ -64,6 +66,9 @@ export function Silo({
   onBackup: () => void;
   onTrash: () => void;
   onHealth: () => void;
+  /** The log's events, on a screen of their own. */
+  onActivity: () => void;
+  onDevices: () => void;
   onStorage: () => void;
   onLocked: () => void;
 }) {
@@ -300,6 +305,7 @@ export function Silo({
             {passkeys?.supported &&
               navRow(Fingerprint, t("silo.row_passkeys"), passkeys.enabled ? t("silo.value_on") : t("silo.value_off"), () => setAboutPasskeys(true))}
             {navRow(KeyRound, t("silo.row_keys"), keyCount === null ? "" : keyCount.toLocaleString(dateLocale()), onKeys)}
+            {navRow(MonitorSmartphone, t("silo.row_devices"), "", onDevices)}
             {navRow(
               LockKeyhole,
               t("silo.row_recovery"),
@@ -453,6 +459,17 @@ export function Silo({
               />
             </div>
           </>
+        )}
+        {audit?.enabled && !audit.organisation && (
+          <button
+            className="btn secondary"
+            onClick={() => {
+              setAboutAudit(false);
+              onActivity();
+            }}
+          >
+            {t("silo.activity_view")}
+          </button>
         )}
       </Sheet>
 

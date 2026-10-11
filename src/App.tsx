@@ -19,13 +19,15 @@ import { PhoneBackup } from "./screens/PhoneBackup";
 import { Preview } from "./screens/Preview";
 import { SaveShared } from "./screens/SaveShared";
 import { Health } from "./screens/Health";
+import { Activity } from "./screens/Activity";
+import { Devices } from "./screens/Devices";
 import { Trash } from "./screens/Trash";
 import { Silo } from "./screens/Silo";
 import { Unlock } from "./screens/Unlock";
 import { Welcome } from "./screens/Welcome";
 import { formatAppError } from "./shared/errors";
 import { t, useLocale } from "./i18n";
-import type { Bootstrap, FileEntry, PasswordEntry } from "./shared/types";
+import type { Bootstrap, CredentialType, FileEntry, PasswordEntry } from "./shared/types";
 import icon from "./assets/icon.svg";
 import { EmptyState, Notice, ToastProvider, useToast } from "./ui/chrome";
 import { RecoveryCodeKeeper } from "./ui/RecoveryCodeShow";
@@ -296,12 +298,14 @@ type Tab = "passwords" | "files" | "silo";
 
 type Detail =
   | { at: "entry"; entry: PasswordEntry }
-  | { at: "edit"; entry: PasswordEntry | null; category?: string | null }
+  | { at: "edit"; entry: PasswordEntry | null; category?: string | null; type?: CredentialType }
   | { at: "preview"; file: FileEntry }
   | { at: "keys" }
   | { at: "backup" }
   | { at: "trash" }
   | { at: "health" }
+  | { at: "activity" }
+  | { at: "devices" }
   | { at: "storage" };
 
 function OpenSilo({ siloId, siloName, onLocked }: { siloId: string; siloName: string; onLocked: () => void }) {
@@ -384,6 +388,7 @@ function OpenSiloScreens({
           <EntryEdit
             entry={detail.entry}
             category={detail.category ?? null}
+            type={detail.type}
             sync={sync}
             onCancel={() => setDetail(detail.entry ? { at: "entry", entry: detail.entry } : null)}
             onSaved={(saved) => {
@@ -415,7 +420,11 @@ function OpenSiloScreens({
           />
         );
       case "health":
-        return <Health onBack={() => setDetail(null)} onOpen={(entry) => setDetail({ at: "entry", entry })} />;
+        return <Health siloId={siloId} onBack={() => setDetail(null)} onOpen={(entry) => setDetail({ at: "entry", entry })} />;
+      case "activity":
+        return <Activity onBack={() => setDetail(null)} />;
+      case "devices":
+        return <Devices onBack={() => setDetail(null)} />;
     }
   };
 
@@ -445,11 +454,11 @@ function OpenSiloScreens({
           sync={sync}
           reloadKey={reloadKey}
           onOpen={(entry) => setDetail({ at: "entry", entry })}
-          onAdd={(category) => setDetail({ at: "edit", entry: null, category })}
+          onAdd={(category, type) => setDetail({ at: "edit", entry: null, category, type })}
         />
       )}
       {tab === "files" && <Files siloName={siloName} sync={sync} reloadKey={reloadKey} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
-      {tab === "silo" && <Silo siloId={siloId} siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onStorage={() => setDetail({ at: "storage" })} onLocked={onLocked} />}
+      {tab === "silo" && <Silo siloId={siloId} siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onActivity={() => setDetail({ at: "activity" })} onDevices={() => setDetail({ at: "devices" })} onStorage={() => setDetail({ at: "storage" })} onLocked={onLocked} />}
     </>
   );
 

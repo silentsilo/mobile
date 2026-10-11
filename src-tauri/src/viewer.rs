@@ -156,7 +156,8 @@ pub async fn file_open_with(
     app: AppHandle,
     state: State<'_, AppState>,
     file_id: String,
-) -> Result<(), String> {
+    how: Option<String>,
+) -> Result<bool, String> {
     let file_id = Uuid::parse_str(&file_id).map_err(|e| e.to_string())?;
     let silo = active_silo(&state)?;
     let entry = state.with_vfs(|_session, vfs| vfs.get_file(file_id))?;
@@ -184,7 +185,13 @@ pub async fn file_open_with(
         let _watch = watch_download(&app, file_id);
         silentsilo_app::files::decrypt_to_file(&state, &host(&app), &silo, file_id, &dest).await?;
     }
-    hand_over(&app, dest, entry.mime_type.unwrap_or_default()).await
+    hand_over(
+        &app,
+        dest,
+        entry.mime_type.unwrap_or_default(),
+        how.as_deref(),
+    )
+    .await
 }
 
 /// Opens a password entry's attached file in another app, as a file of the
@@ -198,7 +205,8 @@ pub async fn password_open_attachment(
     name: String,
     blob_key: String,
     entry_label: Option<String>,
-) -> Result<(), String> {
+    how: Option<String>,
+) -> Result<bool, String> {
     let blob_id = Uuid::parse_str(&blob_id).map_err(|e| e.to_string())?;
     let silo = active_silo(&state)?;
     let kek = {
@@ -259,7 +267,7 @@ pub async fn password_open_attachment(
     .await
     .map_err(|e| e.to_string())??;
     let mime = silentsilo_vfs::guess_mime(&dest).unwrap_or_default();
-    hand_over(&app, dest, mime).await
+    hand_over(&app, dest, mime, how.as_deref()).await
 }
 
 /// The name another app shows, made safe as a file name.
@@ -281,41 +289,53 @@ fn safe_name(name: &str) -> String {
     }
 }
 
-/// Hands a decrypted copy to another app: the share sheet on iOS, the
-/// "open with" chooser on Android.
-async fn hand_over(app: &AppHandle, dest: PathBuf, mime: String) -> Result<(), String> {
+/// Hands a decrypted copy out of the silo. `how` is `save` (a copy kept on
+/// the phone, where the user chooses), `share` (to another app as a file) or
+/// `open` (the default, viewed in another app). On iOS the share sheet does
+/// all three. True unless the user backed out of a save.
+async fn hand_over(
+    app: &AppHandle,
+    dest: PathBuf,
+    mime: String,
+    how: Option<&str>,
+) -> Result<bool, String> {
     #[cfg(target_os = "android")]
     {
+        let command = match how {
+            Some("save") => "saveAs",
+            Some("share") => "share",
+            _ => "openWith",
+        };
         let lock = app.state::<crate::background::BackgroundLock>();
         let _prompt = lock.prompt();
         app.state::<crate::incoming::Files<tauri::Wry>>()
             .call::<serde_json::Value>(
-                "openWith",
+                command,
                 serde_json::json!({
                     "path": dest.to_string_lossy(),
                     "mimeType": mime,
                 }),
             )
             .await
-            .map(|_| ())
+            .map(|answer| answer.get("done").and_then(|d| d.as_bool()).unwrap_or(true))
     }
     #[cfg(target_os = "ios")]
     {
         let lock = app.state::<crate::background::BackgroundLock>();
         let _prompt = lock.prompt();
-        let _ = mime;
+        let _ = (mime, how);
         let shown = tauri::async_runtime::spawn_blocking(move || crate::ios::open_with(&dest))
             .await
             .map_err(|e| e.to_string())?;
         if shown {
-            Ok(())
+            Ok(true)
         } else {
             Err("The file could not be handed to another app.".into())
         }
     }
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
-        let _ = (app, mime);
+        let _ = (app, mime, how);
         let _ = std::fs::remove_file(dest);
         Err("This build cannot open files in other apps.".into())
     }

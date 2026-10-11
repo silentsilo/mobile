@@ -134,17 +134,83 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
 
   // Hands a decrypted copy to another app. The copy sits in the app's cache
   // under open/, which every lock and every start wipes.
-  @Command
-  fun openWith(invoke: Invoke) {
-    val args = invoke.getArgs()
-    val file = File(args.getString("path"))
+  // Only what Rust decrypted for handing over: these commands take a path.
+  private fun fromSilo(invoke: Invoke): File? {
+    val file = File(invoke.getArgs().getString("path"))
     val open = File(activity.cacheDir, "open").canonicalFile
     if (!file.canonicalPath.startsWith(open.path + File.separator)) {
       invoke.reject("That file is not one opened from the silo.\u001ferr.android_not_from_silo")
+      return null
+    }
+    return file
+  }
+
+  private fun mimeOf(invoke: Invoke): String =
+    invoke.getArgs().getString("mimeType", null)?.takeIf { it.isNotEmpty() } ?: "application/octet-stream"
+
+  // To another app as a file: a chat, mail, a cloud drive.
+  @Command
+  fun share(invoke: Invoke) {
+    val file = fromSilo(invoke) ?: return
+    val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+    val send = Intent(Intent.ACTION_SEND)
+      .setType(mimeOf(invoke))
+      .putExtra(Intent.EXTRA_STREAM, uri)
+      .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    try {
+      activity.startActivity(Intent.createChooser(send, null))
+      invoke.resolve()
+    } catch (e: Exception) {
+      invoke.reject("No app on this phone takes this kind of file.\u001ferr.android_no_app_for_file")
+    }
+  }
+
+  private var saving: File? = null
+
+  // A copy kept on the phone, where the user chooses: Downloads is one tap.
+  @Command
+  fun saveAs(invoke: Invoke) {
+    val file = fromSilo(invoke) ?: return
+    saving = file
+    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT)
+      .addCategory(Intent.CATEGORY_OPENABLE)
+      .setType(mimeOf(invoke))
+      .putExtra(Intent.EXTRA_TITLE, file.name)
+    startActivityForResult(invoke, intent, "savePicked")
+  }
+
+  @ActivityCallback
+  fun savePicked(invoke: Invoke, result: ActivityResult) {
+    val file = saving
+    saving = null
+    val uri = result.data?.data
+    val answer = JSObject()
+    if (result.resultCode != Activity.RESULT_OK || uri == null || file == null) {
+      file?.delete()
+      answer.put("done", false)
+      invoke.resolve(answer)
       return
     }
+    // Off the main thread: a large file takes a while to copy.
+    Thread {
+      try {
+        val out = activity.contentResolver.openOutputStream(uri, "w") ?: throw IllegalStateException("no stream")
+        out.use { sink -> file.inputStream().use { it.copyTo(sink) } }
+        answer.put("done", true)
+        invoke.resolve(answer)
+      } catch (e: Exception) {
+        invoke.reject("The file could not be saved there: ${e.message}")
+      } finally {
+        file.delete()
+      }
+    }.start()
+  }
+
+  @Command
+  fun openWith(invoke: Invoke) {
+    val file = fromSilo(invoke) ?: return
     val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
-    val mime = args.getString("mimeType", null)?.takeIf { it.isNotEmpty() } ?: "application/octet-stream"
+    val mime = mimeOf(invoke)
     val view = Intent(Intent.ACTION_VIEW)
       .setDataAndType(uri, mime)
       .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

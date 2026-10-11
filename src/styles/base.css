@@ -1411,3 +1411,9 @@ input[type="checkbox"] {
   border-radius: 50%;
   flex: none;
 }
+
+/* A secret typed over several lines, a private key, hidden like a
+   password field until shown. */
+textarea.masked-text {
+  -webkit-text-security: disc;
+}

@@ -377,3 +377,17 @@ export type AuditStatus = {
 
 /** What a save was, for the silo's activity log. */
 export type EntryChange = "created" | "edited" | "restored" | "history_cleared" | "arranged";
+
+/** One event of the activity log, as core reads it. Same as desktop's. */
+export type AuditEntry = {
+  device: string;
+  /** The event's name, from core. */
+  what: string;
+  i: number;
+  t: number;
+  c: number;
+  n?: number;
+  o?: string;
+  l?: string;
+  x?: Record<string, unknown>;
+};

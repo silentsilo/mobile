@@ -1,4 +1,4 @@
-import { Camera, Check, EllipsisVertical, File, FilePlus, FileText, Folder, FolderInput, FolderPlus, Image, Search, Trash2, X } from "lucide-react";
+import { Camera, Check, EllipsisVertical, Star, File, FilePlus, FileText, Folder, FolderInput, FolderPlus, Image, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
@@ -8,6 +8,7 @@ import { addAll, photoName } from "../shared/importing";
 import { useBackLayer } from "../ui/back";
 import { AddButton, EmptyState, Notice, Sheet, Skeleton, TopBar, useToast } from "../ui/chrome";
 import { isIOS } from "../ui/platform";
+import { HandOverSheet, type HandOverHow } from "../ui/HandOver";
 import { useSyncProgress } from "../ui/syncActivity";
 import { SiloHeader } from "./Passwords";
 import { haptic } from "../ui/haptics";
@@ -50,6 +51,19 @@ export function Files({
   const [folderName, setFolderName] = useState("");
   const [progress, setProgress] = useState<string | null>(null);
   const [acting, setActing] = useState<VaultEntry | null>(null);
+  // A file on its way out: saved, shared or opened elsewhere.
+  const [handingOver, setHandingOver] = useState<FileEntry | null>(null);
+  const handOver = async (file: FileEntry, how: HandOverHow) => {
+    setHandingOver(null);
+    setProgress(t("files.getting_ready", { name: file.name, size: formatBytes(file.size_bytes) }));
+    try {
+      if ((await api.openWith(file.id, how)) && how === "save") toast(t("files.saved_to_phone"));
+    } catch (e) {
+      toast(formatAppError(e));
+    } finally {
+      setProgress(null);
+    }
+  };
   const [renaming, setRenaming] = useState<VaultEntry | null>(null);
   const [newName, setNewName] = useState("");
   // Several at once: a long press starts it, taps add and remove.
@@ -105,11 +119,23 @@ export function Files({
     void load(next[next.length - 1]!.id);
   };
 
-  const searching = query.trim().length >= 2;
+  // Starred files and folders, from anywhere in the silo, instead of a folder.
+  const [starredOnly, setStarredOnly] = useState(false);
+  const searching = query.trim().length >= 2 || starredOnly;
   useEffect(() => {
     if (!searching) {
       setHits(null);
       return;
+    }
+    if (starredOnly && query.trim().length < 2) {
+      let live = true;
+      api.listFavorites().then(
+        (found) => live && setHits(found),
+        (e) => live && toast(formatAppError(e)),
+      );
+      return () => {
+        live = false;
+      };
     }
     const q = query.trim();
     // Only the latest query's answer lands; a slower earlier one is dropped.
@@ -124,7 +150,7 @@ export function Files({
       live = false;
       window.clearTimeout(timer);
     };
-  }, [query, searching, reloadKey, edits, toast]);
+  }, [query, searching, starredOnly, reloadKey, edits, toast]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -428,6 +454,14 @@ export function Files({
         >
           {sort === "name" ? t("files.sort_name") : t("files.sort_newest")}
         </button>
+        <button
+          className={`icon-btn framed${starredOnly ? " accent" : ""}`}
+          aria-pressed={starredOnly}
+          aria-label={t("files.show_favorites")}
+          onClick={() => setStarredOnly(!starredOnly)}
+        >
+          <Star size={20} fill={starredOnly ? "currentColor" : "none"} />
+        </button>
         {isIOS && <AddButton label={t("files.add_here")} disabled={!here || progress !== null} onClick={() => setAdding(true)} />}
       </div>
       {progress && <div className="notice" style={{ margin: "0 16px 10px" }}>{progress}</div>}
@@ -455,7 +489,11 @@ export function Files({
           {error && <Notice tone="error" style={{ margin: 16 }}>{error}</Notice>}
           {((searching && !hits) || (!searching && !items)) && !error && <Skeleton avatar={false} />}
           {searching && hits && hits.length === 0 && (
-            <EmptyState icon={<Search size={26} />} title={t("files.no_match_silo")} hint={t("files.search_hint")} />
+            starredOnly && query.trim().length < 2 ? (
+              <EmptyState icon={<Star size={26} />} title={t("files.no_favorites")} hint={t("files.no_favorites_hint")} />
+            ) : (
+              <EmptyState icon={<Search size={26} />} title={t("files.no_match_silo")} hint={t("files.search_hint")} />
+            )
           )}
           {searching &&
             hits?.map((hit) => (
@@ -545,6 +583,13 @@ export function Files({
         </div>
       </Sheet>
 
+      <HandOverSheet
+        open={handingOver !== null}
+        title={handingOver?.name}
+        onClose={() => setHandingOver(null)}
+        onChoose={(how) => handingOver && void handOver(handingOver, how)}
+      />
+
       <Sheet open={acting !== null} onClose={() => setActing(null)} title={acting?.name}>
         <button
           className="btn secondary"
@@ -556,6 +601,34 @@ export function Files({
         >
           {t("files.rename")}
         </button>
+        <button
+          className="btn secondary"
+          onClick={() => {
+            const item = acting;
+            setActing(null);
+            if (item)
+              void api.setFavorite(item, !item.favorite).then(
+                () => {
+                  setEdits((n) => n + 1);
+                  if (here) void load(here.id);
+                },
+                (e) => toast(formatAppError(e)),
+              );
+          }}
+        >
+          {acting?.favorite ? t("files.unfavorite") : t("files.favorite")}
+        </button>
+        {acting?.kind === "file" && (
+          <button
+            className="btn secondary"
+            onClick={() => {
+              setHandingOver(acting as FileEntry);
+              setActing(null);
+            }}
+          >
+            {isIOS ? t("files.share_or_save") : t("files.save_or_share")}
+          </button>
+        )}
         <button className="btn secondary" onClick={() => acting && void startMove([acting])}>
           {t("files.move_elsewhere")}
         </button>

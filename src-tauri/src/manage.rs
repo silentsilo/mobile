@@ -305,3 +305,46 @@ pub async fn silo_remove(
     let _ = app.emit("vault-changed", ());
     Ok(())
 }
+
+/// Stars or unstars a file or a folder, as desktop's Favourites does.
+#[tauri::command(async)]
+pub fn vault_set_favorite(
+    state: State<'_, AppState>,
+    id: String,
+    kind: String,
+    favorite: bool,
+) -> Result<(), String> {
+    let id = Uuid::parse_str(&id).map_err(|e| e.to_string())?;
+    state.with_vfs(|_session, vfs| match kind.as_str() {
+        "folder" => vfs.set_folder_favorite(id, favorite).map(|_| ()),
+        "file" => vfs.set_file_favorite(id, favorite).map(|_| ()),
+        _ => Err(silentsilo_core::CoreError::InvalidPath(kind.clone())),
+    })
+}
+
+/// Every starred file and folder, wherever it is.
+#[tauri::command(async)]
+pub fn vault_list_favorites(
+    state: State<'_, AppState>,
+) -> Result<Vec<silentsilo_core::SearchHit>, String> {
+    state.with_vfs(|_session, vfs| vfs.list_favorites())
+}
+
+/// Every device that has changed this silo, this phone among them.
+#[tauri::command(async)]
+pub fn vault_list_devices(
+    state: State<'_, AppState>,
+) -> Result<Vec<silentsilo_core::DeviceInfo>, String> {
+    state.with_vfs(|_session, vfs| vfs.list_devices())
+}
+
+/// Names a device in the list, for every device that syncs.
+#[tauri::command(async)]
+pub fn vault_set_device_label(
+    state: State<'_, AppState>,
+    device_id: String,
+    label: String,
+) -> Result<(), String> {
+    let device_id = Uuid::parse_str(&device_id).map_err(|e| e.to_string())?;
+    state.with_vfs(|_session, vfs| vfs.set_device_label(device_id, label.trim()))
+}

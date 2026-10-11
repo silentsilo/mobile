@@ -277,6 +277,105 @@ pub async fn vault_import_offered(
     }
 }
 
+/// A password entry's attached file, as it goes into the entry.
+#[derive(Serialize)]
+pub struct Attached {
+    blob_id: String,
+    name: String,
+    size_bytes: i64,
+    blob_key: String,
+}
+
+/// Seals a file picked on the phone for a password entry: content under a
+/// key of its own, wrapped under the silo's, as desktop attaches. No file row:
+/// the entry is the only thing naming it, and the editor saves that.
+#[tauri::command]
+pub async fn password_attach_offered(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    file: Offered,
+) -> Result<Attached, String> {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        let _ = (app, state, file);
+        Err("This build cannot reach the phone's files.".into())
+    }
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    {
+        let silo = crate::commands::active_silo(&state)?;
+        let kek = {
+            let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
+            sessions
+                .get(&silo.id)
+                .ok_or("Unlock the silo first.")?
+                .kek
+                .clone()
+        };
+        #[cfg(target_os = "android")]
+        let source = open_offered(&app, &file.uri).await?;
+        #[cfg(target_os = "ios")]
+        let picked = {
+            let path = std::path::PathBuf::from(&file.uri);
+            if !held_for_import(&path) {
+                return Err("That is not a file picked for the silo.".into());
+            }
+            path
+        };
+        #[cfg(target_os = "ios")]
+        let source = std::fs::File::open(&picked).map_err(|e| e.to_string())?;
+        let root = silo.path.clone();
+        let name = file.name.clone();
+        let sealed = tauri::async_runtime::spawn_blocking(move || {
+            let blob_id = Uuid::new_v4();
+            let blob_path = silentsilo_vault::VaultPaths::new(root.clone()).blob_path(blob_id);
+            if let Some(parent) = blob_path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+            }
+            let content_key = silentsilo_crypto::generate_content_key();
+            let blob_key = silentsilo_crypto::wrap_content_key(&content_key, &kek)
+                .map_err(|e| e.to_string())?;
+            let sealed = silentsilo_crypto::encrypt_stream(
+                &mut { source },
+                &blob_path,
+                &content_key,
+                Uuid::now_v7(),
+                blob_id,
+            )
+            .map_err(|e| e.to_string())?;
+            let _ = silentsilo_vault::record_blob_present(
+                &root,
+                blob_id,
+                sealed.size_bytes as i64,
+                false,
+            );
+            Ok::<_, String>(Attached {
+                blob_id: blob_id.to_string(),
+                name,
+                size_bytes: sealed.plain_bytes as i64,
+                blob_key,
+            })
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+        #[cfg(target_os = "ios")]
+        let _ = std::fs::remove_file(&picked);
+        sealed
+    }
+}
+
+/// Removes an attachment's content from this phone, after the entry no
+/// longer names it. The copy in backup storage is the sweep's to delete, as
+/// on desktop: only what nothing references across passes goes.
+#[tauri::command]
+pub async fn password_delete_attachment(
+    state: State<'_, AppState>,
+    blob_id: String,
+) -> Result<(), String> {
+    let blob_id = Uuid::parse_str(&blob_id).map_err(|e| e.to_string())?;
+    let root = crate::commands::active_silo(&state)?.path;
+    silentsilo_vault::remove_blob_from_cache(&root, blob_id).map_err(|e| e.to_string())
+}
+
 /// iOS: whether `path` is a file the app holds for an import, in the shared
 /// files' store (`SharedIncoming` under Application Support, as
 /// `Platform.swift` makes it) or the temporary folder. The import commands

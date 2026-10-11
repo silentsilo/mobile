@@ -269,6 +269,61 @@ pub async fn audit_set_enabled(
     .map_err(|e| e.to_string())?
 }
 
+/// The open silo's activity log as the phone shows it: newest first, with
+/// each device's name.
+#[derive(serde::Serialize)]
+pub struct ActivityPage {
+    entries: Vec<silentsilo_app::audit_read::LogEntry>,
+    names: HashMap<String, String>,
+    unreadable: usize,
+    copies_unread: Vec<String>,
+}
+
+/// The newest this many: a phone reads the recent past, the computer the
+/// whole log with its search.
+const ACTIVITY_LIMIT: usize = 500;
+
+/// Reads the open silo's log from this phone and every copy. An
+/// organisation's log opens only with its security key, on a computer.
+#[tauri::command]
+pub async fn audit_read(app: AppHandle) -> Result<ActivityPage, String> {
+    let state = app.state::<AppState>();
+    let silo = active_silo(&state)?;
+    if state.audit_status(silo.id)?.organisation {
+        return Err(
+            "This silo's activity log is read with the organisation's security key, on a computer."
+                .into(),
+        );
+    }
+    let read = silentsilo_app::audit_read::read_audit_log(
+        &state,
+        &crate::commands::host(&app),
+        &silo,
+        &silentsilo_app::audit_read::Reader::Silo,
+    )
+    .await?;
+    let names = state
+        .with_vfs(|_session, vfs| vfs.list_devices())
+        .map(|devices| {
+            devices
+                .into_iter()
+                .map(|d| {
+                    (
+                        d.id.to_string(),
+                        d.label.or(d.system_name).unwrap_or_default(),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok(ActivityPage {
+        entries: read.entries.into_iter().take(ACTIVITY_LIMIT).collect(),
+        names,
+        unreadable: read.unreadable,
+        copies_unread: read.copies_unread,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,12 +1,14 @@
-import { ChevronDown, ChevronRight, ShieldCheck } from "lucide-react";
+import { ChevronDown, ChevronRight, Globe, ShieldCheck } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { formatAppError } from "../shared/errors";
 import { analyseHealth, type HealthFinding, type SiloHealth } from "../shared/health";
 import { subtitleFor } from "../shared/passwordUtil";
 import type { PasswordEntry } from "../shared/types";
+import { canIgnore, fingerprint, loadIgnored, saveIgnored, splitIgnored } from "../shared/healthIgnored";
+import { checkPasswords, type PwnedReport } from "../shared/pwned";
 import { EmptyState, Notice, Skeleton, TopBar } from "../ui/chrome";
-import { t, useLocale } from "../i18n";
+import { dateLocale, t, useLocale } from "../i18n";
 
 const COLOUR: Record<HealthFinding["severity"], string> = {
   high: "var(--danger)",
@@ -16,7 +18,7 @@ const COLOUR: Record<HealthFinding["severity"], string> = {
 
 /** What is wrong with the silo's passwords and setup, worked out on this
  * phone from what is already open. Nothing is sent anywhere. */
-export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry: PasswordEntry) => void }) {
+export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () => void; onOpen: (entry: PasswordEntry) => void }) {
   const locale = useLocale();
   // What the findings are worked out from; they are worded at render time,
   // so a language change rewrites them.
@@ -46,10 +48,42 @@ export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry:
       .catch((e) => setError(formatAppError(e)));
   }, []);
 
-  const findings = useMemo(
+  const all = useMemo(
     () => (inputs ? analyseHealth(inputs.entries, inputs.silo) : null),
     [inputs, locale],
   );
+  // Set aside on this phone, as desktop does on the computer: what is not
+  // critical, until it grows.
+  const [ignored, setIgnored] = useState(() => loadIgnored(siloId));
+  const [showIgnored, setShowIgnored] = useState(false);
+  const split = useMemo(() => (all ? splitIgnored(all, ignored) : null), [all, ignored]);
+  const findings = split ? (showIgnored ? [...split.active, ...split.ignored] : split.active) : null;
+  const toggleIgnored = (finding: HealthFinding) => {
+    const next = new Set(ignored);
+    const key = fingerprint(finding);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    saveIgnored(siloId, next);
+    setIgnored(next);
+  };
+
+  // Only a hash prefix leaves the phone; the rest is compared here.
+  const [breaches, setBreaches] = useState<
+    { kind: "idle" } | { kind: "busy"; done: number; total: number } | { kind: "done"; report: PwnedReport } | { kind: "unavailable" }
+  >({ kind: "idle" });
+  const runBreachCheck = async () => {
+    if (!inputs) return;
+    setBreaches({ kind: "busy", done: 0, total: 0 });
+    try {
+      const report = await checkPasswords(inputs.entries, (prefix) => api.pwnedRange(prefix), (done, total) =>
+        setBreaches({ kind: "busy", done, total }),
+      );
+      setBreaches(report.checked > 0 && report.unavailable === report.checked ? { kind: "unavailable" } : { kind: "done", report });
+    } catch {
+      setBreaches({ kind: "unavailable" });
+    }
+  };
+  const nameOf = (id: string) => inputs?.entries.find((e) => e.id === id);
 
   return (
     <div className="screen">
@@ -66,6 +100,7 @@ export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry:
         )}
         {findings?.map((finding) => {
           const expanded = open === finding.id;
+          const isIgnored = ignored.has(fingerprint(finding)) && canIgnore(finding);
           return (
             <div key={finding.id} className="panel">
               <button className="row" style={{ minHeight: 64, alignItems: "flex-start", paddingTop: 14 }} onClick={() => setOpen(expanded ? null : finding.id)}>
@@ -76,6 +111,13 @@ export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry:
                 </span>
                 {finding.entries.length > 0 && (expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} color="var(--text-dim)" />)}
               </button>
+              {expanded && canIgnore(finding) && (
+                <div className="row divide" style={{ justifyContent: "flex-end" }}>
+                  <button className="text-btn" onClick={() => toggleIgnored(finding)}>
+                    {isIgnored ? t("dlg.health_show_again") : t("dlg.health_ignore")}
+                  </button>
+                </div>
+              )}
               {expanded &&
                 (finding.groups ?? [finding.entries]).map((group, g) => (
                   <div key={g} style={{ borderTop: "1px solid var(--border-subtle)" }}>
@@ -93,6 +135,55 @@ export function Health({ onBack, onOpen }: { onBack: () => void; onOpen: (entry:
             </div>
           );
         })}
+        {split && split.ignored.length > 0 && (
+          <button className="text-btn" style={{ alignSelf: "flex-start" }} onClick={() => setShowIgnored(!showIgnored)}>
+            {t("dlg.health_ignored", { count: split.ignored.length })}
+          </button>
+        )}
+        {inputs && inputs.entries.length > 0 && (
+          <div className="panel" style={{ padding: 16, gap: 10, display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <Globe size={20} aria-hidden />
+              <span style={{ flex: 1, fontWeight: 650 }}>{t("dlg.health_breach_title")}</span>
+            </div>
+            <p className="hint small">{t("dlg.health_breach_hint")}</p>
+            <button className="btn secondary" disabled={breaches.kind === "busy"} aria-busy={breaches.kind === "busy"} onClick={() => void runBreachCheck()}>
+              {breaches.kind === "busy"
+                ? breaches.total
+                  ? t("dlg.health_checking_count", { done: breaches.done, total: breaches.total })
+                  : t("dlg.health_checking")
+                : t("dlg.health_check_now")}
+            </button>
+            {breaches.kind === "unavailable" && <p className="hint small">{t("dlg.health_breach_unavailable")}</p>}
+            {breaches.kind === "done" &&
+              (breaches.report.exposures.length === 0 ? (
+                <p className="hint small">
+                  {t("dlg.health_breach_none", { count: breaches.report.checked })}
+                  {breaches.report.unavailable > 0 && ` ${t("dlg.health_breach_partial", { count: breaches.report.unavailable })}`}
+                </p>
+              ) : (
+                <>
+                  <p className="small" style={{ fontWeight: 600 }}>{t("dlg.health_breach_found", { count: breaches.report.exposures.length })}</p>
+                  {breaches.report.exposures.flatMap((exposure) =>
+                    exposure.entryIds.map((id) => {
+                      const entry = nameOf(id);
+                      return (
+                        <button key={id} className="row divide" onClick={() => entry && onOpen(entry)}>
+                          <span className="row-text">
+                            <span className="row-title">{entry?.service || t("dlg.untitled")}</span>
+                            <span className="row-sub">
+                              {t("dlg.health_seen", { count: exposure.count, times: exposure.count.toLocaleString(dateLocale()) })}
+                            </span>
+                          </span>
+                          <ChevronRight size={18} color="var(--text-dim)" />
+                        </button>
+                      );
+                    }),
+                  )}
+                </>
+              ))}
+          </div>
+        )}
       </div>
     </div>
   );

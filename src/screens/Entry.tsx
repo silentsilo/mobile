@@ -9,6 +9,7 @@ import { cardDigits, groupCardNumber, avatarColor, inkOn, notesAreSecret, servic
 import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, generateTotp, totpSecondsRemaining } from "../shared/totp";
 import type { HistoryVersion, PasswordAttachment, PasswordEntry } from "../shared/types";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
+import { HandOverSheet, type HandOverHow } from "../ui/HandOver";
 import { ensureVerified, recentlyVerified } from "../ui/reverify";
 import { haptic } from "../ui/haptics";
 import { t, useLocale, type Key } from "../i18n";
@@ -136,14 +137,15 @@ export function Entry({
   const toast = useToast();
   const totp = useTotp(entry);
   const bg = avatarColor(entry.service);
-  const editable = typeOf(entry) === "login";
   // An attached file opens in another app; the one being readied is shown.
   const [opening, setOpening] = useState<string | null>(null);
-  const openAttachment = async (attachment: PasswordAttachment) => {
+  const [handing, setHanding] = useState<PasswordAttachment | null>(null);
+  const openAttachment = async (attachment: PasswordAttachment, how: HandOverHow) => {
+    setHanding(null);
     setOpening(attachment.blob_id);
     try {
       await ensureVerified(entry);
-      await api.openAttachment(entry, attachment);
+      if ((await api.openAttachment(entry, attachment, how)) && how === "save") toast(t("files.saved_to_phone"));
     } catch (e) {
       toast(formatAppError(e));
     } finally {
@@ -248,11 +250,9 @@ export function Entry({
             >
               <Star size={22} fill={entry.favorite ? "var(--warning)" : "none"} color={entry.favorite ? "var(--warning)" : undefined} />
             </button>
-            {editable && (
-              <button className="text-btn" onClick={() => void confirm().then((ok) => ok && onEdit())}>
-                {t("pw.edit")}
-              </button>
-            )}
+            <button className="text-btn" onClick={() => void confirm().then((ok) => ok && onEdit())}>
+              {t("pw.edit")}
+            </button>
           </div>
         }
       />
@@ -364,7 +364,7 @@ export function Entry({
                   style={{ minHeight: 60, width: "100%" }}
                   disabled={opening !== null}
                   aria-busy={opening === attachment.blob_id}
-                  onClick={() => void openAttachment(attachment)}
+                  onClick={() => setHanding(attachment)}
                 >
                   <Paperclip size={20} aria-hidden />
                   <span className="row-text">
@@ -424,7 +424,6 @@ export function Entry({
           </div>
         )}
 
-        {!editable && <p className="hint small" style={{ padding: "0 4px" }}>{t("pw.edit_on_computer")}</p>}
       </div>
 
       <Sheet open={confirmClear} onClose={() => setConfirmClear(false)} title={t("pw.clear_history_title")}>
@@ -436,6 +435,12 @@ export function Entry({
           {t("common.cancel")}
         </button>
       </Sheet>
+      <HandOverSheet
+        open={handing !== null}
+        title={handing?.name}
+        onClose={() => setHanding(null)}
+        onChoose={(how) => handing && void openAttachment(handing, how)}
+      />
     </div>
   );
 }

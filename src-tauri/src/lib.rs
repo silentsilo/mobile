@@ -21,6 +21,7 @@ mod manage;
 #[cfg(target_os = "android")]
 mod passkeys;
 mod paths;
+mod pwned;
 #[cfg(mobile)]
 mod secrets;
 mod security_key;
@@ -140,6 +141,8 @@ pub fn run() {
             audit::audit_note,
             audit::audit_status,
             audit::audit_set_enabled,
+            audit::audit_read,
+            pwned::pwned_range,
             commands::vault_root_folder,
             commands::vault_list_folder,
             commands::sync_status,
@@ -169,6 +172,8 @@ pub fn run() {
             incoming::vault_import_photo,
             incoming::files_left_photos,
             incoming::files_discard_shared,
+            incoming::password_attach_offered,
+            incoming::password_delete_attachment,
             incoming::files_discard_left_photos,
             incoming::vault_create_folder,
             incoming::share_to_inbox,
@@ -187,6 +192,10 @@ pub fn run() {
             manage::vault_restore_folder,
             manage::vault_purge_trash,
             manage::silo_list,
+            manage::vault_set_favorite,
+            manage::vault_list_favorites,
+            manage::vault_list_devices,
+            manage::vault_set_device_label,
             manage::silo_switch,
             manage::silo_remove,
             create::silo_create,

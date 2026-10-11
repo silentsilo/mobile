@@ -301,6 +301,38 @@ const handlers: Record<string, Handler> = {
   files_discard_shared: async () => {},
   password_open_attachment: async () => {
     await wait(800);
+    return true;
+  },
+  password_attach_offered: async (args) => {
+    await wait(600);
+    const file = args.file as { name: string; size: number };
+    return { blob_id: crypto.randomUUID(), name: file.name, size_bytes: file.size, blob_key: "" };
+  },
+  password_delete_attachment: async () => {},
+  vault_set_favorite: async () => {},
+  vault_list_favorites: async () => [],
+  vault_list_devices: async () => [
+    { id: "d1", label: null, system_name: "Pixel 8", platform: "Android 15", is_this_device: true, operations: 40, last_change_at: Date.now() - 60_000 },
+    { id: "d2", label: "Office PC", system_name: "DESKTOP-7Q", platform: "Windows 11 Pro", is_this_device: false, operations: 900, last_change_at: Date.now() - 86_400_000 },
+  ],
+  vault_set_device_label: async () => {},
+  pwned_range: async () => {
+    await wait(150);
+    return "";
+  },
+  audit_read: async () => {
+    await wait(500);
+    const now = Date.now();
+    return {
+      entries: [
+        { device: "d1", what: "unlocked", i: 3, t: now - 60_000, c: 1, x: { via: "phone key" } },
+        { device: "d1", what: "password_copied", i: 2, t: now - 3_600_000, c: 21, o: "e1", l: "GitHub" },
+        { device: "d2", what: "file_added", i: 1, t: now - 90_000_000, c: 40, o: "f1", l: "report.pdf" },
+      ],
+      names: { d1: "Pixel 8", d2: "Office PC" },
+      unreadable: 0,
+      copies_unread: [],
+    };
   },
   cloud_sign_in: async (args) => {
     await wait(900);

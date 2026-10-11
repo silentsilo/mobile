@@ -32,6 +32,9 @@ tokio = { version = "1", features = ["time", "sync", "macros"] }
 silentsilo-fido = { workspace = true, features = ["enclave", "ctap2", "passkey"] }
 zeroize = "1"
 
+# The breach check; the same build core's storage already links.
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+
 [target.'cfg(target_os = "android")'.dependencies]
 # The version tauri already uses, for the Kotlin calls outside a plugin.
 jni = "0.21.1"

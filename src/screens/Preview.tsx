@@ -5,7 +5,8 @@ import { api } from "../api";
 import { formatBytes, formatDate } from "../shared/format";
 import type { FileEntry } from "../shared/types";
 import { formatAppError } from "../shared/errors";
-import { Sheet, TopBar, useToast } from "../ui/chrome";
+import { TopBar, useToast } from "../ui/chrome";
+import { HandOverSheet, type HandOverHow } from "../ui/HandOver";
 import { fileIcon } from "./Files";
 import { t, useLocale } from "../i18n";
 
@@ -81,11 +82,11 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
   // A large file may have to come down from storage and be decrypted first,
   // which takes a while; without this the tap looked like it did nothing.
   const [opening, setOpening] = useState(false);
-  const openWith = async () => {
+  const openWith = async (how: HandOverHow) => {
     setConfirmOpen(false);
     setOpening(true);
     try {
-      await api.openWith(file.id);
+      if ((await api.openWith(file.id, how)) && how === "save") toast(t("files.saved_to_phone"));
     } catch (e) {
       toast(formatAppError(e));
     } finally {
@@ -192,15 +193,7 @@ export function Preview({ file, onBack }: { file: FileEntry; onBack: () => void 
         </div>
       </div>
 
-      <Sheet open={confirmOpen} onClose={() => setConfirmOpen(false)} title={t("files.open_with")}>
-        <p className="hint">{t("files.open_with_text")}</p>
-        <button className="btn" onClick={() => void openWith()}>
-          {t("files.open")}
-        </button>
-        <button className="btn secondary" onClick={() => setConfirmOpen(false)}>
-          {t("common.cancel")}
-        </button>
-      </Sheet>
+      <HandOverSheet open={confirmOpen} title={file.name} onClose={() => setConfirmOpen(false)} onChoose={(how) => void openWith(how)} />
     </div>
   );
 }

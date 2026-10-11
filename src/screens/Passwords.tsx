@@ -1,10 +1,10 @@
-import { Check, ChevronDown, Copy, FolderInput, KeyRound, Paperclip, RefreshCw, Search, Star, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Contact, Copy, CreditCard, FolderInput, KeyRound, Paperclip, RefreshCw, Search, Star, StickyNote, TerminalSquare, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { avatarColor, categoryLabel, inkOn, resolveCategories, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
 import { withEdits } from "../shared/passwordEntry";
-import type { PasswordCategory, PasswordEntry } from "../shared/types";
+import type { CredentialType, PasswordCategory, PasswordEntry } from "../shared/types";
 import { AddButton, EmptyState, Notice, Sheet, Skeleton, useToast } from "../ui/chrome";
 import { useBackLayer } from "../ui/back";
 import { isIOS } from "../ui/platform";
@@ -68,14 +68,17 @@ export function Passwords({
   sync: SyncStatus | null;
   reloadKey: number;
   onOpen: (entry: PasswordEntry) => void;
-  /** A new entry, in the category the list is showing. */
-  onAdd: (category: string | null) => void;
+  /** A new entry of a kind, in the category the list is showing. */
+  onAdd: (category: string | null, type: CredentialType) => void;
 }) {
   const [entries, setEntries] = useState<PasswordEntry[] | null>(null);
   const [stored, setStored] = useState<PasswordCategory[] | null>(null);
   // What the list shows: everything, the starred ones, or one category.
   const [showing, setShowing] = useState<{ kind: "all" } | { kind: "favorites" } | { kind: "category"; name: string }>({ kind: "all" });
   const [moving, setMoving] = useState(false);
+  // "+" asks what kind of entry first, as desktop's Add entry does.
+  const [choosingType, setChoosingType] = useState(false);
+  const add = () => setChoosingType(true);
   const addCategory = showing.kind === "category" ? showing.name : null;
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -219,7 +222,7 @@ export function Passwords({
         <SiloHeader
           siloName={siloName}
           sync={sync}
-          action={isIOS ? <AddButton label={t("pw.new_entry")} onClick={() => onAdd(addCategory)} /> : undefined}
+          action={isIOS ? <AddButton label={t("pw.new_entry")} onClick={add} /> : undefined}
         />
       )}
       <div style={{ padding: "0 16px 10px" }}>
@@ -279,7 +282,7 @@ export function Passwords({
                 icon={<KeyRound size={26} />}
                 title={t("pw.empty_title")}
                 hint={t("pw.empty_hint")}
-                action={{ label: t("pw.add_password"), onClick: () => onAdd(addCategory) }}
+                action={{ label: t("pw.add_password"), onClick: add }}
               />
             ))}
           {shown.map((entry) => {
@@ -323,8 +326,29 @@ export function Passwords({
             );
           })}
         </div>
-        {!isIOS && !selecting && <AddButton label={t("pw.new_entry")} onClick={() => onAdd(addCategory)} />}
+        {!isIOS && !selecting && <AddButton label={t("pw.new_entry")} onClick={add} />}
       </div>
+
+      <Sheet open={choosingType} onClose={() => setChoosingType(false)} title={t("pw.new_entry")}>
+        <div className="panel">
+          {ENTRY_KINDS.map(({ type, label, Icon }, i) => (
+            <button
+              key={type}
+              className={`row${i > 0 ? " divide" : ""}`}
+              style={{ minHeight: 56, width: "100%" }}
+              onClick={() => {
+                setChoosingType(false);
+                onAdd(addCategory, type);
+              }}
+            >
+              <Icon size={20} aria-hidden />
+              <span className="row-text">
+                <span className="row-title">{t(label)}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </Sheet>
 
       <Sheet open={moving} onClose={() => setMoving(false)} title={t("pw.bulk_move")}>
         <div className="panel">
@@ -359,3 +383,11 @@ export function Passwords({
 }
 
 const LONG_PRESS_MS = 450;
+
+const ENTRY_KINDS = [
+  { type: "login", label: "pw.type_login", Icon: KeyRound },
+  { type: "card", label: "pw.type_card", Icon: CreditCard },
+  { type: "identity", label: "pw.type_identity", Icon: Contact },
+  { type: "note", label: "pw.type_note", Icon: StickyNote },
+  { type: "ssh_key", label: "pw.type_ssh_key", Icon: TerminalSquare },
+] as const;
