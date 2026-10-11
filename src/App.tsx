@@ -35,6 +35,8 @@ import { SyncActivityProvider, useLeftOut } from "./ui/syncActivity";
 import { useBackLayer } from "./ui/back";
 import { forgetVerified } from "./ui/reverify";
 import { useWide } from "./ui/useWide";
+import { PullToRefresh } from "./ui/PullToRefresh";
+import { syncSay } from "./ui/syncSay";
 
 type Phase =
   | { at: "loading" }
@@ -441,8 +443,19 @@ function OpenSiloScreens({
     { id: "silo", label: t("start.tab_silo"), Icon: ShieldCheck },
   ];
 
+  // Pull down on any tab: one pass now, as the Sync button on Silo does.
+  const pullSync = async () => {
+    try {
+      const said = syncSay(await api.syncNow());
+      if (said) toast(said);
+      refreshSync();
+    } catch (e) {
+      toast(formatAppError(e));
+    }
+  };
+
   const tabScreen = (
-    <>
+    <PullToRefresh enabled={Boolean(sync?.configured)} onRefresh={pullSync}>
       {leftOut && (
         <Notice tone="warning" style={{ margin: "10px 16px 0" }}>
           <strong>{t("start.left_out_title")}</strong> {t("start.left_out_body")}
@@ -459,7 +472,7 @@ function OpenSiloScreens({
       )}
       {tab === "files" && <Files siloName={siloName} sync={sync} reloadKey={reloadKey} onOpenFile={(file) => setDetail({ at: "preview", file })} />}
       {tab === "silo" && <Silo siloId={siloId} siloName={siloName} sync={sync} onSynced={refreshSync} onKeys={() => setDetail({ at: "keys" })} onBackup={() => setDetail({ at: "backup" })} onTrash={() => setDetail({ at: "trash" })} onHealth={() => setDetail({ at: "health" })} onActivity={() => setDetail({ at: "activity" })} onDevices={() => setDetail({ at: "devices" })} onStorage={() => setDetail({ at: "storage" })} onLocked={onLocked} />}
-    </>
+    </PullToRefresh>
   );
 
   const tabButtons = tabs.map(({ id, label, Icon }) => (

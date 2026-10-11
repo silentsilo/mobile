@@ -13,6 +13,7 @@ import { SiloHeader } from "./Passwords";
 import { announceSilo } from "./SiloSwitcher";
 import { haptic } from "../ui/haptics";
 import { useBehind, useLeftOut } from "../ui/syncActivity";
+import { syncSay } from "../ui/syncSay";
 import { isIOS } from "../ui/platform";
 
 function historyLabel(policy: HistoryPolicy): string {
@@ -168,12 +169,9 @@ export function Silo({
     setSyncing(true);
     try {
       const report = await api.syncNow();
-      if (report.needs_rejoin) toast(t("silo.sync_left_out"));
-      else if (report.needs_rebuild) setBehindSaid(true);
-      else if (report.key_material_replaced) toast(t("silo.sync_key_replaced"));
-      else if (report.skipped) toast(t("silo.sync_already_running"));
-      else if (report.blobs_failed > 0) toast(t("silo.sync_files_failed", { count: report.blobs_failed }));
-      else toast(report.ops_pushed + report.ops_fetched > 0 ? t("silo.sync_done") : t("silo.sync_up_to_date"));
+      if (report.needs_rebuild) setBehindSaid(true);
+      const said = syncSay(report);
+      if (said) toast(said);
       api.auditStatus().then(setAudit, () => undefined);
       onSynced();
     } catch (e) {
@@ -249,14 +247,6 @@ export function Silo({
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <SiloHeader siloName={siloName} sync={sync} />
       <div className="screen-body tight" style={{ paddingTop: 0, gap: 18 }}>
-        {audit?.enabled && (
-          <button className="panel row" style={{ minHeight: 48, gap: 10 }} onClick={() => setAboutAudit(true)}>
-            <ScrollText size={18} color="var(--accent-text)" />
-            <span style={{ flex: 1 }}>
-              {audit.organisation ? t("silo.audit_banner_org") : t("silo.audit_banner_on")}
-            </span>
-          </button>
-        )}
         {sync?.configured && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span className="label" style={{ padding: "0 4px" }}>{t("silo.section_backup")}</span>

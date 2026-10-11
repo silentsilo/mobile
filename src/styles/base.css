@@ -1417,3 +1417,33 @@ input[type="checkbox"] {
 textarea.masked-text {
   -webkit-text-security: disc;
 }
+
+/* Pull to sync: the tab's content, with a dot that follows the finger down
+   from under the header. */
+.pull-refresh {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.pull-refresh .screen-body {
+  overscroll-behavior-y: contain;
+}
+
+.pull-refresh-dot {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+}
