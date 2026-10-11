@@ -288,8 +288,51 @@ final class PrivacyCover {
     let view = UIView(frame: window.bounds)
     view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     view.backgroundColor = .systemBackground
+    let card = Self.card()
+    view.addSubview(card)
+    NSLayoutConstraint.activate([
+      card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+      card.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+    ])
     window.addSubview(view)
     covers.append(view)
+  }
+
+  /// The lock, the name, and a line saying the contents are hidden: a blank
+  /// card read as an app that had not drawn yet.
+  private static func card() -> UIView {
+    let tile = UIView()
+    tile.backgroundColor = UIColor(red: 0.486, green: 0.227, blue: 0.929, alpha: 1)
+    tile.layer.cornerRadius = 18
+    tile.layer.cornerCurve = .continuous
+    let lock = UIImageView(
+      image: UIImage(systemName: "lock.fill", withConfiguration: UIImage.SymbolConfiguration(pointSize: 30, weight: .semibold))
+    )
+    lock.tintColor = .white
+    lock.translatesAutoresizingMaskIntoConstraints = false
+    tile.addSubview(lock)
+    tile.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+      tile.widthAnchor.constraint(equalToConstant: 72),
+      tile.heightAnchor.constraint(equalToConstant: 72),
+      lock.centerXAnchor.constraint(equalTo: tile.centerXAnchor),
+      lock.centerYAnchor.constraint(equalTo: tile.centerYAnchor),
+    ])
+    let name = UILabel()
+    name.text = "SilentSilo"
+    name.font = .systemFont(ofSize: 22, weight: .bold)
+    name.textColor = .label
+    let hidden = UILabel()
+    hidden.text = NSLocalizedString("privacy_cover", comment: "")
+    hidden.font = .preferredFont(forTextStyle: .subheadline)
+    hidden.textColor = .secondaryLabel
+    let stack = UIStackView(arrangedSubviews: [tile, name, hidden])
+    stack.axis = .vertical
+    stack.alignment = .center
+    stack.spacing = 12
+    stack.setCustomSpacing(18, after: tile)
+    stack.translatesAutoresizingMaskIntoConstraints = false
+    return stack
   }
 
   private func uncover() {

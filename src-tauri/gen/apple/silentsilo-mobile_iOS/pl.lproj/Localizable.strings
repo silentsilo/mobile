@@ -7,3 +7,5 @@
 /* Phone backup reminder (Backup.swift): items waited for days. */
 "backup_title" = "Kopia telefonu";
 "backup_waiting" = "Zdjęcia i kontakty z tego iPhone'a czekają. Otwórz SilentSilo, aby dodać je do silosu.";
+/* The app switcher card while the app is away (Platform.swift). */
+"privacy_cover" = "Zawartość ukryta";
