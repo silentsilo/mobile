@@ -113,7 +113,12 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
           className="btn secondary"
           onClick={() => {
             setAddError(null);
-            setLabel(t("silo.key_kind_security"));
+            // A second of the same name gets a number, as on desktop.
+            const base = t("silo.key_kind_security");
+            const taken = new Set((keys ?? []).map((k) => k.label));
+            let next = base;
+            for (let n = 2; taken.has(next); n++) next = `${base} ${n}`;
+            setLabel(next);
             setAdding("name");
           }}
         >

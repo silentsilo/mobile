@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, type CloudKind, type ICloudStatus, type StorageView, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
+import { DEFAULT_FOLDER, folderNameFor } from "../shared/folderName";
 import { Field, Notice, Sheet } from "./chrome";
 import { dateLocale, t, useLocale, type Key } from "../i18n";
 
@@ -108,7 +109,7 @@ export function StorageForm({
     signIn: null as string | null,
     account: storedCloud ? current.username : "",
     freeBytes: null as number | null,
-    folder: storedCloud ? current.path : "Silo",
+    folder: storedCloud ? current.path : DEFAULT_FOLDER,
   });
   const [found, setFound] = useState<string[] | null>(null);
   const [signingIn, setSigningIn] = useState(false);
@@ -143,7 +144,31 @@ export function StorageForm({
   const [clouds, setClouds] = useState<CloudKind[]>([]);
   // iCloud Drive: only an iPhone has it; asked again with Check again.
   const [icloud, setICloud] = useState<ICloudStatus | null>(null);
-  const [icloudFolder, setICloudFolder] = useState(known === "icloud" ? current?.path ?? "Silo" : "Silo");
+  const [icloudFolder, setICloudFolder] = useState(known === "icloud" ? current?.path ?? DEFAULT_FOLDER : DEFAULT_FOLDER);
+  // A new folder starts with the open silo's name, until the user types one.
+  const defaultFolder = useRef(DEFAULT_FOLDER);
+  const folderTyped = useRef(false);
+  useEffect(() => {
+    if (joining) return;
+    let live = true;
+    api
+      .listSilos()
+      .then((silos) => {
+        const name = silos.find((s) => s.active)?.name;
+        if (!live || !name) return;
+        const folder = folderNameFor(name);
+        defaultFolder.current = folder;
+        if (folderTyped.current) return;
+        if (!storedCloud) setCloud((prev) => ({ ...prev, folder }));
+        if (known !== "icloud") setICloudFolder(folder);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+    // Once, for the silo the form opened on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [checking, setChecking] = useState(false);
   const checkICloud = async () => {
     setChecking(true);
@@ -186,7 +211,7 @@ export function StorageForm({
         signIn: null,
         account: same ? current?.username ?? "" : "",
         freeBytes: null,
-        folder: same ? current?.path ?? "Silo" : "Silo",
+        folder: same ? current?.path ?? defaultFolder.current : defaultFolder.current,
       });
       setFound(null);
     }
@@ -393,7 +418,10 @@ export function StorageForm({
                     <div className="input">
                       <input
                         value={icloudFolder}
-                        onChange={(e) => setICloudFolder(e.target.value)}
+                        onChange={(e) => {
+                          folderTyped.current = true;
+                          setICloudFolder(e.target.value);
+                        }}
                         autoCapitalize="none"
                         autoCorrect="off"
                         spellCheck={false}
@@ -464,7 +492,10 @@ export function StorageForm({
                   <div className="input">
                     <input
                       value={cloud.folder}
-                      onChange={(e) => setCloud({ ...cloud, folder: e.target.value })}
+                      onChange={(e) => {
+                        folderTyped.current = true;
+                        setCloud({ ...cloud, folder: e.target.value });
+                      }}
                       autoCapitalize="none"
                       autoCorrect="off"
                       spellCheck={false}

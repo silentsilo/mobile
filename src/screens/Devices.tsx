@@ -61,7 +61,7 @@ export function Devices({ onBack }: { onBack: () => void }) {
                   className={`row${i > 0 ? " divide" : ""}`}
                   style={{ minHeight: 64, width: "100%" }}
                   onClick={() => {
-                    setName(d.label ?? "");
+                    setName(d.label ?? d.system_name ?? "");
                     setNaming(d);
                   }}
                 >

@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { api, type JoinPreview, type StoreConfigInput } from "../api";
 import { formatAppError } from "../shared/errors";
 import { isComplete } from "../shared/recoveryCode";
+import { siloNameFromStorage } from "../shared/folderName";
 import { Field, Notice, Sheet, StepBar, useToast } from "../ui/chrome";
 import { RecoveryCodeInput } from "../ui/RecoveryCodeInput";
 import { SecurityKeyWait } from "../ui/SecurityKeyWait";
@@ -22,7 +23,10 @@ export function JoinCode({
 }) {
   useLocale();
   const [code, setCode] = useState("");
-  const [name, setName] = useState(() => t("start.default_name"));
+  // The folder the silo is in, which is usually its name; as on desktop.
+  const [name, setName] = useState(
+    () => siloNameFromStorage(config as { kind: string } & Record<string, unknown>) || t("start.default_name"),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [waitingForKey, setWaitingForKey] = useState(false);
