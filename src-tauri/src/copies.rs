@@ -70,14 +70,16 @@ pub async fn backup_target_add(
         return Err("Unlock the silo first.".into());
     }
     let described = crate::cloud::describe(config, None)?;
-    silentsilo_sync::refuse_foreign_vault(&*described.store, silo.id)
-        .await
-        .map_err(|e| e.to_string())?;
+    // The test write first: it makes a folder typed for a new copy (an
+    // iCloud Drive silo folder), which reads as unreachable until then.
     described
         .store
         .check()
         .await
         .map_err(|e| format!("The backup storage did not accept a test write: {e}"))?;
+    silentsilo_sync::refuse_foreign_vault(&*described.store, silo.id)
+        .await
+        .map_err(|e| e.to_string())?;
     let mut targets = silentsilo_vault::load_targets(silo.id);
     if targets
         .iter()

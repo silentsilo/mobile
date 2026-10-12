@@ -243,14 +243,16 @@ pub async fn storage_save(
     let described = crate::cloud::describe(config, existing)?;
     let config = described.config.clone();
     let store = &described.store;
-    // Another silo's place is refused before anything is written there.
-    silentsilo_sync::refuse_foreign_vault(&**store, silo.id)
-        .await
-        .map_err(|e| e.to_string())?;
+    // The test write first: it makes a folder typed for a new copy (an
+    // iCloud Drive silo folder), which reads as unreachable until then. It
+    // leaves nothing behind, so another silo's place loses nothing to it.
     store
         .check()
         .await
         .map_err(|e| format!("The backup storage did not accept a test write: {e}"))?;
+    silentsilo_sync::refuse_foreign_vault(&**store, silo.id)
+        .await
+        .map_err(|e| e.to_string())?;
 
     match targets.first_mut() {
         Some(first) => first.config = config,
