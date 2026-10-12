@@ -143,6 +143,8 @@ unsafe extern "C" {
     fn ss_pdf_pages(path: *const c_char) -> i32;
     fn ss_pdf_page(path: *const c_char, index: i32, width: i32, length: *mut usize) -> *mut u8;
     fn ss_privacy_cover_install();
+    fn ss_set_theme(choice: *const c_char);
+    fn ss_back_gesture_install();
     fn ss_copy_secret(text: *const c_char);
     fn ss_clear_secret();
     fn ss_haptic(kind: *const c_char);
@@ -274,6 +276,21 @@ pub fn pdf_page(path: &str, index: u32, width: u32) -> Option<Vec<u8>> {
 pub fn install_privacy_cover() {
     // SAFETY: no arguments; the Swift side moves to the main thread.
     unsafe { ss_privacy_cover_install() }
+}
+
+/// The theme chosen in the app, for the status bar and system sheets.
+pub fn set_theme(choice: &str) {
+    let Ok(choice) = std::ffi::CString::new(choice) else {
+        return;
+    };
+    // SAFETY: a valid C string for the duration of the call; Swift copies it.
+    unsafe { ss_set_theme(choice.as_ptr()) }
+}
+
+/// Lets a swipe from the left edge go back through the page's history.
+pub fn install_back_gesture() {
+    // SAFETY: no arguments; the Swift side moves to the main thread.
+    unsafe { ss_back_gesture_install() }
 }
 
 /// One of `Backup.swift`'s calls: the answer's JSON, or its error.

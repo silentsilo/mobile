@@ -8,6 +8,7 @@ import Foundation
 import PDFKit
 import UIKit
 import UniformTypeIdentifiers
+import WebKit
 
 /// The view controller anything shown here is presented from.
 func topController() -> UIViewController? {
@@ -458,4 +459,46 @@ public func ssICloudDocuments() -> UnsafeMutablePointer<CChar>? {
   let documents = root.appendingPathComponent("Documents", isDirectory: true)
   try? manager.createDirectory(at: documents, withIntermediateDirectories: true)
   return strdup(documents.path)
+}
+
+// MARK: - Theme and back gesture
+
+/// Every window of the app, in every scene.
+private func appWindows() -> [UIWindow] {
+  UIApplication.shared.connectedScenes
+    .compactMap { $0 as? UIWindowScene }
+    .flatMap { $0.windows }
+}
+
+/// The theme chosen in the app, for the status bar and the system sheets:
+/// "dark", "light", or anything else to follow the phone.
+@_cdecl("ss_set_theme")
+public func ssSetTheme(_ choice: UnsafePointer<CChar>) {
+  let value = String(cString: choice)
+  DispatchQueue.main.async {
+    let style: UIUserInterfaceStyle =
+      value == "dark" ? .dark : value == "light" ? .light : .unspecified
+    appWindows().forEach { $0.overrideUserInterfaceStyle = style }
+  }
+}
+
+/// Swiping from the left edge goes back, as in every iPhone app. The page
+/// keeps its screens in the history (`back.ts`), so the gesture closes the
+/// open sheet or detail rather than leaving the app.
+@_cdecl("ss_back_gesture_install")
+public func ssBackGestureInstall() {
+  func webViews(in view: UIView) -> [WKWebView] {
+    (view as? WKWebView).map { [$0] } ?? view.subviews.flatMap { webViews(in: $0) }
+  }
+  func enable() {
+    for window in appWindows() {
+      webViews(in: window).forEach { $0.allowsBackForwardNavigationGestures = true }
+    }
+  }
+  // Now, and each time the scene comes up: the web view may not exist yet
+  // when this runs at launch. Setting it again changes nothing.
+  DispatchQueue.main.async { enable() }
+  NotificationCenter.default.addObserver(
+    forName: UIScene.didActivateNotification, object: nil, queue: .main
+  ) { _ in enable() }
 }

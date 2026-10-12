@@ -290,7 +290,8 @@ impl<R: Runtime> DeviceKey<R> {
         Err(Self::NOT_YET.into())
     }
 
-    pub async fn set_theme(&self, _choice: &str) -> Result<(), String> {
+    pub async fn set_theme(&self, choice: &str) -> Result<(), String> {
+        crate::ios::set_theme(choice);
         Ok(())
     }
 

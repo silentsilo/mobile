@@ -62,6 +62,8 @@ pub fn run() {
             background::remember(app.handle());
             #[cfg(target_os = "ios")]
             ios::install_privacy_cover();
+            #[cfg(target_os = "ios")]
+            ios::install_back_gesture();
             let data = paths::data_dir(app.handle())?;
             #[cfg(all(target_os = "ios", debug_assertions))]
             {
