@@ -18,3 +18,17 @@
 "af.failed" = "Il silo non si è aperto.";
 /* AutoFill sheet: in place of a login's username when it has none. */
 "af.no_user" = "Nessun nome utente";
+/* AutoFill sheet: line under the title naming the site that asks for a login; %@ is its address, such as example.com. */
+"af.asking" = "Richiesto da: %@";
+/* AutoFill sheet: the same line when iOS did not say which app or site asks. */
+"af.asking_unknown" = "Richiesto da: un’app o un sito che iOS non ha indicato";
+/* AutoFill sheet: title of the question shown before filling a login saved for another site, or when iOS did not name the site asking. */
+"af.confirm_title" = "Compilare con questo login?";
+/* AutoFill sheet: body of that question. %1$@ is the site the login is saved for, %2$@ the site asking. Keep the line breaks and the label style of af.asking. */
+"af.confirm_other" = "Salvato per: %1$@\nRichiesto da: %2$@\n\nSono siti diversi.";
+/* AutoFill sheet: body of that question when iOS did not name the site asking. %@ is the site the login is saved for. Keep the line break. */
+"af.confirm_unknown" = "Salvato per: %@\nRichiesto da: un’app o un sito che iOS non ha indicato";
+/* AutoFill sheet: button in that question that fills the login into the site asking. */
+"af.fill" = "Compila";
+/* AutoFill sheet: in place of the login's site in that question, when the login has neither an address nor a name. */
+"af.no_site" = "Nessun sito";

@@ -16,5 +16,7 @@ void ss_backup_resolve(const char *kind, const char *reference);
 int64_t ss_backup_waiting(void);
 // The scene entered the background: "At once" locks now.
 void ss_entered_background(void);
+// The iPhone locked: the silo locks too, unless that is turned off.
+void ss_protected_data_going(void);
 // Frees a string Rust returned.
 void ss_rust_free(char *text);

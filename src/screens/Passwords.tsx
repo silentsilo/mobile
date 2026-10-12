@@ -9,7 +9,7 @@ import { AddButton, EmptyState, Notice, Sheet, Skeleton, useToast } from "../ui/
 import { useBackLayer } from "../ui/back";
 import { isIOS } from "../ui/platform";
 import { describeProgress, useLeftOut, useSyncProgress } from "../ui/syncActivity";
-import { ensureVerified } from "../ui/reverify";
+import { confirmForMany, revealed } from "../ui/reverify";
 import { SiloSwitcher } from "./SiloSwitcher";
 import { haptic } from "../ui/haptics";
 import { t, useLocale } from "../i18n";
@@ -164,6 +164,8 @@ export function Passwords({
     haptic("heavy");
     setDeleting(true);
     try {
+      // An entry marked to ask first is not deleted on a tick alone.
+      await confirmForMany(going);
       for (const entry of going) await api.deletePassword(entry);
       setEntries((prev) => (prev ?? []).filter((e) => !selected.has(e.id)));
       toast(t("pw.bulk_deleted", { count: going.length }));
@@ -181,6 +183,7 @@ export function Passwords({
     setMoving(false);
     const going = (entries ?? []).filter((e) => selected.has(e.id) && e.category !== category);
     try {
+      await confirmForMany(going);
       const saved: PasswordEntry[] = [];
       for (const entry of going) saved.push(await api.savePassword(entry, withEdits(entry, { category }), "arranged"));
       const byId = new Map(saved.map((e) => [e.id, e]));
@@ -194,8 +197,8 @@ export function Passwords({
 
   const copyPassword = async (entry: PasswordEntry) => {
     try {
-      await ensureVerified(entry);
-      await api.copySecret(entry, entry.password, "password");
+      const whole = await revealed(entry);
+      await api.copySecret(whole, whole.password, "password");
       haptic("confirm");
       toast(t("pw.password_copied"));
     } catch (e) {

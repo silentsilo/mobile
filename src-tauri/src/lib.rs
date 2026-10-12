@@ -21,11 +21,13 @@ mod manage;
 #[cfg(target_os = "android")]
 mod passkeys;
 mod paths;
+mod presence;
 mod pwned;
 #[cfg(mobile)]
 mod secrets;
 mod security_key;
 mod viewer;
+mod withheld;
 
 use tauri::Manager;
 
@@ -38,6 +40,7 @@ pub fn run() {
         .plugin(security_key::init())
         .manage(silentsilo_app::AppState::default())
         .manage(background::BackgroundLock::default())
+        .manage(presence::Presence::default())
         .manage(cloud::SignInSlot::default())
         .register_asynchronous_uri_scheme_protocol("silo", |ctx, request, responder| {
             commands::serve_file(ctx.app_handle().clone(), request, responder)
@@ -72,11 +75,6 @@ pub fn run() {
             {
                 ios::exclude_from_backup(&dir);
             }
-            // Before the first secret file is read or written.
-            #[cfg(target_os = "ios")]
-            let sealed = keychain::install_protector();
-            #[cfg(target_os = "android")]
-            let sealed = android::protector_ready();
             // OneDrive, Dropbox and Google Drive open through the tokens the
             // vault keeps.
             silentsilo_vault::install_cloud();
@@ -86,18 +84,12 @@ pub fn run() {
             // Nothing is unlocked yet: any scratch left is from a process
             // Android killed while a silo was open.
             let _ = app.state::<silentsilo_app::AppState>().sweep_scratch();
+            // Before the first secret file is read or written: the protector,
+            // the old files sealed, and what needs the sealed registry.
             #[cfg(mobile)]
-            if sealed {
-                secrets::seal_existing(&data);
-            }
+            secrets::ensure_ready(&data);
+            #[cfg(not(mobile))]
             commands::rehome_silos(&data);
-            // Only with the key that seals the registry: without it the
-            // registry reads as empty, and this would rename every silo.
-            #[cfg(mobile)]
-            if sealed {
-                paths::clear_unfinished_joins(&data);
-                paths::recover_silos(&data);
-            }
             let handle = app.handle().clone();
             commands::restore_focus(&handle, &app.state::<silentsilo_app::AppState>());
             commands::spawn_auto_sync(handle);
@@ -134,7 +126,8 @@ pub fn run() {
             commands::device_key_enroll,
             commands::phone_key_state,
             commands::vault_unlock,
-            commands::vault_reverify,
+            presence::vault_reverify,
+            commands::vault_reveal_password,
             commands::vault_unlock_with_recovery,
             commands::vault_lock,
             commands::vault_read_passwords,

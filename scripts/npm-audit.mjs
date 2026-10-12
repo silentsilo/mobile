@@ -22,8 +22,24 @@ try {
   report = e.stdout;
 }
 
+// A run that could not ask the registry, or answered with an error, has
+// checked nothing: that is a failure, not a clean result.
+let parsed;
+try {
+  parsed = JSON.parse(report ?? "");
+} catch {
+  console.error("npm audit gave no readable report.");
+  process.exit(1);
+}
+if (parsed.error || typeof parsed.vulnerabilities !== "object" || parsed.vulnerabilities === null) {
+  console.error(
+    `npm audit did not run: ${parsed.error?.summary ?? parsed.error?.code ?? "no report"}`,
+  );
+  process.exit(1);
+}
+
 const advisories = new Map();
-for (const vuln of Object.values(JSON.parse(report).vulnerabilities ?? {})) {
+for (const vuln of Object.values(parsed.vulnerabilities)) {
   for (const via of vuln.via) {
     if (typeof via !== "object") continue;
     const id = via.url?.split("/").pop() ?? String(via.source);

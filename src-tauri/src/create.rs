@@ -11,7 +11,7 @@ use silentsilo_vault::{
     BackupTarget, LocalVaultAuth, SiloEntry, TargetRole, VaultSession, load_registry, save_registry,
 };
 use silentsilo_vfs::Vfs;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
 use crate::commands::{active_silo, host};
@@ -78,6 +78,7 @@ pub async fn silo_create(
     save_registry(&app_data, &registry).map_err(|e| e.to_string())?;
     *state.active_silo.lock().map_err(|e| e.to_string())? = Some(entry);
     state.open_session(&host(&app), vault_id, session)?;
+    app.state::<crate::presence::Presence>().opened(vault_id);
     crate::audit::set_unlocked_with(vault_id, None);
     crate::audit::start_by_default_off_thread(&app, vault_id).await;
     Ok(meta)
@@ -85,11 +86,14 @@ pub async fn silo_create(
 
 /// A silo made here whose making stopped before its first key, the app
 /// closed or the phone locked in between. No key and no recovery code, so
-/// only the device secret it was made with opens it.
+/// only the device secret it was made with opens it. Backup storage comes
+/// after the key, so a silo that has some is not one being made: its keys
+/// and code went missing, and the device secret alone must not open it.
 pub(crate) fn keyless(silo: &SiloEntry) -> bool {
     !silentsilo_vault::is_fido_enrolled(&silo.path)
         && silentsilo_vault::load_recovery_envelope(&silo.path).is_err()
         && silentsilo_vault::load_credentials(silo.id).is_ok()
+        && silentsilo_vault::load_targets(silo.id).is_empty()
 }
 
 /// Opens a [`keyless`] silo again, so its making can go on from the key.
@@ -119,17 +123,20 @@ pub async fn silo_resume_new(
 }
 
 /// Makes the open silo's recovery code and returns it, the only time it is
-/// shown. A code made again replaces the old one once it syncs.
-#[tauri::command(async)]
-pub fn recovery_create(
+/// shown. A code made again replaces the old one once it syncs. The code
+/// opens the silo for good, so the owner is asked first.
+#[tauri::command]
+pub async fn recovery_create(
     app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let silo = active_silo(&state)?;
-    crate::audit::record(
+    crate::presence::require(&app, &state, &silo).await?;
+    crate::audit::record_off_thread(
         &app,
         crate::audit::event(crate::audit::codes::RECOVERY_CODE_CHANGED).with("now", "new code"),
-    )?;
+    )
+    .await?;
     state.with_session_id(silo.id, |session, _vfs| {
         let (code, envelope) =
             silentsilo_vault::create_recovery_envelope(&session.dek, &session.kek)
@@ -230,6 +237,7 @@ pub fn storage_view(state: State<'_, AppState>) -> Result<StorageView, String> {
 /// or already holds another silo.
 #[tauri::command]
 pub async fn storage_save(
+    app: AppHandle,
     state: State<'_, AppState>,
     config: StoreConfigInput,
 ) -> Result<(), String> {
@@ -237,6 +245,8 @@ pub async fn storage_save(
     if !state.open_silo_ids().contains(&silo.id) {
         return Err("Unlock the silo first.".into());
     }
+    // Whoever reads the new place gets every change from now on.
+    crate::presence::require(&app, &state, &silo).await?;
     let mut targets = silentsilo_vault::load_targets(silo.id);
     let existing = targets.first().map(|t| t.config.clone());
     // A blank secret keeps the stored one, for the same server only.

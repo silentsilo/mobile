@@ -22,9 +22,14 @@ const NOT_FOUND: i32 = -25300;
 
 static KEY: OnceLock<Zeroizing<[u8; 32]>> = OnceLock::new();
 
-/// Installs the protector once the key can be read or made. False leaves the
-/// files as they are, in the clear, as on a build without one.
+/// Installs the protector once the key can be read or made. False means the
+/// Keychain is out of reach (an iPhone started in the background before its
+/// first unlock): the app then writes no secret until a later call here
+/// succeeds (`crate::secrets::ensure_ready`).
 pub fn install_protector() -> bool {
+    if KEY.get().is_some() {
+        return true;
+    }
     let Some(key) = load_or_create() else {
         return false;
     };

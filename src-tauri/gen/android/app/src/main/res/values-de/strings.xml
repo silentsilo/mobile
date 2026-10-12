@@ -11,6 +11,11 @@
     <string name="autofill_save_failed">Die Zugangsdaten konnten nicht gespeichert werden.</string>
     <string name="autofill_pick_hint">Wähle Zugangsdaten nur, wenn du sie hier ausfüllen wolltest.</string>
     <string name="autofill_search_hint">Im Silo suchen</string>
+    <string name="autofill_choose_for">Zugangsdaten für %1$s auswählen</string>
+    <string name="autofill_unverified_browser">SilentSilo kann nicht bestätigen, welche Website in %1$s geöffnet ist, und schlägt deshalb nichts vor. Prüfe die Adressleiste und wähle nur Zugangsdaten für diese Website.</string>
+    <string name="autofill_confirm_title">Diese Zugangsdaten ausfüllen?</string>
+    <string name="autofill_confirm_message">Sie wurden für %1$s gespeichert, und jetzt fragt %2$s danach. Fülle sie nur aus, wenn beide zum selben Dienst gehören.</string>
+    <string name="autofill_confirm_fill">Ausfüllen</string>
     <string name="cancel">Abbrechen</string>
     <string name="cancelled">Abgebrochen.</string>
     <string name="backup_channel">Sicherung wartet auf das Silo</string>

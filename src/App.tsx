@@ -34,7 +34,7 @@ import { EmptyState, Notice, ToastProvider, useToast } from "./ui/chrome";
 import { RecoveryCodeKeeper } from "./ui/RecoveryCodeShow";
 import { SyncActivityProvider, useLeftOut } from "./ui/syncActivity";
 import { useBackLayer } from "./ui/back";
-import { forgetVerified } from "./ui/reverify";
+import { forgetVerified, keepVerified } from "./ui/reverify";
 import { useWide } from "./ui/useWide";
 import { PullToRefresh } from "./ui/PullToRefresh";
 import { syncSay } from "./ui/syncSay";
@@ -159,6 +159,11 @@ export default function App() {
   // The event can be lost while the page is paused, so coming back to the
   // screen asks again.
   const open = phase.at === "open";
+  // Any lock, by hand or by the phone, ends every confirmation of a
+  // protected entry.
+  useEffect(() => {
+    if (!open) forgetVerified();
+  }, [open]);
   useEffect(() => {
     if (!open) return;
     const recheck = () => void refresh();
@@ -380,7 +385,7 @@ function OpenSiloScreens({
           <Entry
             entry={detail.entry}
             onBack={() => setDetail(null)}
-            onEdit={() => setDetail({ at: "edit", entry: detail.entry })}
+            onEdit={(whole) => setDetail({ at: "edit", entry: whole })}
             onChanged={(saved) => {
               changed();
               setDetail({ at: "entry", entry: saved });
@@ -396,6 +401,7 @@ function OpenSiloScreens({
             sync={sync}
             onCancel={() => setDetail(detail.entry ? { at: "entry", entry: detail.entry } : null)}
             onSaved={(saved) => {
+              keepVerified(saved);
               changed();
               setDetail({ at: "entry", entry: saved });
             }}

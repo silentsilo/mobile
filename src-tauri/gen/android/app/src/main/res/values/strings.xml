@@ -14,6 +14,16 @@
     <string name="autofill_save_failed">The login could not be saved.</string>
     <string name="autofill_pick_hint">Choose a login only if you meant to fill it here.</string>
     <string name="autofill_search_hint">Search the silo</string>
+    <!-- %1$s is the app that asked, or the site. Shown above several logins saved for it. -->
+    <string name="autofill_choose_for">Choose a login for %1$s</string>
+    <!-- %1$s is a browser, by name and package. It shows a web page but is not on the list of browsers SilentSilo believes about which site is open, so nothing is suggested and the user searches by hand. -->
+    <string name="autofill_unverified_browser">SilentSilo cannot confirm which site is open in %1$s, so it suggests nothing. Check the address bar and choose a login for that site only.</string>
+    <!-- Asked after the user picks a login by hand from the search. -->
+    <string name="autofill_confirm_title">Fill this login?</string>
+    <!-- %1$s is where the login was saved (a site or an app package), %2$s is the site or app asking for it now. -->
+    <string name="autofill_confirm_message">It was saved for %1$s, and %2$s is asking for it. Fill it only if both are the same service.</string>
+    <!-- Button: fill the chosen login into the other app. -->
+    <string name="autofill_confirm_fill">Fill</string>
     <string name="cancel">Cancel</string>
     <string name="cancelled">Cancelled.</string>
     <string name="backup_channel">Backup waiting for the silo</string>

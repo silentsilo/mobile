@@ -478,6 +478,7 @@ pub async fn vault_unlock_with_security_key(
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    app.state::<crate::presence::Presence>().opened(silo.id);
     crate::audit::set_unlocked_with(silo.id, Some(via));
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
@@ -501,6 +502,8 @@ pub async fn security_key_enroll(
     if !state.open_silo_ids().contains(&silo.id) {
         return Err("Unlock the silo first.".into());
     }
+    // A new key opens the silo for as long as it is on it.
+    crate::presence::require(&app, &state, &silo).await?;
     // Android's USB permission dialog covers the app; that is not leaving it.
     let lock = app.state::<crate::background::BackgroundLock>();
     let _prompt = lock.prompt();

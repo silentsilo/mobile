@@ -367,7 +367,8 @@ pub async fn password_attach_offered(
 
 /// Removes an attachment's content from this phone, after the entry no
 /// longer names it. The copy in backup storage is the sweep's to delete, as
-/// on desktop: only what nothing references across passes goes.
+/// on desktop: only what nothing references across passes goes. Content a
+/// file of the silo or any entry still names is never removed here.
 #[tauri::command]
 pub async fn password_delete_attachment(
     state: State<'_, AppState>,
@@ -375,6 +376,10 @@ pub async fn password_delete_attachment(
 ) -> Result<(), String> {
     let blob_id = Uuid::parse_str(&blob_id).map_err(|e| e.to_string())?;
     let root = crate::commands::active_silo(&state)?.path;
+    let needed = state.with_vfs(|_session, vfs| vfs.referenced_blobs_with_attachments())?;
+    if needed.contains(&blob_id) {
+        return Err("That content still belongs to a file or an entry.".into());
+    }
     silentsilo_vault::remove_blob_from_cache(&root, blob_id).map_err(|e| e.to_string())
 }
 
@@ -387,16 +392,36 @@ fn held_for_import(path: &std::path::Path) -> bool {
     let Ok(path) = path.canonicalize() else {
         return false;
     };
+    import_roots().iter().any(|r| path.starts_with(r))
+}
+
+#[cfg(target_os = "ios")]
+fn import_roots() -> Vec<std::path::PathBuf> {
     let mut roots = vec![std::env::temp_dir()];
     if let Some(home) = std::env::var_os("HOME") {
         roots.push(
             std::path::PathBuf::from(home).join("Library/Application Support/SharedIncoming"),
         );
     }
-    roots
+    roots.iter().filter_map(|r| r.canonicalize().ok()).collect()
+}
+
+/// iOS: the folder a shared file waits in, which goes with it once it is
+/// saved or turned down. Only a folder of its own one level under a store:
+/// a path naming a store itself, or a file lying loose in one, gives none,
+/// so no wider directory of the app can be removed through it.
+#[cfg(target_os = "ios")]
+fn shared_folder(path: &std::path::Path) -> Option<std::path::PathBuf> {
+    let path = path.canonicalize().ok()?;
+    if !path.is_file() {
+        return None;
+    }
+    let folder = path.parent()?;
+    let store = folder.parent()?;
+    import_roots()
         .iter()
-        .filter_map(|r| r.canonicalize().ok())
-        .any(|r| path.starts_with(r))
+        .any(|r| r == store)
+        .then(|| folder.to_path_buf())
 }
 
 /// Shared files the user chose not to save: deleted, so they are not
@@ -406,9 +431,7 @@ pub async fn files_discard_shared(uris: Vec<String>) -> Result<(), String> {
     #[cfg(target_os = "ios")]
     for uri in uris {
         let path = std::path::PathBuf::from(uri);
-        if held_for_import(&path)
-            && let Some(folder) = path.parent()
-        {
+        if let Some(folder) = shared_folder(&path) {
             let _ = std::fs::remove_dir_all(folder);
         }
     }
@@ -557,7 +580,7 @@ pub async fn share_to_inbox(app: AppHandle, file: Offered) -> Result<(), String>
         .map_err(|e| e.to_string())?;
         #[cfg(target_os = "ios")]
         if sent.is_ok()
-            && let Some(folder) = shared.parent()
+            && let Some(folder) = shared_folder(&shared)
         {
             let _ = std::fs::remove_dir_all(folder);
         }

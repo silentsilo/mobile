@@ -62,6 +62,7 @@ pub fn backup_targets_list(state: State<'_, AppState>) -> Result<Vec<CopyView>, 
 /// desktop: storage that cannot be written to is not a copy.
 #[tauri::command]
 pub async fn backup_target_add(
+    app: AppHandle,
     state: State<'_, AppState>,
     config: StoreConfigInput,
 ) -> Result<(), String> {
@@ -69,6 +70,8 @@ pub async fn backup_target_add(
     if !state.open_silo_ids().contains(&silo.id) {
         return Err("Unlock the silo first.".into());
     }
+    // Whoever reads the new place gets every change from now on.
+    crate::presence::require(&app, &state, &silo).await?;
     let described = crate::cloud::describe(config, None)?;
     // The test write first: it makes a folder typed for a new copy (an
     // iCloud Drive silo folder), which reads as unreachable until then.

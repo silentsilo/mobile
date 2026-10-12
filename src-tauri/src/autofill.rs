@@ -258,6 +258,8 @@ fn save(
 
     with_front_silo(data_dir, credential_id, wrap_hex, |vfs| {
         let same_account = |entry: &serde_json::Value| {
+            // The same host or its www. twin, never a subdomain, as autofill
+            // matches it.
             let same_place = match (host_of(&url), host_of(field(entry, "url"))) {
                 (Some(asked), Some(stored)) => asked == stored,
                 _ => !service.is_empty() && field(entry, "service").eq_ignore_ascii_case(&service),
@@ -329,5 +331,8 @@ mod tests {
             Some("com.example.app".into())
         );
         assert_eq!(host_of(""), None);
+        // A subdomain is another place; only the www. twin is the same one.
+        assert_ne!(host_of("https://login.example.com"), host_of("example.com"));
+        assert_eq!(host_of("http://www.example.com"), host_of("example.com"));
     }
 }

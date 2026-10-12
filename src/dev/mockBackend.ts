@@ -404,6 +404,7 @@ const handlers: Record<string, Handler> = {
   },
 
   vault_read_passwords: () => JSON.stringify(entries),
+  vault_reveal_password: (args) => JSON.stringify(entries.find((e) => e.id === args.id)),
   vault_upsert_password: (args) => {
     const next = JSON.parse(String(args.json)) as PasswordEntry;
     entries = entries.some((e) => e.id === next.id) ? entries.map((e) => (e.id === next.id ? next : e)) : [...entries, next];

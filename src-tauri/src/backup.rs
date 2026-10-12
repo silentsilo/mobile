@@ -784,7 +784,8 @@ mod ios_job {
 
     #[unsafe(no_mangle)]
     pub extern "C" fn ss_backup_ready() -> bool {
-        crate::background::data_dir().is_some()
+        // Not before the Keychain can seal what the job writes.
+        crate::background::data_dir().is_some_and(|data| crate::secrets::ensure_ready(data))
     }
 
     #[derive(Deserialize)]

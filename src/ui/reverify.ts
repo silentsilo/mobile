@@ -1,33 +1,60 @@
 import { api } from "../api";
+import { withBaseFields } from "../shared/entryHistory";
 import type { PasswordEntry } from "../shared/types";
 
-/** How long one confirmation covers an entry, as on desktop. */
-const GRACE_MS = 3 * 60_000;
+/** How long one confirmation covers an entry, as on desktop. The Rust side
+ * keeps the same window and is what holds the secrets back. */
+export const VERIFY_GRACE_MS = 3 * 60_000;
 
-const verifiedAt = new Map<string, number>();
+/** Protected entries confirmed on this screen, whole, with when. */
+const verified = new Map<string, { at: number; entry: PasswordEntry }>();
 
-/**
- * Asks for the fingerprint again before a protected entry's secrets show or
- * copy. Resolves true for an entry that does not ask, or one confirmed in
- * the last few minutes; rejects with the prompt's error otherwise.
- */
-export async function ensureVerified(entry: PasswordEntry): Promise<boolean> {
-  if (entry.require_reauth !== true) return true;
-  const last = verifiedAt.get(entry.id);
-  if (last !== undefined && Date.now() - last < GRACE_MS) return true;
-  await api.reverify();
-  verifiedAt.set(entry.id, Date.now());
-  return true;
+/** Whether an entry asks for the fingerprint before its secrets show. */
+export function isProtected(entry: PasswordEntry): boolean {
+  return entry.require_reauth === true;
 }
 
-/** Whether a protected entry was confirmed recently enough to show as is. */
-export function recentlyVerified(entry: PasswordEntry): boolean {
-  if (entry.require_reauth !== true) return true;
-  const last = verifiedAt.get(entry.id);
-  return last !== undefined && Date.now() - last < GRACE_MS;
+/**
+ * The entry with its secrets. A protected entry comes from the list with
+ * them held back; this asks for the fingerprint, unless it was confirmed in
+ * the last few minutes, and returns it whole. Rejects with the prompt's
+ * error.
+ */
+export async function revealed(entry: PasswordEntry): Promise<PasswordEntry> {
+  if (!isProtected(entry)) return entry;
+  const whole = withBaseFields(JSON.parse(await api.revealPassword(entry.id)) as PasswordEntry);
+  verified.set(entry.id, { at: Date.now(), entry: whole });
+  return whole;
+}
+
+/** A protected entry confirmed recently enough to show as is, whole; null
+ * when it has to ask again. An entry that does not ask is returned as is. */
+export function recentlyVerified(entry: PasswordEntry): PasswordEntry | null {
+  if (!isProtected(entry)) return entry;
+  const last = verified.get(entry.id);
+  if (!last || Date.now() - last.at >= VERIFY_GRACE_MS) return null;
+  return last.entry.updated_at === entry.updated_at ? last.entry : null;
+}
+
+/** A protected entry saved whole while confirmed stays confirmed as saved. */
+export function keepVerified(entry: PasswordEntry): void {
+  const last = verified.get(entry.id);
+  if (last && isProtected(entry) && !entry.secrets_withheld)
+    verified.set(entry.id, { at: last.at, entry });
+}
+
+/** When the confirmation of an entry runs out, in `Date.now()` time. */
+export function verifiedUntil(entry: PasswordEntry): number | null {
+  const last = verified.get(entry.id);
+  return last ? last.at + VERIFY_GRACE_MS : null;
+}
+
+/** The fingerprint once, before a change to several protected entries. */
+export async function confirmForMany(entries: PasswordEntry[]): Promise<void> {
+  if (entries.some(isProtected)) await api.reverify();
 }
 
 /** Forgets every confirmation, for a lock. */
 export function forgetVerified(): void {
-  verifiedAt.clear();
+  verified.clear();
 }

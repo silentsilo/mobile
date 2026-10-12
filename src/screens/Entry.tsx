@@ -10,27 +10,31 @@ import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, gener
 import type { HistoryVersion, PasswordAttachment, PasswordEntry } from "../shared/types";
 import { Sheet, TopBar, useToast } from "../ui/chrome";
 import { HandOverSheet, type HandOverHow } from "../ui/HandOver";
-import { ensureVerified, recentlyVerified } from "../ui/reverify";
+import { isProtected, keepVerified, recentlyVerified, revealed, verifiedUntil } from "../ui/reverify";
 import { haptic } from "../ui/haptics";
 import { t, useLocale, type Key } from "../i18n";
 
 /** `audit` is the field as the activity log records it: the English label in
  * lower case, as before the labels were translated, or a custom field's own
  * name. It also keys what is revealed, so a language change hides nothing. */
-type FieldRow = { key: string; audit: string; label: string; value: string; secret?: boolean; mono?: boolean };
+type FieldRow = { key: string; audit: string; label: string; value: string; secret?: boolean; mono?: boolean; held?: boolean };
 
 /** A built-in field: its English name for the log, its label on screen. */
-function builtIn(audit: string, label: Key, value: string, extra: { secret?: boolean; mono?: boolean } = {}): FieldRow {
+function builtIn(audit: string, label: Key, value: string, extra: { secret?: boolean; mono?: boolean; held?: boolean } = {}): FieldRow {
   return { key: audit, audit, label: t(label), value, ...extra };
 }
 
+/** `held` marks a secret the list read without its value: it shows masked
+ * until the fingerprint brings the entry whole. */
 function fieldsFor(entry: PasswordEntry): FieldRow[] {
+  const withheld = new Set(entry.secrets_withheld ?? []);
+  const held = (field: string) => withheld.has(field);
   const rows: FieldRow[] = [];
   switch (typeOf(entry)) {
     case "login":
       rows.push(
         builtIn("username", "pw.field_username", entry.username),
-        builtIn("password", "pw.field_password", entry.password, { secret: true }),
+        builtIn("password", "pw.field_password", entry.password, { secret: true, held: held("password") }),
         builtIn("website", "pw.field_website", entry.url),
       );
       break;
@@ -38,9 +42,9 @@ function fieldsFor(entry: PasswordEntry): FieldRow[] {
       const exp = [entry.card_exp_month, entry.card_exp_year].filter(Boolean).join(" / ");
       rows.push(
         builtIn("cardholder", "pw.field_cardholder", entry.card_holder ?? ""),
-        builtIn("number", "pw.field_number", groupCardNumber(cardDigits(entry)), { secret: true, mono: true }),
+        builtIn("number", "pw.field_number", groupCardNumber(cardDigits(entry)), { secret: true, mono: true, held: held("card_number") }),
         builtIn("expires", "pw.field_expires", exp),
-        builtIn("security code", "pw.field_security_code", entry.card_code ?? "", { secret: true, mono: true }),
+        builtIn("security code", "pw.field_security_code", entry.card_code ?? "", { secret: true, mono: true, held: held("card_code") }),
       );
       break;
     }
@@ -59,7 +63,7 @@ function fieldsFor(entry: PasswordEntry): FieldRow[] {
       rows.push(
         builtIn("fingerprint", "pw.field_fingerprint", entry.ssh_fingerprint ?? "", { mono: true }),
         builtIn("public key", "pw.field_public_key", entry.ssh_public_key ?? "", { mono: true }),
-        builtIn("private key", "pw.field_private_key", entry.ssh_private_key ?? "", { secret: true, mono: true }),
+        builtIn("private key", "pw.field_private_key", entry.ssh_private_key ?? "", { secret: true, mono: true, held: held("ssh_private_key") }),
       );
       break;
     case "note":
@@ -71,12 +75,14 @@ function fieldsFor(entry: PasswordEntry): FieldRow[] {
     label: f.name || (f.hidden ? t("pw.hidden_field") : t("pw.field")),
     value: f.value,
     secret: f.hidden,
+    held: f.hidden && entry.secrets_withheld !== undefined,
   }));
   // A protected entry's notes are one of its secrets, as on desktop.
-  const notes = entry.notes
-    ? [{ key: "Notes", audit: "notes", label: t("pw.field_notes"), value: entry.notes, secret: typeOf(entry) === "note" || notesAreSecret(entry) }]
-    : [];
-  return [...rows, ...custom, ...notes].filter((r) => r.value);
+  const notes =
+    entry.notes || held("notes")
+      ? [{ key: "Notes", audit: "notes", label: t("pw.field_notes"), value: entry.notes, secret: typeOf(entry) === "note" || notesAreSecret(entry), held: held("notes") }]
+      : [];
+  return [...rows, ...custom, ...notes].filter((r) => r.value || r.held);
 }
 
 function useTotp(entry: PasswordEntry) {
@@ -124,19 +130,55 @@ export function Entry({
 }: {
   entry: PasswordEntry;
   onBack: () => void;
-  onEdit: () => void;
+  /** The entry whole, after the fingerprint for one that asks. */
+  onEdit: (entry: PasswordEntry) => void;
   /** A restore or a cleared history, already stored. */
   onChanged: (entry: PasswordEntry) => void;
 }) {
   useLocale();
-  const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const [shownFields, setShownFields] = useState<Set<string>>(new Set());
   const [historyOpen, setHistoryOpen] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [busy, setBusy] = useState(false);
-  const history = entry.history ?? [];
   const toast = useToast();
-  const totp = useTotp(entry);
-  const bg = avatarColor(entry.service);
+
+  // An entry marked to ask again comes from the list without its secrets:
+  // nothing shows or copies until the fingerprint brings it whole, and one
+  // confirmation covers a few minutes, then it hides again.
+  const [full, setFull] = useState<PasswordEntry | null>(() => recentlyVerified(entry));
+  const view = full ?? entry;
+  const verified = full !== null;
+  // A save from here hands the entry back; the whole one follows it.
+  useEffect(() => setFull(recentlyVerified(entry)), [entry]);
+  useEffect(() => {
+    if (!full || !isProtected(entry)) return;
+    const left = (verifiedUntil(entry) ?? 0) - Date.now();
+    const timer = window.setTimeout(() => {
+      setFull(null);
+      setShownFields(new Set());
+    }, Math.max(0, left));
+    return () => window.clearTimeout(timer);
+  }, [full, entry]);
+  const confirm = async (): Promise<PasswordEntry | null> => {
+    if (full) return full;
+    try {
+      const whole = await revealed(entry);
+      setFull(whole);
+      return whole;
+    } catch (e) {
+      toast(formatAppError(e));
+      return null;
+    }
+  };
+  /** A save of the entry whole keeps it shown whole. */
+  const changedTo = (saved: PasswordEntry) => {
+    keepVerified(saved);
+    onChanged(saved);
+  };
+
+  const history = view.history ?? [];
+  const totp = useTotp(view);
+  const bg = avatarColor(view.service);
   // An attached file opens in another app; the one being readied is shown.
   const [opening, setOpening] = useState<string | null>(null);
   const [handing, setHanding] = useState<PasswordAttachment | null>(null);
@@ -144,8 +186,9 @@ export function Entry({
     setHanding(null);
     setOpening(attachment.blob_id);
     try {
-      await ensureVerified(entry);
-      if ((await api.openAttachment(entry, attachment, how)) && how === "save") toast(t("files.saved_to_phone"));
+      const whole = await confirm();
+      if (!whole) return;
+      if ((await api.openAttachment(whole, attachment, how)) && how === "save") toast(t("files.saved_to_phone"));
     } catch (e) {
       toast(formatAppError(e));
     } finally {
@@ -155,63 +198,77 @@ export function Entry({
   // Starring changes nothing the entry says, so it is not an edit.
   const star = async () => {
     try {
-      onChanged(await api.savePassword(entry, withEdits(entry, { favorite: !entry.favorite }), "arranged"));
+      changedTo(await api.savePassword(view, withEdits(view, { favorite: !view.favorite }), "arranged"));
       haptic("tick");
     } catch (e) {
       toast(formatAppError(e));
     }
   };
 
-  // An entry marked to ask again shows and copies nothing until the
-  // fingerprint confirms it; one confirmation covers a few minutes.
-  const [verified, setVerified] = useState(() => recentlyVerified(entry));
-  const confirm = async (): Promise<boolean> => {
-    if (verified) return true;
+  /** The row's value as the whole entry has it; `audit` is the field's name
+   * in the activity log, kept in English. */
+  const copy = async (key: string) => {
+    const whole = await confirm();
+    const row = whole && fieldsFor(whole).find((r) => r.key === key);
+    if (!whole || !row) return;
     try {
-      await ensureVerified(entry);
-      setVerified(true);
-      return true;
+      await api.copySecret(whole, row.value, row.audit);
+      haptic("confirm");
+      toast(t("pw.field_copied", { field: row.label }));
     } catch (e) {
       toast(formatAppError(e));
-      return false;
     }
   };
 
-  /** `audit` is the field's name in the activity log, kept in English. */
-  const copy = async (label: string, audit: string, value: string) => {
-    if (!(await confirm())) return;
+  const copyCode = async () => {
+    const whole = await confirm();
+    if (!whole?.totp_secret) return;
     try {
-      await api.copySecret(entry, value, audit);
+      const code = await generateTotp(
+        {
+          secret: whole.totp_secret,
+          digits: whole.totp_digits ?? DEFAULT_TOTP_DIGITS,
+          period: whole.totp_period ?? DEFAULT_TOTP_PERIOD,
+          algorithm: whole.totp_algorithm ?? DEFAULT_TOTP_ALGORITHM,
+        },
+        Date.now(),
+      );
+      await api.copySecret(whole, code, "one-time code");
       haptic("confirm");
-      toast(t("pw.field_copied", { field: label }));
+      toast(t("pw.field_copied", { field: t("pw.one_time_code") }));
     } catch (e) {
       toast(formatAppError(e));
     }
   };
 
   const toggle = async (label: string) => {
-    if (!revealed.has(label)) {
-      if (!(await confirm())) return;
+    if (!shownFields.has(label)) {
+      const whole = await confirm();
+      if (!whole) return;
       try {
-        await api.noteRevealed(entry);
+        await api.noteRevealed(whole);
       } catch (e) {
         toast(formatAppError(e));
         return;
       }
     }
-    const next = new Set(revealed);
-    if (next.has(label)) next.delete(label);
-    else next.add(label);
-    setRevealed(next);
+    setShownFields((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
   };
 
   /// A restore changes the secret, so it asks like an edit does. Not asked
   /// about: the current version goes into the history, so it can be undone.
-  const restore = async (version: HistoryVersion) => {
-    if (!(await confirm())) return;
+  const restore = async (index: number) => {
+    const whole = await confirm();
+    const version: HistoryVersion | undefined = whole?.history?.[index];
+    if (!whole || !version) return;
     setBusy(true);
     try {
-      onChanged(await api.savePassword(entry, restoredFrom(entry, version, Date.now()), "restored"));
+      changedTo(await api.savePassword(whole, restoredFrom(whole, version, Date.now()), "restored"));
       toast(t("pw.restored"));
     } catch (e) {
       toast(formatAppError(e));
@@ -222,9 +279,11 @@ export function Entry({
 
   const clearHistory = async () => {
     haptic("heavy");
+    const whole = await confirm();
+    if (!whole) return;
     setBusy(true);
     try {
-      onChanged(await api.savePassword(entry, withoutHistory(entry), "history_cleared"));
+      changedTo(await api.savePassword(whole, withoutHistory(whole), "history_cleared"));
       setConfirmClear(false);
     } catch (e) {
       toast(formatAppError(e));
@@ -244,13 +303,13 @@ export function Entry({
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <button
               className="icon-btn"
-              aria-pressed={Boolean(entry.favorite)}
-              aria-label={entry.favorite ? t("pw.unfavorite") : t("pw.favorite")}
+              aria-pressed={Boolean(view.favorite)}
+              aria-label={view.favorite ? t("pw.unfavorite") : t("pw.favorite")}
               onClick={() => void star()}
             >
-              <Star size={22} fill={entry.favorite ? "var(--warning)" : "none"} color={entry.favorite ? "var(--warning)" : undefined} />
+              <Star size={22} fill={view.favorite ? "var(--warning)" : "none"} color={view.favorite ? "var(--warning)" : undefined} />
             </button>
-            <button className="text-btn" onClick={() => void confirm().then((ok) => ok && onEdit())}>
+            <button className="text-btn" onClick={() => void confirm().then((whole) => whole && onEdit(whole))}>
               {t("pw.edit")}
             </button>
           </div>
@@ -259,19 +318,19 @@ export function Entry({
       <div className="screen-body tight" style={{ gap: 18 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "0 4px" }}>
           <span className="avatar large" style={{ background: bg, color: inkOn(bg) }}>
-            {serviceInitials(entry.service)}
+            {serviceInitials(view.service)}
           </span>
           <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
             <h1 className="title headline">
-              {entry.service}
+              {view.service}
             </h1>
-            {entry.url && <span className="muted small">{entry.url.replace(/^https?:\/\//, "")}</span>}
+            {view.url && <span className="muted small">{view.url.replace(/^https?:\/\//, "")}</span>}
           </div>
         </div>
 
         <div className="panel">
-          {fieldsFor(entry).map((row, i) => {
-            const shown = !row.secret || revealed.has(row.key);
+          {fieldsFor(view).map((row, i) => {
+            const shown = !row.secret || (verified && shownFields.has(row.key));
             return (
               <div key={row.key} className={`row${i > 0 ? " divide" : ""}`} style={{ minHeight: 68, paddingRight: 6, alignItems: "center" }}>
                 <div className="row-text" style={{ gap: 4 }}>
@@ -288,13 +347,13 @@ export function Entry({
                     {shown ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 )}
-                <button className="icon-btn" aria-label={t("pw.copy_named", { field: row.label })} onClick={() => copy(row.label, row.audit, row.value)}>
+                <button className="icon-btn" aria-label={t("pw.copy_named", { field: row.label })} onClick={() => void copy(row.key)}>
                   <Copy size={20} />
                 </button>
               </div>
             );
           })}
-          {entry.totp_secret && (
+          {(view.totp_secret || view.secrets_withheld?.includes("totp_secret")) && (
             <div className="row divide" style={{ minHeight: 72, paddingRight: 6 }}>
               <div className="row-text" style={{ gap: 4 }}>
                 <span className="label" style={{ color: "var(--text-dim)", letterSpacing: "0.03em" }}>
@@ -323,14 +382,14 @@ export function Entry({
                 </svg>
                 <span aria-hidden>{totp.left}</span>
               </span>
-              <button className="icon-btn" aria-label={t("pw.copy_one_time_code")} onClick={() => copy(t("pw.one_time_code"), "one-time code", totp.code)} disabled={!totp.code}>
+              <button className="icon-btn" aria-label={t("pw.copy_one_time_code")} onClick={() => void copyCode()} disabled={verified && !totp.code}>
                 <Copy size={20} />
               </button>
             </div>
           )}
         </div>
 
-        {entry.passkey && (
+        {view.passkey && (
           <div className="panel">
             <div className="row" style={{ minHeight: 68 }}>
               <div className="row-text" style={{ gap: 4 }}>
@@ -339,25 +398,25 @@ export function Entry({
                 </span>
                 <span>
                   {t("pw.passkey_account", {
-                    user: entry.passkey.user_name || entry.passkey.user_display_name || t("pw.passkey_account_unnamed"),
-                    site: entry.passkey.rp_id,
+                    user: view.passkey.user_name || view.passkey.user_display_name || t("pw.passkey_account_unnamed"),
+                    site: view.passkey.rp_id,
                   })}
                 </span>
                 <span className="muted caption">
-                  {t("pw.passkey_added", { date: formatDay(entry.passkey.created_at) })}
+                  {t("pw.passkey_added", { date: formatDay(view.passkey.created_at) })}
                 </span>
               </div>
             </div>
           </div>
         )}
 
-        {(entry.attachments ?? []).length > 0 && (
+        {(view.attachments ?? []).length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <span className="label" style={{ padding: "0 4px" }}>
               {t("pw.attachments")}
             </span>
             <div className="panel">
-              {(entry.attachments ?? []).map((attachment, i) => (
+              {(view.attachments ?? []).map((attachment, i) => (
                 <button
                   key={attachment.blob_id}
                   className={`row${i > 0 ? " divide" : ""}`}
@@ -388,10 +447,10 @@ export function Entry({
             </button>
             {historyOpen &&
               history.map((version, i) => {
-                const newer = i === 0 ? entry : history[i - 1];
+                const newer = i === 0 ? view : history[i - 1];
                 const changed = changedLabels(version, newer);
                 const key = `history-${i}`;
-                const shown = revealed.has(key);
+                const shown = verified && shownFields.has(key);
                 return (
                   <div key={key} className="row divide" style={{ minHeight: 68, paddingRight: 6, alignItems: "center" }}>
                     <div className="row-text" style={{ gap: 4 }}>
@@ -410,7 +469,7 @@ export function Entry({
                         {shown ? <EyeOff size={20} /> : <Eye size={20} />}
                       </button>
                     )}
-                    <button className="text-btn" disabled={busy} onClick={() => void restore(version)}>
+                    <button className="text-btn" disabled={busy} onClick={() => void restore(i)}>
                       {t("pw.history_restore")}
                     </button>
                   </div>
@@ -427,7 +486,7 @@ export function Entry({
       </div>
 
       <Sheet open={confirmClear} onClose={() => setConfirmClear(false)} title={t("pw.clear_history_title")}>
-        <p className="hint">{t("pw.clear_history_synced", { name: entry.service })}</p>
+        <p className="hint">{t("pw.clear_history_synced", { name: view.service })}</p>
         <button className="btn danger" onClick={() => void clearHistory()} disabled={busy}>
           {t("pw.clear_history")}
         </button>

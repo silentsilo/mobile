@@ -2,6 +2,34 @@
 //! sealed by the platform's protector: the Keystore on Android, the Keychain
 //! on iOS.
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+static READY: AtomicBool = AtomicBool::new(false);
+
+/// Whether the secret files can be sealed now. Without the protector they
+/// would be written in the clear, so the app does nothing with a silo until
+/// this is true. Tried again on each call: an iPhone started in the
+/// background before its first unlock cannot reach the Keychain yet. The
+/// first time it succeeds, the startup work that waited for it runs.
+pub fn ensure_ready(data: &std::path::Path) -> bool {
+    if READY.load(Ordering::SeqCst) {
+        return true;
+    }
+    #[cfg(target_os = "ios")]
+    let sealed = crate::keychain::install_protector();
+    #[cfg(target_os = "android")]
+    let sealed = crate::android::protector_ready();
+    if sealed && !READY.swap(true, Ordering::SeqCst) {
+        seal_existing(data);
+        crate::commands::rehome_silos(data);
+        // Only with the key that seals the registry: without it the
+        // registry reads as empty, and this would rename every silo.
+        crate::paths::clear_unfinished_joins(data);
+        crate::paths::recover_silos(data);
+    }
+    sealed
+}
+
 /// Rewrites the secret files a build before the protector left in the clear.
 /// Each one is read back after the rewrite; one that does not read back the
 /// same gets its original bytes again, so nothing is lost to a Keystore

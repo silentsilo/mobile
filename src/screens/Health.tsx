@@ -22,7 +22,9 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
   const locale = useLocale();
   // What the findings are worked out from; they are worded at render time,
   // so a language change rewrites them.
-  const [inputs, setInputs] = useState<{ entries: PasswordEntry[]; silo: SiloHealth } | null>(null);
+  // Entries marked to ask first come without their secrets, so they are
+  // left out of the checks and counted instead.
+  const [inputs, setInputs] = useState<{ entries: PasswordEntry[]; protectedLeftOut: number; silo: SiloHealth } | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,7 +32,8 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
     Promise.all([api.readPasswords(), api.syncStatus(), api.listKeys(), api.recoveryStatus()])
       .then(([entries, sync, keys, recovery]) =>
         setInputs({
-          entries,
+          entries: entries.filter((e) => !e.secrets_withheld),
+          protectedLeftOut: entries.filter((e) => e.secrets_withheld).length,
           silo: {
             backupConfigured: sync.configured,
             // The phone keeps no record of a failed pass yet, and has no
@@ -65,13 +68,36 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
   );
   // Set aside on this phone, as desktop does on the computer: what is not
   // critical, until it grows.
-  const [ignored, setIgnored] = useState(() => loadIgnored(siloId));
+  const [ignored, setIgnored] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadIgnored(siloId).then((stored) => live && setIgnored(stored));
+    return () => {
+      live = false;
+    };
+  }, [siloId]);
+  // Each finding's stored form, worked out for the findings shown now.
+  const [keys, setKeys] = useState<{ of: HealthFinding[]; map: Map<HealthFinding, string> } | null>(null);
+  useEffect(() => {
+    if (!all) return;
+    let live = true;
+    void Promise.all(all.map((finding) => fingerprint(siloId, finding))).then((digests) => {
+      if (live) setKeys({ of: all, map: new Map(all.map((finding, i) => [finding, digests[i]])) });
+    });
+    return () => {
+      live = false;
+    };
+  }, [all, siloId]);
   const [showIgnored, setShowIgnored] = useState(false);
-  const split = useMemo(() => (all ? splitIgnored(all, ignored) : null), [all, ignored]);
+  const split = useMemo(
+    () => (all && ignored && keys?.of === all ? splitIgnored(all, ignored, keys.map) : null),
+    [all, ignored, keys],
+  );
   const findings = split ? (showIgnored ? [...split.active, ...split.ignored] : split.active) : null;
   const toggleIgnored = (finding: HealthFinding) => {
+    const key = keys?.map.get(finding);
+    if (!ignored || key === undefined) return;
     const next = new Set(ignored);
-    const key = fingerprint(finding);
     if (next.has(key)) next.delete(key);
     else next.add(key);
     saveIgnored(siloId, next);
@@ -98,6 +124,9 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px" }}>
           <h1 className="title">{t("pw.health_title")}</h1>
           <p className="hint">{t("pw.health_local")}</p>
+          {inputs && inputs.protectedLeftOut > 0 && (
+            <p className="hint">{t("pw.health_protected_left_out", { count: inputs.protectedLeftOut })}</p>
+          )}
         </div>
         {error && <Notice tone="error">{error}</Notice>}
         {!findings && !error && <Skeleton avatar={false} rows={4} />}
@@ -106,7 +135,8 @@ export function Health({ siloId, onBack, onOpen }: { siloId: string; onBack: () 
         )}
         {findings?.map((finding) => {
           const expanded = open === finding.id;
-          const isIgnored = ignored.has(fingerprint(finding)) && canIgnore(finding);
+          const key = keys?.map.get(finding);
+          const isIgnored = key !== undefined && Boolean(ignored?.has(key)) && canIgnore(finding);
           return (
             <div key={finding.id} className="panel">
               <button className="row" style={{ minHeight: 64, alignItems: "flex-start", paddingTop: 14 }} onClick={() => setOpen(expanded ? null : finding.id)}>

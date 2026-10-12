@@ -29,3 +29,7 @@ private/
 
 # Regenerated on every build
 src-tauri/gen/schemas
+
+# macOS metadata files copied over from a Mac
+._*
+.DS_Store

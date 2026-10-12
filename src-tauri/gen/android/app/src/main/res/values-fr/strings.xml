@@ -11,6 +11,11 @@
     <string name="autofill_save_failed">L’identifiant n’a pas pu être enregistré.</string>
     <string name="autofill_pick_hint">Choisissez un identifiant seulement si vous vouliez le remplir ici.</string>
     <string name="autofill_search_hint">Rechercher dans le silo</string>
+    <string name="autofill_choose_for">Choisissez un identifiant pour %1$s</string>
+    <string name="autofill_unverified_browser">SilentSilo ne peut pas confirmer quel site est ouvert dans %1$s, il ne propose donc rien. Vérifiez la barre d’adresse et choisissez uniquement un identifiant pour ce site.</string>
+    <string name="autofill_confirm_title">Remplir cet identifiant ?</string>
+    <string name="autofill_confirm_message">Il a été enregistré pour %1$s, et %2$s le demande maintenant. Ne le remplissez que si les deux correspondent au même service.</string>
+    <string name="autofill_confirm_fill">Remplir</string>
     <string name="cancel">Annuler</string>
     <string name="cancelled">Annulé.</string>
     <string name="backup_channel">Sauvegarde en attente du silo</string>

@@ -148,17 +148,44 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
   private fun mimeOf(invoke: Invoke): String =
     invoke.getArgs().getString("mimeType", null)?.takeIf { it.isNotEmpty() } ?: "application/octet-stream"
 
+  // Every file handed to another app since the last lock, so the lock takes
+  // the read permission back along with the file.
+  private val handed = mutableSetOf<Uri>()
+
+  private fun handOut(file: File): Uri {
+    val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+    synchronized(handed) { handed.add(uri) }
+    return uri
+  }
+
+  // The other app runs in a task of its own, not inside SilentSilo's card in
+  // Recents, where it would keep showing the file over a locked silo.
+  private val ownTask = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_NEW_DOCUMENT
+
+  @Command
+  fun revokeOpened(invoke: Invoke) {
+    val uris = synchronized(handed) { handed.toList().also { handed.clear() } }
+    for (uri in uris) {
+      try {
+        activity.revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      } catch (_: Exception) {
+        // Already gone with the file.
+      }
+    }
+    invoke.resolve()
+  }
+
   // To another app as a file: a chat, mail, a cloud drive.
   @Command
   fun share(invoke: Invoke) {
     val file = fromSilo(invoke) ?: return
-    val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+    val uri = handOut(file)
     val send = Intent(Intent.ACTION_SEND)
       .setType(mimeOf(invoke))
       .putExtra(Intent.EXTRA_STREAM, uri)
-      .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or ownTask)
     try {
-      activity.startActivity(Intent.createChooser(send, null))
+      activity.startActivity(Intent.createChooser(send, null).addFlags(ownTask))
       invoke.resolve()
     } catch (e: Exception) {
       invoke.reject("No app on this phone takes this kind of file.\u001ferr.android_no_app_for_file")
@@ -209,13 +236,13 @@ class FilesPlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun openWith(invoke: Invoke) {
     val file = fromSilo(invoke) ?: return
-    val uri = FileProvider.getUriForFile(activity, "${activity.packageName}.fileprovider", file)
+    val uri = handOut(file)
     val mime = mimeOf(invoke)
     val view = Intent(Intent.ACTION_VIEW)
       .setDataAndType(uri, mime)
-      .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or ownTask)
     try {
-      activity.startActivity(Intent.createChooser(view, null))
+      activity.startActivity(Intent.createChooser(view, null).addFlags(ownTask))
       invoke.resolve()
     } catch (e: Exception) {
       invoke.reject("No app on this phone opens this kind of file.\u001ferr.android_no_app_for_file")

@@ -489,7 +489,11 @@ final class BackupRunner {
     let folder = FileManager.default.temporaryDirectory.appendingPathComponent(
       "backup-" + UUID().uuidString, isDirectory: true)
     defer { try? FileManager.default.removeItem(at: folder) }
-    let file = folder.appendingPathComponent(resource.originalFilename)
+    // The copy on disk gets a name of its own; the original name goes to
+    // Rust only as the name to show, never as part of a path.
+    let ext = (resource.originalFilename as NSString).pathExtension
+    let safeExt = ext.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber) } && ext.count <= 10 ? ext : ""
+    let file = folder.appendingPathComponent(safeExt.isEmpty ? "item" : "item.\(safeExt)", isDirectory: false)
     do {
       try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
     } catch {

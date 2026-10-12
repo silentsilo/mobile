@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Unlocking the silo key with a fingerprint or face. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
@@ -23,6 +24,14 @@
     <uses-permission android:name="android.permission.NFC" />
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+
+    <!-- A password manager has to read the signing certificate of whatever
+         app it fills or saves for, and Android hides other apps' packages
+         otherwise. Without it, an app's login is neither saved nor filled
+         on its own. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <!-- The trusted browsers, so autofill can check their signing certificates
          (Android hides other apps' packages otherwise). -->

@@ -11,6 +11,11 @@
     <string name="autofill_save_failed">No se pudo guardar el inicio de sesión.</string>
     <string name="autofill_pick_hint">Elige un inicio de sesión solo si querías rellenarlo aquí.</string>
     <string name="autofill_search_hint">Buscar en el silo</string>
+    <string name="autofill_choose_for">Elige un inicio de sesión para %1$s</string>
+    <string name="autofill_unverified_browser">SilentSilo no puede confirmar qué sitio está abierto en %1$s, así que no sugiere nada. Revisa la barra de direcciones y elige solo un inicio de sesión de ese sitio.</string>
+    <string name="autofill_confirm_title">¿Rellenar este inicio de sesión?</string>
+    <string name="autofill_confirm_message">Se guardó para %1$s y ahora lo pide %2$s. Rellénalo solo si ambos son el mismo servicio.</string>
+    <string name="autofill_confirm_fill">Rellenar</string>
     <string name="cancel">Cancelar</string>
     <string name="cancelled">Cancelado.</string>
     <string name="backup_channel">Copia de seguridad a la espera del silo</string>

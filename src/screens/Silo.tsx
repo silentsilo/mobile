@@ -4,6 +4,7 @@ import { RecoveryCodeShow } from "../ui/RecoveryCodeShow";
 import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { api, type SyncStatus } from "../api";
+import { forgetIgnored } from "../shared/healthIgnored";
 import { formatAppError } from "../shared/errors";
 import type { AuditStatus, RecoveryStatus } from "../shared/types";
 import { HISTORY_POLICIES, type HistoryPolicy } from "../shared/entryHistory";
@@ -316,10 +317,10 @@ export function Silo({
             )}
             {navRow(History, t("silo.row_history"), historyPolicy === null ? "" : historyLabel(historyPolicy), () => setChoosingHistory(true))}
             {navRow(Smartphone, t("silo.row_lock_background"), lockAfter === null ? "" : shortLock(lockAfter), () => setChoosingLock(true))}
-            {screenOff !== null && !isIOS && (
+            {screenOff !== null && (
               <ToggleRow
                 icon={<MonitorOff size={20} color="var(--accent-text)" style={{ flex: "none" }} />}
-                label={t("silo.row_screen_off")}
+                label={isIOS ? t("silo.row_iphone_locks") : t("silo.row_screen_off")}
                 checked={screenOff}
                 onChange={() => {
                   const next = !screenOff;
@@ -533,6 +534,7 @@ export function Silo({
               // The silo this screen shows, not whichever is in front by now.
               haptic("heavy");
               await api.removeSilo(siloId);
+              forgetIgnored(siloId);
               announceSilo("switched");
             } catch (e) {
               toast(formatAppError(e));

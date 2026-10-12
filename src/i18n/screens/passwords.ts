@@ -1707,6 +1707,48 @@ export const passwords = {
     "pt-BR": "Verificado neste celular. Nenhuma senha sai dele para isso.",
     pl: "Sprawdzane na tym telefonie. Żadne hasło go przy tym nie opuszcza.",
   },
+  "pw.health_protected_left_out": {
+    note: "Under the Password health title, when some entries ask for the fingerprint or face before showing: the phone checks them only once opened, so they are not part of this check. {count} is how many.",
+    en: {
+      one: "{count} entry that asks for your fingerprint or face is left out: its password stays hidden until you open it.",
+      other: "{count} entries that ask for your fingerprint or face are left out: their passwords stay hidden until you open them.",
+    },
+    ro: {
+      one: "{count} intrare care cere amprenta sau fața nu e verificată: parola ei rămâne ascunsă până o deschizi.",
+      few: "{count} intrări care cer amprenta sau fața nu sunt verificate: parolele lor rămân ascunse până le deschizi.",
+      other: "{count} de intrări care cer amprenta sau fața nu sunt verificate: parolele lor rămân ascunse până le deschizi.",
+    },
+    de: {
+      one: "{count} Eintrag, der nach Fingerabdruck oder Gesicht fragt, wird ausgelassen: Sein Passwort bleibt verborgen, bis du ihn öffnest.",
+      other: "{count} Einträge, die nach Fingerabdruck oder Gesicht fragen, werden ausgelassen: Ihre Passwörter bleiben verborgen, bis du sie öffnest.",
+    },
+    fr: {
+      one: "{count} entrée qui demande votre empreinte ou votre visage n’est pas vérifiée : son mot de passe reste caché tant que vous ne l’ouvrez pas.",
+      many: "{count} d’entrées qui demandent votre empreinte ou votre visage ne sont pas vérifiées : leurs mots de passe restent cachés tant que vous ne les ouvrez pas.",
+      other: "{count} entrées qui demandent votre empreinte ou votre visage ne sont pas vérifiées : leurs mots de passe restent cachés tant que vous ne les ouvrez pas.",
+    },
+    es: {
+      one: "{count} entrada que pide tu huella o tu cara queda fuera: su contraseña sigue oculta hasta que la abras.",
+      many: "{count} de entradas que piden tu huella o tu cara quedan fuera: sus contraseñas siguen ocultas hasta que las abras.",
+      other: "{count} entradas que piden tu huella o tu cara quedan fuera: sus contraseñas siguen ocultas hasta que las abras.",
+    },
+    it: {
+      one: "{count} voce che chiede l’impronta o il volto non è controllata: la sua password resta nascosta finché non la apri.",
+      many: "{count} di voci che chiedono l’impronta o il volto non sono controllate: le loro password restano nascoste finché non le apri.",
+      other: "{count} voci che chiedono l’impronta o il volto non sono controllate: le loro password restano nascoste finché non le apri.",
+    },
+    "pt-BR": {
+      one: "{count} item que pede sua digital ou rosto ficou de fora: a senha dele continua oculta até você abri-lo.",
+      many: "{count} de itens que pedem sua digital ou rosto ficaram de fora: as senhas deles continuam ocultas até você abri-los.",
+      other: "{count} itens que pedem sua digital ou rosto ficaram de fora: as senhas deles continuam ocultas até você abri-los.",
+    },
+    pl: {
+      one: "{count} wpis, który pyta o odcisk palca lub twarz, jest pominięty: jego hasło pozostaje ukryte, dopóki go nie otworzysz.",
+      few: "{count} wpisy, które pytają o odcisk palca lub twarz, są pominięte: ich hasła pozostają ukryte, dopóki ich nie otworzysz.",
+      many: "{count} wpisów, które pytają o odcisk palca lub twarz, jest pominiętych: ich hasła pozostają ukryte, dopóki ich nie otworzysz.",
+      other: "{count} wpisu, który pyta o odcisk palca lub twarz, jest pominięte: ich hasła pozostają ukryte, dopóki ich nie otworzysz.",
+    },
+  },
   "pw.health_nothing": {
     note: "Password health with no findings.",
     en: "Nothing to fix",

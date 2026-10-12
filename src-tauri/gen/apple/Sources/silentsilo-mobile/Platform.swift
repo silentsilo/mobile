@@ -136,14 +136,25 @@ public func ssTakePhoto(_ folder: UnsafePointer<CChar>) -> UnsafeMutablePointer<
 // MARK: - Other apps and links
 
 /// The share sheet for a file: open it in another app, save it to Files.
+/// The decrypted copy is readable only while the iPhone is unlocked, and
+/// goes as soon as the sheet closes: whatever took it has its own copy.
 @_cdecl("ss_open_with")
 public func ssOpenWith(_ path: UnsafePointer<CChar>) -> Bool {
   let url = URL(fileURLWithPath: String(cString: path))
+  let manager = FileManager.default
+  try? manager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: url.path)
+  // The file sits alone in a folder of its own under `open`; the folder goes
+  // with it, and nothing else is ever removed from here.
+  let folder = url.deletingLastPathComponent()
+  let inOpen = folder.deletingLastPathComponent().lastPathComponent == "open"
   let shown = DispatchSemaphore(value: 0)
   var ok = false
   DispatchQueue.main.async {
     if let top = topController() {
       let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+      sheet.completionWithItemsHandler = { _, _, _, _ in
+        try? manager.removeItem(at: inOpen ? folder : url)
+      }
       sheet.popoverPresentationController?.sourceView = top.view
       top.present(sheet, animated: true)
       ok = true
@@ -230,9 +241,20 @@ public func ssPdfPage(
     let page = document.page(at: Int(index))
   else { return nil }
   let bounds = page.bounds(for: .mediaBox)
-  guard bounds.width > 0 else { return nil }
-  let scale = CGFloat(width) / bounds.width
-  let size = CGSize(width: CGFloat(width), height: (bounds.height * scale).rounded())
+  guard bounds.width > 0, bounds.height > 0 else { return nil }
+  // Within what the app asks for, and never more than about 12 million
+  // pixels: a page a few points wide and miles tall would take all the memory.
+  let maxPixels: CGFloat = 12_000_000
+  var wide = CGFloat(min(max(width, 200), 2400))
+  var scale = wide / bounds.width
+  var tall = max(1, (bounds.height * scale).rounded())
+  if wide * tall > maxPixels {
+    let shrink = (maxPixels / (wide * tall)).squareRoot()
+    wide = max(1, (wide * shrink).rounded(.down))
+    scale = wide / bounds.width
+    tall = max(1, (bounds.height * scale).rounded(.down))
+  }
+  let size = CGSize(width: wide, height: tall)
   let format = UIGraphicsImageRendererFormat()
   format.scale = 1
   let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
@@ -280,6 +302,12 @@ final class PrivacyCover {
     // Only a real departure: the lock set to "At once" waits for this.
     center.addObserver(forName: UIScene.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
       ss_entered_background()
+    }
+    // The iPhone locked (side button or auto-lock), as Android's screen off.
+    center.addObserver(
+      forName: UIApplication.protectedDataWillBecomeUnavailableNotification, object: nil, queue: .main
+    ) { _ in
+      ss_protected_data_going()
     }
   }
 

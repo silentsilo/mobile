@@ -19,6 +19,7 @@ class MainActivity : TauriActivity() {
   // user may want the silo locked at once rather than after the delay.
   private val screenOff = object : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
+      ClipClear.clearIfDue(context)
       Native.screenOff()
     }
   }
@@ -76,6 +77,7 @@ class MainActivity : TauriActivity() {
   override fun onStart() {
     super.onStart()
     OpenSiloService.stop(this)
+    ClipClear.clearIfDue(this)
   }
 
   // Leaving with a silo open: keep syncing until it locks.

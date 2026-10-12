@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Choosing a login by hand, when nothing in the silo is saved for the app
-     or site that asked. Shown inside SilentSilo, after the fingerprint. -->
+     or site that asked, or when a browser cannot prove which site is open.
+     Also the list of several logins saved for the same place, with the
+     search hidden. Shown inside SilentSilo, after the fingerprint. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -17,7 +19,19 @@
         android:textSize="20sp"
         android:textStyle="bold" />
 
+    <!-- Shown only for a browser whose word about the site is not believed. -->
     <TextView
+        android:id="@+id/autofill_pick_warning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textColor="@color/autofill_text"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <TextView
+        android:id="@+id/autofill_pick_note"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="6dp"

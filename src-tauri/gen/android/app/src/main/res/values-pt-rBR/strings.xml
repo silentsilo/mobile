@@ -11,6 +11,11 @@
     <string name="autofill_save_failed">Não foi possível salvar o login.</string>
     <string name="autofill_pick_hint">Escolha um login só se você queria preenchê-lo aqui.</string>
     <string name="autofill_search_hint">Pesquisar no silo</string>
+    <string name="autofill_choose_for">Escolha um login para %1$s</string>
+    <string name="autofill_unverified_browser">O SilentSilo não consegue confirmar qual site está aberto em %1$s, então não sugere nada. Confira a barra de endereço e escolha só um login desse site.</string>
+    <string name="autofill_confirm_title">Preencher este login?</string>
+    <string name="autofill_confirm_message">Ele foi salvo para %1$s e agora %2$s está pedindo. Preencha só se os dois forem o mesmo serviço.</string>
+    <string name="autofill_confirm_fill">Preencher</string>
     <string name="cancel">Cancelar</string>
     <string name="cancelled">Cancelado.</string>
     <string name="backup_channel">Backup aguardando o silo</string>

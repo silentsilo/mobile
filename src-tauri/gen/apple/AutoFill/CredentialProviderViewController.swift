@@ -1,7 +1,9 @@
 // "SilentSilo" in iOS's AutoFill: opens the silo with Face ID through Rust
 // (`autofill/`, via autofill.h), lists its logins with the ones for the
-// site or app asking first, and hands the chosen one to iOS. iOS shows this
-// only when the person picks SilentSilo; nothing is offered without it.
+// site or app asking first, and hands the chosen one to iOS. A login saved
+// for another site is filled only after a second question that names both.
+// iOS shows this only when the person picks SilentSilo; nothing is offered
+// without it.
 
 import AuthenticationServices
 import UIKit
@@ -24,6 +26,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
 
   private let table = UITableView(frame: .zero, style: .insetGrouped)
   private let search = UISearchBar()
+  private let asking = UILabel()
   private let status = UILabel()
   private let spinner = UIActivityIndicatorView(style: .large)
   private let retry = UIButton(type: .system)
@@ -31,7 +34,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
   // MARK: iOS's entry points
 
   override func prepareCredentialList(for serviceIdentifiers: [ASCredentialServiceIdentifier]) {
-    asked = serviceIdentifiers.compactMap { host(of: $0.identifier) }
+    asked = sites(serviceIdentifiers)
     load()
   }
 
@@ -43,8 +46,16 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
   }
 
   override func prepareInterfaceToProvideCredential(for credentialIdentity: ASPasswordCredentialIdentity) {
-    asked = [host(of: credentialIdentity.serviceIdentifier.identifier)].compactMap { $0 }
+    asked = sites([credentialIdentity.serviceIdentifier])
     load()
+  }
+
+  /// Hosts of the sites iOS named, in its order. Other kinds of identifier
+  /// name no site.
+  private func sites(_ identifiers: [ASCredentialServiceIdentifier]) -> [String] {
+    identifiers
+      .filter { $0.type == .domain || $0.type == .URL }
+      .compactMap { host(of: $0.identifier) }
   }
 
   // MARK: Layout
@@ -61,6 +72,11 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     cancel.addAction(UIAction { [weak self] _ in self?.cancel() }, for: .touchUpInside)
     let bar = UIStackView(arrangedSubviews: [title, UIView(), cancel])
     bar.axis = .horizontal
+
+    // Which site is asking, shown before anything is chosen.
+    asking.numberOfLines = 0
+    asking.textColor = .secondaryLabel
+    asking.font = .preferredFont(forTextStyle: .subheadline)
 
     search.placeholder = text("af.search")
     search.searchBarStyle = .minimal
@@ -82,7 +98,7 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     waiting.axis = .vertical
     waiting.spacing = 12
 
-    for part in [bar, search, table, waiting] as [UIView] {
+    for part in [bar, asking, search, table, waiting] as [UIView] {
       part.translatesAutoresizingMaskIntoConstraints = false
       view.addSubview(part)
     }
@@ -91,7 +107,10 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
       bar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
       bar.leadingAnchor.constraint(equalTo: margins.leadingAnchor),
       bar.trailingAnchor.constraint(equalTo: margins.trailingAnchor),
-      search.topAnchor.constraint(equalTo: bar.bottomAnchor, constant: 8),
+      asking.topAnchor.constraint(equalTo: bar.bottomAnchor, constant: 6),
+      asking.leadingAnchor.constraint(equalTo: margins.leadingAnchor),
+      asking.trailingAnchor.constraint(equalTo: margins.trailingAnchor),
+      search.topAnchor.constraint(equalTo: asking.bottomAnchor, constant: 8),
       search.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
       search.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -8),
       table.topAnchor.constraint(equalTo: search.bottomAnchor),
@@ -108,6 +127,11 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
 
   private func load() {
     loadViewIfNeeded()
+    if let asker = asked.first {
+      asking.text = String(format: text("af.asking"), asker)
+    } else {
+      asking.text = text("af.asking_unknown")
+    }
     table.isHidden = true
     retry.isHidden = true
     spinner.startAnimating()
@@ -121,13 +145,13 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     }
     let data = group.appendingPathComponent("Data", isDirectory: true).path
     let work = FileManager.default.temporaryDirectory.appendingPathComponent("autofill-work").path
-    DispatchQueue.global(qos: .userInitiated).async {
+    DispatchQueue.global(qos: .userInitiated).async { [weak self] in
       // Face ID is asked for inside this call.
       let raw = ss_af_logins(data, work)
       let json = raw.map { String(cString: $0) } ?? ""
       ss_af_free(raw)
       let answer = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
-      DispatchQueue.main.async { self.show(answer) }
+      DispatchQueue.main.async { self?.show(answer) }
     }
   }
 
@@ -173,17 +197,31 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
     table.reloadData()
   }
 
-  /// A login whose site is the one asking, or a part of it.
+  /// A login saved for exactly the host asking, or its www. twin. A parent
+  /// or child domain is not a match. With no site named, nothing matches.
   private func matches(_ login: Login) -> Bool {
     guard let stored = host(of: login.url) else { return false }
-    return asked.contains { $0 == stored || $0.hasSuffix("." + stored) || stored.hasSuffix("." + $0) }
+    return asked.contains { bare($0) == bare(stored) }
   }
 
+  /// The lowercased host of a URL, or of a bare domain read as https.
   private func host(of identifier: String) -> String? {
     let trimmed = identifier.trimmingCharacters(in: .whitespaces)
     let withScheme = trimmed.contains("://") ? trimmed : "https://" + trimmed
     guard let host = URL(string: withScheme)?.host?.lowercased(), !host.isEmpty else { return nil }
-    return host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+    return host
+  }
+
+  /// The host without a leading "www.", so example.com and www.example.com
+  /// compare equal.
+  private func bare(_ host: String) -> String {
+    host.hasPrefix("www.") ? String(host.dropFirst(4)) : host
+  }
+
+  /// A login's site as the person knows it: its host, else its service name.
+  private func site(of login: Login) -> String {
+    if let host = host(of: login.url) { return host }
+    return login.service.isEmpty ? text("af.no_site") : login.service
   }
 
   func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
@@ -220,7 +258,34 @@ final class CredentialProviderViewController: ASCredentialProviderViewController
   }
 
   func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    tableView.deselectRow(at: indexPath, animated: true)
     let login = rows(indexPath.section)[indexPath.row]
+    if matches(login) {
+      fill(login)
+    } else {
+      confirm(login)
+    }
+  }
+
+  /// Any other login is filled only after the person sees both sites and
+  /// says so. Cancel leaves the list as it was.
+  private func confirm(_ login: Login) {
+    guard presentedViewController == nil else { return }
+    let saved = site(of: login)
+    let message: String
+    if let asker = asked.first {
+      message = String(format: text("af.confirm_other"), saved, asker)
+    } else {
+      message = String(format: text("af.confirm_unknown"), saved)
+    }
+    let alert = UIAlertController(title: text("af.confirm_title"), message: message, preferredStyle: .alert)
+    alert.addAction(UIAlertAction(title: text("af.cancel"), style: .cancel))
+    alert.addAction(
+      UIAlertAction(title: text("af.fill"), style: .default) { [weak self] _ in self?.fill(login) })
+    present(alert, animated: true)
+  }
+
+  private func fill(_ login: Login) {
     extensionContext.completeRequest(
       withSelectedCredential: ASPasswordCredential(user: login.username, password: login.password),
       completionHandler: nil)

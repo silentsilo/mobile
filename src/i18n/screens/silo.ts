@@ -574,6 +574,17 @@ export const silo = {
     "pt-BR": "Bloquear quando a tela apagar",
     pl: "Blokuj po wyłączeniu ekranu",
   },
+  "silo.row_iphone_locks": {
+    note: "Switch on the Silo tab, iPhone only: locks the silo when the iPhone itself is locked (side button, or auto-lock). 'Lock' as in the glossary.",
+    en: "Lock when the iPhone locks",
+    ro: "Blochează când se blochează iPhone-ul",
+    de: "Sperren, wenn das iPhone gesperrt wird",
+    fr: "Verrouiller quand l’iPhone se verrouille",
+    es: "Bloquear al bloquearse el iPhone",
+    it: "Blocca quando l’iPhone si blocca",
+    "pt-BR": "Bloquear quando o iPhone bloquear",
+    pl: "Blokuj po zablokowaniu iPhone’a",
+  },
   "silo.section_appearance": {
     note: "Small heading over the theme and language settings on the Silo tab.",
     en: "Appearance",

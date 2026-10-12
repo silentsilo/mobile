@@ -85,8 +85,10 @@ pub struct BackgroundLock {
     /// user unlocking, not leaving.
     prompts: AtomicUsize,
     /// Long work under way (a join, an import): the screen stays on and a
-    /// lock that falls due waits for it to end.
+    /// lock that falls due waits for it to end, up to [`BUSY_LIMIT`].
     busy: AtomicUsize,
+    /// When the busy work began, on the clock that counts sleep.
+    busy_since: Mutex<Option<Duration>>,
     /// A lock fell due while busy work ran.
     lock_held: AtomicBool,
     /// When the armed lock falls due, on the clock that counts sleep. Read on
@@ -105,6 +107,7 @@ impl Default for BackgroundLock {
             generation: AtomicU64::new(0),
             prompts: AtomicUsize::new(0),
             busy: AtomicUsize::new(0),
+            busy_since: Mutex::new(None),
             lock_held: AtomicBool::new(false),
             deadline: Mutex::new(None),
         }
@@ -158,7 +161,32 @@ impl BackgroundLock {
             tokio::time::sleep(Duration::from_millis(150)).await;
         }
     }
+
+    /// Whether busy work holds a lock back now. Past [`BUSY_LIMIT`] it stops
+    /// counting, so a page that never said the work ended, or work that never
+    /// ends, cannot keep a silo open.
+    fn work_holds(&self) -> bool {
+        if self.busy.load(Ordering::SeqCst) == 0 {
+            return false;
+        }
+        let within = self
+            .busy_since
+            .lock()
+            .ok()
+            .and_then(|at| *at)
+            .is_some_and(|at| since(at) < BUSY_LIMIT);
+        if !within {
+            self.busy.store(0, Ordering::SeqCst);
+            if let Ok(mut at) = self.busy_since.lock() {
+                *at = None;
+            }
+        }
+        within
+    }
 }
+
+/// The longest busy work may hold back a lock that fell due.
+const BUSY_LIMIT: Duration = Duration::from_secs(30 * 60);
 
 /// The app's data and cache directories, read once at startup. On Android
 /// asking Tauri for them calls into Kotlin and waits on the main thread, so
@@ -203,12 +231,23 @@ pub fn lock_all(app: &AppHandle) {
 /// The longest a lock waits for unsent changes to go out.
 const PUSH_LIMIT: Duration = Duration::from_secs(20);
 
-/// Locks without sending first: for a deadline already past.
+/// Locks without sending first: for a deadline already past, and whenever
+/// the user is looking. What was not sent goes at the next unlock.
 fn close_all(app: &AppHandle) {
     let state = app.state::<AppState>();
     let host = MobileHost(app.clone());
     if let Ok(mut deadline) = app.state::<BackgroundLock>().deadline.lock() {
         *deadline = None;
+    }
+    // Nothing confirmed before a lock counts after it.
+    app.state::<crate::presence::Presence>().forget_all();
+    // A file handed to another app goes with the lock, the automatic ones
+    // too: the other app keeps only what it copied for itself.
+    crate::viewer::wipe_opened_after_lock(app);
+    // Busy work that ran out of time no longer keeps the screen on.
+    if app.state::<BackgroundLock>().busy.load(Ordering::SeqCst) == 0 {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move { keep_awake(&app, false).await });
     }
     let open = state.open_silo_ids();
     if open.is_empty() {
@@ -278,7 +317,7 @@ pub fn entered_background() {
     if let Some(app) = APP.get() {
         let lock = app.state::<BackgroundLock>();
         if lock_after(app) == 0 && lock.prompts.load(Ordering::SeqCst) == 0 {
-            lock_soon(app);
+            lock_soon(app, true);
         }
     }
 }
@@ -369,6 +408,9 @@ pub async fn app_busy(app: AppHandle, on: bool) -> Result<(), String> {
     let lock = app.state::<BackgroundLock>();
     if on {
         if lock.busy.fetch_add(1, Ordering::SeqCst) == 0 {
+            if let Ok(mut at) = lock.busy_since.lock() {
+                *at = Some(since_boot());
+            }
             keep_awake(&app, true).await;
         }
     } else if lock
@@ -376,9 +418,13 @@ pub async fn app_busy(app: AppHandle, on: bool) -> Result<(), String> {
         .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
         == Ok(1)
     {
+        if let Ok(mut at) = lock.busy_since.lock() {
+            *at = None;
+        }
         keep_awake(&app, false).await;
         if lock.lock_held.swap(false, Ordering::SeqCst) {
-            lock_soon(&app);
+            // On screen, the user sees the silo: it closes at once.
+            lock_soon(&app, !lock.is_visible());
         }
     }
     Ok(())
@@ -403,8 +449,9 @@ pub fn past_deadline(app: &AppHandle) -> bool {
         .ok()
         .and_then(|d| *d)
         .is_some_and(|d| since_boot() >= d);
-    if due && lock.busy.load(Ordering::SeqCst) == 0 {
-        lock_soon(app);
+    if due && !lock.work_holds() {
+        // Overdue: closed at once, not left open while changes go out.
+        lock_soon(app, false);
         return true;
     }
     false
@@ -415,7 +462,7 @@ fn arm(app: &AppHandle, delay: u64) {
     let lock = app.state::<BackgroundLock>();
     let generation = lock.generation.fetch_add(1, Ordering::SeqCst) + 1;
     if delay == 0 {
-        lock_soon(app);
+        lock_soon(app, true);
         return;
     }
     let app = app.clone();
@@ -444,7 +491,7 @@ fn arm(app: &AppHandle, delay: u64) {
         }
         let lock = app.state::<BackgroundLock>();
         if lock.generation.load(Ordering::SeqCst) == generation {
-            lock_soon(&app);
+            lock_soon(&app, true);
         }
     });
 }
@@ -470,9 +517,6 @@ pub fn resumed(app: &AppHandle) {
     lock.generation.fetch_add(1, Ordering::SeqCst);
     lock.foreground.store(true, Ordering::SeqCst);
     lock.visible.store(true, Ordering::SeqCst);
-    if let Ok(mut deadline) = lock.deadline.lock() {
-        *deadline = None;
-    }
     crate::viewer::wipe_opened(app);
     let away = lock
         .suspended_at
@@ -485,24 +529,64 @@ pub fn resumed(app: &AppHandle) {
         .lock()
         .ok()
         .and_then(|mut at| at.take());
-    if away.is_some_and(|away| away >= Duration::from_secs(lock_after(app)))
-        || away_prompting
-            .is_some_and(|(at, limit)| since(at) >= Duration::from_secs(lock_after(app).max(limit)))
-    {
-        lock_soon(app);
+    let overdue = away.is_some_and(|away| away >= Duration::from_secs(lock_after(app)))
+        || away_prompting.is_some_and(|(at, limit)| {
+            since(at) >= Duration::from_secs(lock_after(app).max(limit))
+        });
+    if let Ok(mut deadline) = lock.deadline.lock() {
+        // Overdue stays due until the lock clears it, so the page asking in
+        // the meantime is told the silo is locked.
+        *deadline = overdue.then_some(Duration::ZERO);
+    }
+    if overdue {
+        // Back after the lock fell due: closed before anything shows, and
+        // what was not sent goes at the next unlock.
+        lock_soon(app, false);
     }
 }
 
 /// Window events arrive on the main thread, which closing a silo must not
 /// hold: it writes the database and then needs that thread to tell the page.
-fn lock_soon(app: &AppHandle) {
+/// `send_first` sends what is waiting before closing, for a lock nobody is
+/// looking at.
+fn lock_soon(app: &AppHandle, send_first: bool) {
     let lock = app.state::<BackgroundLock>();
-    if lock.busy.load(Ordering::SeqCst) > 0 {
-        lock.lock_held.store(true, Ordering::SeqCst);
+    if lock.work_holds() {
+        if !lock.lock_held.swap(true, Ordering::SeqCst) {
+            hold_until_limit(app);
+        }
         return;
     }
     let app = app.clone();
-    tauri::async_runtime::spawn_blocking(move || lock_all(&app));
+    tauri::async_runtime::spawn_blocking(move || {
+        if send_first {
+            lock_all(&app);
+        } else {
+            close_all(&app);
+        }
+    });
+}
+
+/// A lock held back for busy work still happens once the work outlasts
+/// [`BUSY_LIMIT`].
+fn hold_until_limit(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            tokio::time::sleep(TIMER_STEP).await;
+            let lock = app.state::<BackgroundLock>();
+            if !lock.lock_held.load(Ordering::SeqCst) {
+                return;
+            }
+            if !lock.work_holds() {
+                if lock.lock_held.swap(false, Ordering::SeqCst) {
+                    keep_awake(&app, false).await;
+                    lock_soon(&app, !lock.is_visible());
+                }
+                return;
+            }
+        }
+    });
 }
 
 #[tauri::command(async)]
@@ -617,14 +701,14 @@ pub fn lock_on_screen_off(app: &AppHandle) -> bool {
         .is_none_or(|s| s.trim() != "0")
 }
 
-/// The screen went off: lock at once when the user wants that, whatever the
-/// background delay.
-#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+/// The screen went off (on the iPhone, the phone locked): lock at once when
+/// the user wants that, whatever the background delay.
+#[cfg_attr(not(mobile), allow(dead_code))]
 pub fn screen_off() {
     if let Some(app) = APP.get()
         && lock_on_screen_off(app)
     {
-        lock_soon(app);
+        lock_soon(app, true);
     }
 }
 

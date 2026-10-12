@@ -11,6 +11,11 @@
     <string name="autofill_save_failed">Nie udało się zapisać danych logowania.</string>
     <string name="autofill_pick_hint">Wybierz dane logowania tylko wtedy, gdy chcesz je tu wypełnić.</string>
     <string name="autofill_search_hint">Szukaj w silosie</string>
+    <string name="autofill_choose_for">Wybierz dane logowania dla %1$s</string>
+    <string name="autofill_unverified_browser">SilentSilo nie może potwierdzić, która witryna jest otwarta w %1$s, więc niczego nie proponuje. Sprawdź pasek adresu i wybierz tylko dane logowania tej witryny.</string>
+    <string name="autofill_confirm_title">Wypełnić te dane logowania?</string>
+    <string name="autofill_confirm_message">Zapisano je dla %1$s, a teraz prosi o nie %2$s. Wypełnij je tylko wtedy, gdy oba należą do tej samej usługi.</string>
+    <string name="autofill_confirm_fill">Wypełnij</string>
     <string name="cancel">Anuluj</string>
     <string name="cancelled">Anulowano.</string>
     <string name="backup_channel">Kopia zapasowa czeka na silos</string>

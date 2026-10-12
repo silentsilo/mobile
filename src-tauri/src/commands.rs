@@ -99,6 +99,21 @@ pub struct Bootstrap {
 
 #[tauri::command(async)]
 pub fn app_bootstrap(app: AppHandle, state: State<AppState>) -> Result<Bootstrap, String> {
+    // No silo is touched while its secrets could only be written in the
+    // clear. The page offers to try again.
+    #[cfg(mobile)]
+    {
+        if !crate::secrets::ensure_ready(&app_data(&app)?) {
+            return Err(silentsilo_core::coded!(
+                "err.secure_storage_unavailable",
+                "This phone's secure key storage cannot be reached yet. Unlock the phone, then try again."
+            )
+            .into());
+        }
+        if active_silo(&state).is_err() {
+            restore_focus(&app, &state);
+        }
+    }
     let silo = active_silo(&state).ok();
     let locked = crate::background::past_deadline(&app) || state.focused_session()?.is_none();
     let platform_enrolled = silo
@@ -254,6 +269,7 @@ pub(crate) async fn finish_join(
     let _ = std::fs::remove_file(crate::paths::joining_marker(&root));
     *state.active_silo.lock().map_err(|e| e.to_string())? = Some(entry.clone());
     state.open_session(&host(app), entry.id, session)?;
+    app.state::<crate::presence::Presence>().opened(entry.id);
     crate::audit::set_unlocked_with(entry.id, None);
     Ok(meta)
 }
@@ -340,6 +356,8 @@ pub async fn device_key_enroll(
         flows::enrol_device_key(session, &key)?;
     }
     save_device_key(&app, silo.id, &enrolled.credential_id)?;
+    // Adding the key asked for the fingerprint itself.
+    app.state::<crate::presence::Presence>().note(silo.id);
     crate::audit::record_off_thread(
         &app,
         crate::audit::event(crate::audit::codes::KEY_ADDED)
@@ -408,6 +426,7 @@ pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    app.state::<crate::presence::Presence>().opened(silo.id);
     crate::audit::set_unlocked_with(silo.id, Some(crate::audit::VIA_PHONE_KEY.into()));
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
@@ -416,49 +435,6 @@ pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<
     )
     .await?;
     Ok(meta)
-}
-
-/// Asks for this phone's fingerprint or face again, for an entry marked to
-/// ask before its secrets show. The check only counts if the key it releases
-/// opens this silo's key, as on desktop, so any unlocked phone prompt is not
-/// enough.
-#[tauri::command]
-pub async fn vault_reverify(app: AppHandle, state: State<'_, AppState>) -> Result<(), String> {
-    let silo = active_silo(&state)?;
-    if !state
-        .sessions
-        .lock()
-        .map_err(|e| e.to_string())?
-        .contains_key(&silo.id)
-    {
-        return Err("Unlock the silo first.".into());
-    }
-    let ids = flows::device_key_ids(&silo.path, crate::device_key::KIND);
-    if ids.is_empty() {
-        return Err(
-            "This phone has no key for this silo, so it cannot confirm it is you. Add one under Keys."
-                .into(),
-        );
-    }
-    app.state::<crate::background::BackgroundLock>()
-        .on_screen()
-        .await;
-    let unlocked = app
-        .state::<crate::device_key::DeviceKey<tauri::Wry>>()
-        .unlock(&silo.id.to_string(), &ids)
-        .await?;
-    let wrap_key: [u8; 32] = hex::decode(&unlocked.wrap_key)
-        .ok()
-        .and_then(|b| b.try_into().ok())
-        .ok_or_else(|| "The phone returned an unreadable key.".to_string())?;
-    let keys = silentsilo_vault::load_fido_keys(&silo.path).map_err(|e| e.to_string())?;
-    let stored = keys
-        .active()
-        .find(|k| k.credential_id == unlocked.credential_id)
-        .ok_or_else(|| "That key is not enrolled on this silo.".to_string())?;
-    silentsilo_vault::unwrap_dek_hex(&stored.wrapped_dek, &wrap_key)
-        .map(|_| ())
-        .map_err(|_| "That key could not confirm it is you.".to_string())
 }
 
 #[tauri::command]
@@ -478,6 +454,7 @@ pub async fn vault_unlock_with_recovery(
     .map_err(|e| e.to_string())??;
     silentsilo_app::wipe_open_scratch(&silo.path);
     state.open_session(&host(&app), silo.id, session)?;
+    app.state::<crate::presence::Presence>().opened(silo.id);
     crate::audit::set_unlocked_with(silo.id, Some(crate::audit::VIA_RECOVERY_CODE.into()));
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
@@ -511,7 +488,9 @@ pub async fn vault_lock(
     if !unsent.is_empty() {
         crate::background::push_unsent(&app, unsent, std::time::Duration::from_secs(10)).await;
     }
+    let presence = app.state::<crate::presence::Presence>();
     for id in ids {
+        presence.forget(id);
         state.close_session(&host(&app), id)?;
     }
     state.sweep_scratch();
@@ -523,10 +502,50 @@ pub async fn vault_lock(
     Ok(())
 }
 
+/// Every entry, with a protected entry's secrets held back
+/// (`crate::withheld`).
 #[tauri::command(async)]
 pub fn vault_read_passwords(state: State<AppState>) -> Result<String, String> {
     let entries = state.with_vfs(|_session, vfs| vfs.list_passwords())?;
+    let entries: Vec<String> = entries
+        .iter()
+        .map(|raw| crate::withheld::for_page(raw))
+        .collect();
     Ok(format!("[{}]", entries.join(",")))
+}
+
+/// One entry, as it is stored. One marked to ask first asks for the
+/// fingerprint, unless it was confirmed in the last few minutes.
+#[tauri::command]
+pub async fn vault_reveal_password(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<String, String> {
+    let id = Uuid::parse_str(&id).map_err(|e| format!("This entry's id is not valid ({e})."))?;
+    let silo = active_silo(&state)?;
+    let raw = stored_entry(&state, id)?.ok_or(silentsilo_core::coded!(
+        "err.entry_gone",
+        "This entry is no longer in the silo."
+    ))?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&raw).map_err(|e| format!("This entry could not be read ({e})."))?;
+    if crate::withheld::is_protected(&parsed) {
+        crate::presence::require_entry(&app, &state, &silo, id).await?;
+    }
+    Ok(crate::withheld::revealed(&raw))
+}
+
+/// The stored JSON of one entry, if the open silo has it.
+pub(crate) fn stored_entry(state: &AppState, id: Uuid) -> Result<Option<String>, String> {
+    let entries = state.with_vfs(|_session, vfs| vfs.list_passwords())?;
+    Ok(entries.into_iter().find(|raw| {
+        serde_json::from_str::<serde_json::Value>(raw)
+            .ok()
+            .as_ref()
+            .and_then(crate::withheld::id_of)
+            == Some(id)
+    }))
 }
 
 #[tauri::command(async)]
@@ -559,22 +578,35 @@ pub fn vault_upsert_password(
             crate::audit::record(&app, crate::audit::event(code).on(id.to_string(), label))?;
         }
     }
+    // The page may hold a protected entry without its secrets: what it did
+    // not have is kept from the stored one.
+    let stored = stored_entry(&state, id)?;
+    let json = crate::withheld::merge(&json, stored.as_deref())?;
     state.with_vfs(|_session, vfs| vfs.upsert_password(id, &json))
 }
 
-#[tauri::command(async)]
-pub fn vault_delete_password(
+/// A protected entry is deleted only right after a confirmation.
+#[tauri::command]
+pub async fn vault_delete_password(
     app: AppHandle,
     id: String,
     label: Option<String>,
-    state: State<AppState>,
+    state: State<'_, AppState>,
 ) -> Result<(), String> {
     let id = Uuid::parse_str(&id).map_err(|e| format!("This entry's id is not valid ({e})."))?;
-    crate::audit::record(
+    let protected = stored_entry(&state, id)?
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(&raw).ok())
+        .is_some_and(|entry| crate::withheld::is_protected(&entry));
+    if protected {
+        let silo = active_silo(&state)?;
+        crate::presence::require_change(&app, &state, &silo, id).await?;
+    }
+    crate::audit::record_off_thread(
         &app,
         crate::audit::event(crate::audit::codes::ENTRY_DELETED)
             .on(id.to_string(), label.unwrap_or_default()),
-    )?;
+    )
+    .await?;
     state.with_vfs(|_session, vfs| vfs.delete_password(id))
 }
 
@@ -626,11 +658,18 @@ pub fn serve_file(
     responder: tauri::UriSchemeResponder,
 ) {
     tauri::async_runtime::spawn(async move {
+        // A file's type is whatever its name says. The webview never guesses
+        // past it, and a file opened as a page of its own runs nothing.
         let respond = |status: u16, mime: &str, body: Vec<u8>| {
             tauri::http::Response::builder()
                 .status(status)
                 .header(tauri::http::header::CONTENT_TYPE, mime)
                 .header(tauri::http::header::CACHE_CONTROL, "no-store")
+                .header(tauri::http::header::X_CONTENT_TYPE_OPTIONS, "nosniff")
+                .header(
+                    tauri::http::header::CONTENT_SECURITY_POLICY,
+                    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox",
+                )
                 .body(body)
                 .unwrap_or_default()
         };
@@ -644,8 +683,9 @@ pub fn serve_file(
                 .uri()
                 .query()
                 .and_then(|q| q.split('&').find_map(|kv| kv.strip_prefix("w=")))
-                .and_then(|w| w.parse().ok())
-                .unwrap_or(1080);
+                .and_then(|w| w.parse::<u32>().ok())
+                .unwrap_or(1080)
+                .clamp(200, 2400);
             // Opening a PDF asks for its page count first, once.
             if let (Some(id), "pages") = (id, what.as_str())
                 && let Err(e) = crate::audit::file_opened(&app, id, "this app").await
@@ -779,6 +819,7 @@ pub async fn fido_remove_key(
     credential_id: String,
 ) -> Result<RemoveKeyOutcome, String> {
     let silo = active_silo(&state)?;
+    crate::presence::require(&app, &state, &silo).await?;
     let is_this_phone = load_device_keys(&app).get(&silo.id) == Some(&credential_id);
     let mut keys = silentsilo_vault::load_fido_keys(&silo.path).map_err(|e| e.to_string())?;
     let Some(key) = keys

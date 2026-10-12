@@ -11,6 +11,11 @@
     <string name="autofill_save_failed">Datele de conectare nu au putut fi salvate.</string>
     <string name="autofill_pick_hint">Alege date de conectare doar dacă voiai să le completezi aici.</string>
     <string name="autofill_search_hint">Caută în siloz</string>
+    <string name="autofill_choose_for">Alege datele de conectare pentru %1$s</string>
+    <string name="autofill_unverified_browser">SilentSilo nu poate confirma ce site e deschis în %1$s, așa că nu propune nimic. Verifică bara de adrese și alege doar datele de conectare pentru acel site.</string>
+    <string name="autofill_confirm_title">Completezi aceste date de conectare?</string>
+    <string name="autofill_confirm_message">Au fost salvate pentru %1$s, iar acum le cere %2$s. Completează-le doar dacă amândouă țin de același serviciu.</string>
+    <string name="autofill_confirm_fill">Completează</string>
     <string name="cancel">Anulează</string>
     <string name="cancelled">Anulat.</string>
     <string name="backup_channel">Backup care așteaptă silozul</string>

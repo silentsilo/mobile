@@ -142,13 +142,58 @@ fn opened_dir(_app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 /// Files handed to other apps are removed when the user comes back to this
-/// app, locks by hand, or starts it again. Not when it locks in the
-/// background: that happens while the other app is still showing the file.
-/// The other app may keep its own copy; the screen that offers this says so.
+/// app, at every lock, the automatic ones too, and when it starts again. On
+/// Android the other apps' permission to read them goes as well. The other
+/// app may keep its own copy; the screen that offers this says so.
 pub fn wipe_opened(app: &AppHandle) {
     if let Ok(dir) = opened_dir(app) {
         let _ = std::fs::remove_dir_all(dir);
     }
+    // Off this thread: it may be the main one, which Kotlin needs to answer.
+    #[cfg(target_os = "android")]
+    {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let _ = app
+                .state::<crate::incoming::Files<tauri::Wry>>()
+                .call::<serde_json::Value>("revokeOpened", serde_json::json!({}))
+                .await;
+        });
+    }
+}
+
+/// How long a file just handed over outlives a lock: the other app opens
+/// it a moment after this one leaves the screen, which with the lock set to
+/// "At once" is the moment the silo locks.
+const HAND_OVER_GRACE: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// For a lock: [`wipe_opened`] now, or, when a file was handed over in the
+/// last few seconds, once [`HAND_OVER_GRACE`] has passed. A phone that
+/// freezes the app before then wipes it when the app comes back or starts.
+pub fn wipe_opened_after_lock(app: &AppHandle) {
+    let Ok(dir) = opened_dir(app) else {
+        return;
+    };
+    let just_handed = std::fs::read_dir(&dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .any(|e| {
+            e.metadata()
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|at| at.elapsed().ok())
+                .is_some_and(|age| age < HAND_OVER_GRACE)
+        });
+    if !just_handed {
+        wipe_opened(app);
+        return;
+    }
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(HAND_OVER_GRACE).await;
+        wipe_opened(&app);
+    });
 }
 
 /// Whether a file's content is on this phone, or comes down from storage
@@ -208,7 +253,9 @@ pub async fn file_open_with(
 
 /// Opens a password entry's attached file in another app, as a file of the
 /// silo opens: fetched from backup storage when this phone does not hold
-/// it, decrypted with its own key, then handed over.
+/// it, decrypted with its own key, then handed over. The key and the entry
+/// come from the silo, not the page: an entry marked to ask first asks
+/// before its file opens.
 #[tauri::command]
 pub async fn password_open_attachment(
     app: AppHandle,
@@ -219,8 +266,17 @@ pub async fn password_open_attachment(
     entry_label: Option<String>,
     how: Option<String>,
 ) -> Result<bool, String> {
+    let _ = blob_key;
     let blob_id = Uuid::parse_str(&blob_id).map_err(|e| e.to_string())?;
     let silo = active_silo(&state)?;
+    let (entry_id, protected, blob_key) =
+        attachment_owner(&state, blob_id)?.ok_or(silentsilo_core::coded!(
+            "err.attachment_gone",
+            "This file is no longer attached to an entry."
+        ))?;
+    if protected {
+        crate::presence::require_entry(&app, &state, &silo, entry_id).await?;
+    }
     let kek = {
         let sessions = state.sessions.lock().map_err(|e| e.to_string())?;
         sessions
@@ -280,6 +336,39 @@ pub async fn password_open_attachment(
     .map_err(|e| e.to_string())??;
     let mime = silentsilo_vfs::guess_mime(&dest).unwrap_or_default();
     hand_over(&app, dest, mime, how.as_deref()).await
+}
+
+/// The entry an attached file belongs to, whether it asks first, and the
+/// file's wrapped key as that entry stores it.
+fn attachment_owner(
+    state: &AppState,
+    blob_id: Uuid,
+) -> Result<Option<(Uuid, bool, String)>, String> {
+    let entries = state.with_vfs(|_session, vfs| vfs.list_passwords())?;
+    let wanted = blob_id.to_string();
+    for raw in entries {
+        let Ok(entry) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            continue;
+        };
+        let Some(id) = crate::withheld::id_of(&entry) else {
+            continue;
+        };
+        let key = entry
+            .get("attachments")
+            .and_then(|a| a.as_array())
+            .into_iter()
+            .flatten()
+            .find(|a| a.get("blob_id").and_then(|b| b.as_str()) == Some(wanted.as_str()))
+            .and_then(|a| a.get("blob_key").and_then(|k| k.as_str()));
+        if let Some(key) = key {
+            return Ok(Some((
+                id,
+                crate::withheld::is_protected(&entry),
+                key.to_string(),
+            )));
+        }
+    }
+    Ok(None)
 }
 
 /// The name another app shows, made safe as a file name.

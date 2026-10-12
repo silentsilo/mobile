@@ -397,3 +397,10 @@ pub fn exclude_from_backup(dir: &std::path::Path) {
 pub extern "C" fn ss_entered_background() {
     crate::background::entered_background();
 }
+
+/// Called by Swift when the iPhone locks and its files are about to be
+/// sealed: the silo locks too, unless the user turned that off.
+#[unsafe(no_mangle)]
+pub extern "C" fn ss_protected_data_going() {
+    crate::background::screen_off();
+}

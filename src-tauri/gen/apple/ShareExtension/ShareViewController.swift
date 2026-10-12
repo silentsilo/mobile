@@ -66,6 +66,13 @@ final class ShareViewController: UIViewController {
         .containerURL(forSecurityApplicationGroupIdentifier: appGroup)?
         .appendingPathComponent("Inbox", isDirectory: true)
     else { return 0 }
+    // Out of iCloud and computer backups, like the silos: a shared file waits
+    // here in the clear until the app takes it.
+    try? FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
+    var values = URLResourceValues()
+    values.isExcludedFromBackup = true
+    var excluded = inbox
+    try? excluded.setResourceValues(values)
     let providers = (extensionContext?.inputItems as? [NSExtensionItem] ?? [])
       .flatMap { $0.attachments ?? [] }
     var saved = 0
@@ -99,7 +106,9 @@ final class ShareViewController: UIViewController {
         if URL(fileURLWithPath: name).pathExtension.isEmpty, !url.pathExtension.isEmpty {
           name += "." + url.pathExtension
         }
-        let target = partial.appendingPathComponent(name.replacingOccurrences(of: "/", with: "_"))
+        name = name.replacingOccurrences(of: "/", with: "_")
+        if name.isEmpty || name == "." || name == ".." { name = "file" }
+        let target = partial.appendingPathComponent(name, isDirectory: false)
         do {
           try FileManager.default.createDirectory(
             at: partial, withIntermediateDirectories: true,

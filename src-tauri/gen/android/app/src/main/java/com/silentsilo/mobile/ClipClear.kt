@@ -12,19 +12,38 @@ import android.os.SystemClock
 // alarm: a timer in the app stops when Android freezes or kills it, and the
 // secret then stayed. The serial ties the alarm to its copy; a later copy
 // replaces it, and a lock that already cleared it marks it done.
+//
+// The alarm is exact where Android lets the app set one. Otherwise Doze may
+// hold it back for several minutes, so the app also clears a secret past
+// its time whenever it comes back on screen or the screen turns off.
 object ClipClear {
   private const val PREFS = "clip"
   const val LABEL = "SilentSilo secret"
 
   fun schedule(context: Context, ttlMs: Long) {
     val serial = SystemClock.elapsedRealtimeNanos()
-    prefs(context).edit().putLong("serial", serial).putBoolean("pending", true).apply()
+    val due = SystemClock.elapsedRealtime() + ttlMs
+    prefs(context).edit()
+      .putLong("serial", serial)
+      .putLong("due", due)
+      .putBoolean("pending", true)
+      .apply()
     val intent = Intent(context, ClipClearReceiver::class.java).putExtra("serial", serial)
     val alarm = PendingIntent.getBroadcast(
       context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
     )
-    context.getSystemService(AlarmManager::class.java)
-      .setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME, SystemClock.elapsedRealtime() + ttlMs, alarm)
+    val alarms = context.getSystemService(AlarmManager::class.java)
+    if (alarms.canScheduleExactAlarms()) {
+      alarms.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, due, alarm)
+    } else {
+      alarms.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, due, alarm)
+    }
+  }
+
+  // A secret whose time ran out while the alarm was held back goes now.
+  fun clearIfDue(context: Context) {
+    if (!pending(context)) return
+    if (SystemClock.elapsedRealtime() >= prefs(context).getLong("due", 0L)) clearIfOurs(context)
   }
 
   fun pending(context: Context): Boolean = prefs(context).getBoolean("pending", false)

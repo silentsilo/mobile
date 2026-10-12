@@ -287,6 +287,10 @@ export type PasswordEntry = {
   fields?: CustomField[];
   /** Earlier versions, newest first (`shared/entryHistory.ts`). */
   history?: HistoryVersion[];
+  /** Set by the phone's backend on a protected entry read in a list: its
+   * secrets are emptied, and this names the text fields that had one.
+   * `revealed()` in `ui/reverify.ts` gets the entry whole. Never saved. */
+  secrets_withheld?: string[];
 };
 
 export type CustomField = { name: string; value: string; hidden: boolean };

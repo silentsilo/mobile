@@ -231,8 +231,12 @@ export const api = {
 
   phoneKeyState: () => invoke<PhoneKeyState>("phone_key_state"),
   unlock: () => invoke<VaultMeta>("vault_unlock"),
-  /** Asks for the fingerprint again, for an entry marked to ask first. */
+  /** Asks for the fingerprint again, before a change to several entries
+   * marked to ask first. */
   reverify: () => invoke<void>("vault_reverify"),
+  /** One entry as stored, its secrets included: an entry marked to ask
+   * first asks for the fingerprint, unless confirmed in the last minutes. */
+  revealPassword: (id: string) => invoke<string>("vault_reveal_password", { id }),
   unlockWithRecovery: (code: string) => invoke<VaultMeta>("vault_unlock_with_recovery", { code }),
   /** The key's PIN, when it has one, is asked in Android's own dialog. */
   unlockWithSecurityKey: () => invoke<VaultMeta>("vault_unlock_with_security_key"),
