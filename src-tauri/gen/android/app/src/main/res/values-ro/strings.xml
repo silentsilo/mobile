@@ -43,8 +43,8 @@
         <item quantity="few">%d elemente așteaptă să fie adăugate în siloz.</item>
         <item quantity="other">%d de elemente așteaptă să fie adăugate în siloz.</item>
     </plurals>
-    <string name="silo_open_channel">Silo deschis</string>
-    <string name="silo_open_title">Un silo e deschis</string>
+    <string name="silo_open_channel">Siloz deschis</string>
+    <string name="silo_open_title">Un siloz e deschis</string>
     <string name="silo_open_text">Se sincronizează la câteva minute până se blochează.</string>
     <string name="silo_open_synced">Sincronizat la %1$s. Se blochează singur după timpul ales.</string>
     <string name="silo_open_lock">Blochează acum</string>
