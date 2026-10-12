@@ -51,7 +51,7 @@ targets:
         # for a phone held upright.
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
-        CFBundleShortVersionString: 1.4.0
+        CFBundleShortVersionString: 1.4.1
         # The build number, set by `tauri ios build` (agvtool) for every
         # target at once, so the extensions always match the app.
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
@@ -144,7 +144,7 @@ targets:
       properties:
         CFBundleDisplayName: SilentSilo
         # Kept equal to the app's: App Store Connect warns on a mismatch.
-        CFBundleShortVersionString: 1.4.0
+        CFBundleShortVersionString: 1.4.1
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSExtension:
           NSExtensionPointIdentifier: com.apple.share-services
@@ -180,7 +180,7 @@ targets:
       properties:
         CFBundleDisplayName: SilentSilo
         # Kept equal to the app's: App Store Connect warns on a mismatch.
-        CFBundleShortVersionString: 1.4.0
+        CFBundleShortVersionString: 1.4.1
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         NSFaceIDUsageDescription: SilentSilo uses Face ID to open your silo and fill a login.
         NSExtension:

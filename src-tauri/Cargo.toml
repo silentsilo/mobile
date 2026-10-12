@@ -1,6 +1,6 @@
 [package]
 name = "silentsilo-mobile"
-version = "1.4.0"
+version = "1.4.1"
 description = "SilentSilo for Android and iOS"
 authors = ["Software Hive S.R.L."]
 edition = "2024"
