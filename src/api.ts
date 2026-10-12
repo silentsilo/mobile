@@ -118,6 +118,10 @@ export type SyncReport = {
    * reads the same object, so it is not the answer: the storage is.
    */
   key_material_replaced: boolean;
+  /** With `needs_rejoin`: nothing in storage proves a rotation did it. */
+  rotation_unproven?: boolean;
+  /** Records missing from the middle of another device's history. */
+  chain_holes?: string[];
   skipped: boolean;
 };
 

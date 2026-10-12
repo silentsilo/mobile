@@ -33,6 +33,8 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // No core dumps of a process that holds unlocked keys.
+    silentsilo_vault::harden_process();
     tauri::Builder::default()
         .plugin(device_key::init())
         .plugin(backup::init())

@@ -458,6 +458,7 @@ export function Entry({
                       <span className="muted caption">
                         {changed.length > 0 ? t("pw.history_next_change", { changes: changed.join(", ") }) : t("pw.history_no_change")}
                       </span>
+                      {version.conflict && <span className="muted caption">{t("pw.history_conflict")}</span>}
                       {version.password && (
                         <span className={`field-value mono${shown ? "" : " masked"}`}>
                           {shown ? version.password : "••••••••"}

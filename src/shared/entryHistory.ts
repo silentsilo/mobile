@@ -22,6 +22,7 @@ const NOT_VERSIONED = new Set([
   "id",
   "history",
   "saved_at",
+  "conflict",
   "attachments",
   "passkey",
   "favorite",
