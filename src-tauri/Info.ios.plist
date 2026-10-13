@@ -31,11 +31,11 @@
 	<array>
 		<string>A0000006472F0001</string>
 	</array>
-	<!-- Standard algorithms beyond the system's (AES-GCM, Argon2id, HKDF,
-	     ECDH). App Store Connect still asks about export at each upload
-	     until it has a compliance code (the French declaration brings one). -->
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<true/>
+	<!-- No ITSAppUsesNonExemptEncryption here: set to true without an
+	     ITSEncryptionExportComplianceCode, an upload is refused (90592), and
+	     a code exists only once Apple approves documentation (for France).
+	     Without the key, App Store Connect asks about export for each build:
+	     standard algorithms (AES-GCM, Argon2id, HKDF, ECDH), not for France. -->
 	<!-- iCloud Drive as backup storage (planuri/icloud.md): the container's
 	     Documents show as a "SilentSilo" folder in Files, in Finder and in
 	     iCloud for Windows. -->

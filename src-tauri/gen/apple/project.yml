@@ -68,7 +68,7 @@ targets:
         com.apple.developer.nfc.readersession.iso7816.select-identifiers: [A0000006472F0001]
         BGTaskSchedulerPermittedIdentifiers: [com.silentsilo.mobile.backup]
         UIBackgroundModes: [processing]
-        ITSAppUsesNonExemptEncryption: true
+        # No ITSAppUsesNonExemptEncryption: see src-tauri/Info.ios.plist.
         # iCloud Drive as backup storage (planuri/icloud.md): the container's
         # Documents show as a "SilentSilo" folder in Files and in Finder.
         NSUbiquitousContainers:
