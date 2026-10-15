@@ -130,6 +130,7 @@ export function Keys({ sync, onBack }: { sync: SyncStatus | null; onBack: () => 
         {adding === "name" && (
           <>
             <p className="hint">{t(isIOS ? "silo.key_add_hint_ios" : "silo.key_add_hint")}</p>
+            {isIOS && <Notice>{t("silo.key_add_nfc_only_ios")}</Notice>}
             <Field label={t("silo.key_name_label")}>
               <div className="input">
                 <input value={label} onChange={(e) => setLabel(e.target.value)} />

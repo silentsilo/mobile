@@ -107,6 +107,11 @@ enum KeyError {
 impl KeyError {
     fn into_message(self) -> String {
         match self {
+            // Coded, so the screen says it in the app's language.
+            KeyError::Key {
+                error: CtapError::PinNotSet,
+                ..
+            } => NEEDS_PIN.into(),
             KeyError::Key { error, usb } => {
                 // Statuses and framing only; nothing secret is in a CTAP error.
                 eprintln!("[security-key] {error:?}");
@@ -305,11 +310,7 @@ fn describe(error: &CtapError, usb: bool) -> String {
         CtapError::PinAuthBlocked => "Three wrong PINs in a row. Take the key away from the phone \
              or unplug it, then try again."
             .into(),
-        CtapError::PinNotSet => {
-            "This security key needs a PIN before it can be used. Set one with \
-             the key maker's app (for a YubiKey, Yubico Authenticator), then add it again."
-                .into()
-        }
+        CtapError::PinNotSet => silentsilo_core::coded::english(NEEDS_PIN).into(),
         CtapError::PinBlocked => "This security key's PIN is blocked after too many wrong tries. \
              Only a reset of the key unblocks it, and a reset erases it from every silo, so open \
              the silo another way: this phone's fingerprint, another key or the recovery code."
@@ -329,6 +330,12 @@ fn describe(error: &CtapError, usb: bool) -> String {
 const CANCELLED: &str = "Cancelled";
 
 const NOT_OPENED: &str = "This security key could not open the silo.";
+
+const NEEDS_PIN: &str = silentsilo_core::coded!(
+    "err.key_needs_pin",
+    "This key needs a PIN before it can open a silo. Set one with its maker's app or in \
+     Chrome's security key settings, then add it again."
+);
 
 const ADDED_WITHOUT_PIN: &str = "This key was added without its PIN, which works only with the \
      key plugged in. To use it over NFC, remove it in Keys and add it again.";
@@ -514,6 +521,11 @@ pub async fn security_key_enroll(
     // share one.
     let made_vault = vault_id.clone();
     let (made, pin) = with_pin(&app, None, move |dev, pin| {
+        // Refused, as core 1.10.1 refuses it: a key with no PIN gives another
+        // secret once one is set, and Windows always verifies a key with one.
+        if !ctap2::get_info(dev)?.pin_set {
+            return Err(CtapError::PinNotSet);
+        }
         ctap2::make_credential(dev, &made_vault, pin)
     })
     .await

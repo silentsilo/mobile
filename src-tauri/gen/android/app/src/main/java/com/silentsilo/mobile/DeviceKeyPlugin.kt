@@ -215,20 +215,33 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
   private fun measure(): JSObject {
     val keyguard = activity.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager
     val biometrics = activity.getSystemService(BiometricManager::class.java)
-    val strongBiometric =
-      biometrics.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG) ==
-        BiometricManager.BIOMETRIC_SUCCESS
-    val webview = WebView.getCurrentWebViewPackage()?.versionName ?: ""
-    val webviewMajor = webview.substringBefore('.').toIntOrNull() ?: 0
+    val canAuthenticate = biometrics.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
+    val strongBiometric = canAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
+    // Why not, so the screen words each case: no sensor, one that is busy,
+    // one switched off until a security update, or none enrolled.
+    val biometricStatus = when (canAuthenticate) {
+      BiometricManager.BIOMETRIC_SUCCESS -> "ok"
+      BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED -> "none_enrolled"
+      BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE -> "no_hardware"
+      BiometricManager.BIOMETRIC_ERROR_HW_UNAVAILABLE -> "hw_unavailable"
+      BiometricManager.BIOMETRIC_ERROR_SECURITY_UPDATE_REQUIRED -> "security_update"
+      else -> "other"
+    }
+    // Some phones report no WebView package, or a version that is not a
+    // number. That proves nothing about its age: sent empty, and the screen
+    // warns instead of blocking.
+    val webview = WebView.getCurrentWebViewPackage()?.versionName
+    val webviewMajor = webview?.substringBefore('.')?.trim()?.toIntOrNull()
 
     val result = JSObject()
     result.put("android_release", Build.VERSION.RELEASE)
     result.put("android_supported", Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
     result.put("secure_lock", keyguard.isDeviceSecure)
     result.put("strong_biometric", strongBiometric)
+    result.put("biometric_status", biometricStatus)
     result.put("keystore", probeKeystore(strongBiometric))
-    result.put("webview_version", webview)
-    result.put("webview_ok", webviewMajor >= MIN_WEBVIEW_MAJOR)
+    result.put("webview_version", webview.takeIf { webviewMajor != null } ?: "")
+    result.put("webview_ok", webviewMajor == null || webviewMajor >= MIN_WEBVIEW_MAJOR)
     result.put("free_bytes", StatFs(activity.filesDir.path).availableBytes)
     return result
   }
@@ -255,34 +268,37 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     val vaultId = invoke.getArgs().getString("vaultId")
     val title = invoke.getArgs().optString("title", "Add this phone to the silo")
     val tag = ByteArray(TAG_LEN).also { SecureRandom().nextBytes(it) }
-    val alias = ALIAS_PREFIX + hex(tag)
+    enrolIn(invoke, vaultId, title, tag, strongBox = true)
+  }
 
-    val strongBox = try {
-      generate(alias, strongBox = true, withAuth = true)
-      true
-    } catch (_: StrongBoxUnavailableException) {
-      try {
-        generate(alias, strongBox = false, withAuth = true)
-      } catch (e: Exception) {
-        invoke.reject("This phone's key storage refused to make a key: ${e.message}")
-        return
-      }
-      false
+  // StrongBox first. Some firmware fails there with a ProviderException or a
+  // KeyStoreException rather than StrongBoxUnavailableException, at
+  // generation, at init or only at doFinal, so any failure there starts the
+  // whole enrolment over in the TEE under the same alias.
+  private fun enrolIn(invoke: Invoke, vaultId: String, title: String, tag: ByteArray, strongBox: Boolean) {
+    val alias = ALIAS_PREFIX + hex(tag)
+    val fail = { message: String ->
+      deleteAlias(alias)
+      if (strongBox) enrolIn(invoke, vaultId, title, tag, strongBox = false) else invoke.reject(message)
+    }
+
+    try {
+      generate(alias, strongBox, withAuth = true)
     } catch (e: Exception) {
-      invoke.reject("This phone's key storage refused to make a key: ${e.message}")
+      fail("This phone's key storage refused to make a key: ${e.message}")
       return
     }
 
     val cipher = try {
       Cipher.getInstance(TRANSFORM).apply { init(Cipher.ENCRYPT_MODE, loadKey(alias)) }
     } catch (e: Exception) {
-      deleteAlias(alias)
-      invoke.reject("Could not start the key: ${e.message}")
+      fail("Could not start the key: ${e.message}")
       return
     }
 
     prompt(cipher, title, invoke, onFail = { deleteAlias(alias) }) { authed ->
       val wrapKey = ByteArray(32).also { SecureRandom().nextBytes(it) }
+      var failure: String? = null
       try {
         authed.updateAAD(associatedData(vaultId))
         val sealed = authed.doFinal(wrapKey)
@@ -296,11 +312,12 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
         result.put("strongBox", strongBox)
         invoke.resolve(result)
       } catch (e: Exception) {
-        deleteAlias(alias)
-        invoke.reject("Could not protect the key: ${e.message}")
+        failure = "Could not protect the key: ${e.message}"
       } finally {
         wrapKey.fill(0)
       }
+      // After the wipe: a retry in the TEE makes its own wrap key.
+      failure?.let(fail)
     }
   }
 

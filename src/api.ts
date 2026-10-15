@@ -92,7 +92,10 @@ export type DeviceCheck = {
   android_supported: boolean;
   secure_lock: boolean;
   strong_biometric: boolean;
+  /** Why `strong_biometric` is false, as Android says it; absent from older builds. */
+  biometric_status?: "ok" | "none_enrolled" | "no_hardware" | "hw_unavailable" | "security_update" | "other";
   keystore: "strongbox" | "tee" | "failed";
+  /** Empty when the phone did not report a version that parses. */
   webview_version: string;
   webview_ok: boolean;
   free_bytes: number;

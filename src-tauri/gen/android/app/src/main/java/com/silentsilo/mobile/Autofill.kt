@@ -363,7 +363,15 @@ class AutofillUnlockActivity : Activity() {
       getString(R.string.autofill_fill_title),
       asked,
       onUnlocked = { credentialId, wrapKey -> offer(Native.autofillLogins(dataDir, credentialId, wrapKey)) },
-      onFailed = { finishWith(null) },
+      // A key that is gone, changed or locked out is said, as on save; a
+      // cancel just closes.
+      onFailed = {
+        val message = it.message
+        if (it.code != "cancelled" && message != null) {
+          Toast.makeText(applicationContext, message, Toast.LENGTH_LONG).show()
+        }
+        finishWith(null)
+      },
     )
   }
 

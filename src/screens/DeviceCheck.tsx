@@ -9,6 +9,23 @@ export function blockingFailures(check: Check): boolean {
   return !check.android_supported || !check.secure_lock || !check.strong_biometric || check.keystore === "failed" || !check.webview_ok;
 }
 
+// Android's own reason, so a phone with no sensor is not told to add a
+// fingerprint. A build that sends none gets the usual case.
+function biometricFailure(check: Check): string {
+  switch (check.biometric_status) {
+    case "no_hardware":
+      return t("start.check_biometric_no_hardware");
+    case "hw_unavailable":
+      return t("start.check_biometric_unavailable");
+    case "security_update":
+      return t("start.check_biometric_update");
+    case "other":
+      return t("start.check_biometric_other");
+    default:
+      return t("start.check_biometric_fail");
+  }
+}
+
 function linesFor(check: Check): Line[] {
   const space: Line = {
     ok: check.free_bytes < 500_000_000 ? "warn" : true,
@@ -46,7 +63,7 @@ function linesFor(check: Check): Line[] {
     {
       ok: check.strong_biometric,
       title: t("start.check_biometric"),
-      detail: check.strong_biometric ? t("start.check_biometric_ok") : t("start.check_biometric_fail"),
+      detail: check.strong_biometric ? t("start.check_biometric_ok") : biometricFailure(check),
     },
     {
       ok: check.keystore === "failed" ? false : true,
@@ -58,12 +75,15 @@ function linesFor(check: Check): Line[] {
             ? t("start.check_keystore_tee")
             : t("start.check_keystore_failed"),
     },
+    // No version reported proves nothing about its age: a warning only.
     {
-      ok: check.webview_ok,
+      ok: !check.webview_version ? "warn" : check.webview_ok,
       title: "Android System WebView",
-      detail: check.webview_ok
-        ? t("start.check_webview_ok", { version: check.webview_version })
-        : t("start.check_webview_fail", { version: check.webview_version }),
+      detail: !check.webview_version
+        ? t("start.check_webview_unknown")
+        : check.webview_ok
+          ? t("start.check_webview_ok", { version: check.webview_version })
+          : t("start.check_webview_fail", { version: check.webview_version }),
     },
     space,
   ];

@@ -16,8 +16,13 @@ pub struct DeviceCheck {
     pub android_supported: bool,
     pub secure_lock: bool,
     pub strong_biometric: bool,
+    /// Why `strong_biometric` is false: `none_enrolled`, `no_hardware`,
+    /// `hw_unavailable`, `security_update` or `other`; `ok` when it is true.
+    #[serde(default)]
+    pub biometric_status: String,
     /// `strongbox`, `tee` or `failed`.
     pub keystore: String,
+    /// Empty when the phone did not report a version that parses.
     pub webview_version: String,
     pub webview_ok: bool,
     pub free_bytes: u64,
@@ -164,6 +169,10 @@ impl<R: Runtime> DeviceKey<R> {
     const NOT_YET: &str = "Not available on iPhone yet.";
 
     pub async fn check(&self) -> Result<DeviceCheck, String> {
+        // TODO(core 1.10.1): call `device_enclave::status()` instead and map
+        // its `PlatformStatus`: `NotSetUp` to the Face ID line alone, `Absent`
+        // and `Unavailable` to the Secure Enclave line, so one bool no longer
+        // fails every line at once.
         let ready = blocking(silentsilo_fido::device_enclave::available).await?;
         Ok(DeviceCheck {
             platform: "ios".into(),
@@ -171,6 +180,7 @@ impl<R: Runtime> DeviceKey<R> {
             android_supported: true,
             secure_lock: ready,
             strong_biometric: ready,
+            biometric_status: if ready { "ok" } else { "other" }.into(),
             keystore: if ready { "strongbox" } else { "failed" }.into(),
             webview_version: String::new(),
             webview_ok: true,

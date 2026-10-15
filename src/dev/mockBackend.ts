@@ -192,8 +192,8 @@ const file = (id: string, name: string, size: number, mime: string, at: number) 
 
 const normalized = (code: unknown) => String(code ?? "").replace(/[^0-9a-z]/gi, "");
 
-// Failure scenarios for the device check: ?mock&nobio, &nolock, &oldandroid,
-// &nokeystore, &oldwebview, &lowspace, &tee.
+// Failure scenarios for the device check: ?mock&nobio, &nobiohw, &nolock,
+// &oldandroid, &nokeystore, &oldwebview, &nowebviewversion, &lowspace, &tee.
 const flag = (name: string) => new URLSearchParams(location.search).has(name);
 // &invalidated: the phone's key was retired by a fingerprint change.
 let keyInvalidated = flag("invalidated");
@@ -205,9 +205,10 @@ const handlers: Record<string, Handler> = {
       android_release: flag("oldandroid") ? "11" : "16",
       android_supported: !flag("oldandroid"),
       secure_lock: !flag("nolock"),
-      strong_biometric: !flag("nobio"),
+      strong_biometric: !flag("nobio") && !flag("nobiohw"),
+      biometric_status: flag("nobiohw") ? "no_hardware" : flag("nobio") ? "none_enrolled" : "ok",
       keystore: flag("nokeystore") ? "failed" : flag("tee") ? "tee" : "strongbox",
-      webview_version: flag("oldwebview") ? "91.0.4472.114" : "140.0.7339.51",
+      webview_version: flag("nowebviewversion") ? "" : flag("oldwebview") ? "91.0.4472.114" : "140.0.7339.51",
       webview_ok: !flag("oldwebview"),
       free_bytes: flag("lowspace") ? 200_000_000 : 64_000_000_000,
     };

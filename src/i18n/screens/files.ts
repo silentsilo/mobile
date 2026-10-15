@@ -611,7 +611,7 @@ export const files = {
     pl: "Dostęp do zdjęć wyłączono w ustawieniach telefonu, więc nowe zdjęcia nie są wysyłane. Włącz go ponownie dla SilentSilo w Ustawieniach.",
   },
   "files.backup_photos_limited": {
-    note: "Warning on the Phone backup screen on iPhone: the user allowed only some photos, so only those are backed up.",
+    note: "Warning on the Phone backup screen on iPhone, and on Android 14 and later: the user allowed only some photos ('Select photos'), so only those are backed up.",
     en: "SilentSilo can see only the photos you picked, so only those are sent. Allow all photos for SilentSilo in Settings to send the rest.",
     ro: "SilentSilo vede doar pozele pe care le-ai ales, așa că doar acelea se trimit. Permite toate pozele pentru SilentSilo în Setări ca să le trimiți și pe celelalte.",
     de: "SilentSilo sieht nur die Fotos, die du ausgewählt hast, und sendet nur diese. Erlaube SilentSilo in den Einstellungen alle Fotos, um den Rest zu senden.",
@@ -620,6 +620,17 @@ export const files = {
     it: "SilentSilo vede solo le foto che hai scelto, quindi invia solo quelle. Consenti tutte le foto a SilentSilo nelle Impostazioni per inviare il resto.",
     "pt-BR": "O SilentSilo vê só as fotos que você escolheu, então só essas são enviadas. Permita todas as fotos para o SilentSilo nos Ajustes para enviar o resto.",
     pl: "SilentSilo widzi tylko wybrane przez ciebie zdjęcia, więc wysyła tylko je. Zezwól SilentSilo na wszystkie zdjęcia w Ustawieniach, aby wysłać resztę.",
+  },
+  "files.backup_media_access_lost": {
+    note: "Error in the backup status panel, written by the last run: it found access to photos and videos turned off in the phone's settings, so it sent none.",
+    en: "The last run sent no photos or videos: access to them is off for SilentSilo in the phone's settings. Turn it back on in Settings.",
+    ro: "Ultima rulare nu a trimis poze sau videoclipuri: accesul la ele e oprit pentru SilentSilo în setările telefonului. Pornește-l din nou din Setări.",
+    de: "Beim letzten Lauf wurden keine Fotos oder Videos gesendet: Der Zugriff darauf ist für SilentSilo in den Einstellungen des Telefons abgeschaltet. Schalte ihn in den Einstellungen wieder ein.",
+    fr: "La dernière exécution n’a envoyé aucune photo ni vidéo : l’accès y est désactivé pour SilentSilo dans les réglages du téléphone. Réactivez-le dans les Réglages.",
+    es: "La última ejecución no envió fotos ni vídeos: el acceso a ellos está desactivado para SilentSilo en los ajustes del teléfono. Vuelve a activarlo en Ajustes.",
+    it: "L’ultima esecuzione non ha inviato foto né video: l’accesso è disattivato per SilentSilo nelle impostazioni del telefono. Riattivalo nelle Impostazioni.",
+    "pt-BR": "A última execução não enviou fotos nem vídeos: o acesso a eles está desligado para o SilentSilo nos ajustes do celular. Ligue-o de novo nos Ajustes.",
+    pl: "Ostatnie uruchomienie nie wysłało zdjęć ani filmów: dostęp do nich jest wyłączony dla SilentSilo w ustawieniach telefonu. Włącz go ponownie w Ustawieniach.",
   },
   "files.backup_contacts_revoked": {
     note: "Warning on the Phone backup screen: access to contacts was turned off in the phone's settings after backup was set up.",

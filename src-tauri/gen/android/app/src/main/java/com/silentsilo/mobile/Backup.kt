@@ -198,6 +198,19 @@ class BackupRunner(private val context: Context) {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_VIDEO
       else Manifest.permission.READ_EXTERNAL_STORAGE
 
+    // Android 14 and later: what "Select photos" grants. The gallery then
+    // shows the app only the photos and videos picked.
+    fun selectedPermission(): String? =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
+      else null
+
+    fun selectedGranted(context: Context): Boolean =
+      selectedPermission()?.let { context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED } == true
+
+    // Said on the backup screen in the app's language, by its code.
+    const val MEDIA_ACCESS_LOST =
+      "Photo and video access for SilentSilo is off, so none were sent.\u001Ffiles.backup_media_access_lost"
+
     fun contactsFile(context: Context) = File(context.cacheDir, "contacts.vcf")
 
     // The vCard holds every contact in the clear. It is written for the
@@ -233,17 +246,28 @@ class BackupRunner(private val context: Context) {
     prefs.lastRun = System.currentTimeMillis() / 1000
     try {
       if (sendAgain(stopped)) return true
-      if (prefs.photos && granted(photoPermission())) {
-        if (sendMedia(Media.PHOTO, stopped)) return true
+      // Access taken back in the phone's settings: the run says so rather
+      // than finding nothing to send.
+      var missing = ""
+      if (prefs.photos) {
+        if (!mediaAllowed(photoPermission())) {
+          missing = MEDIA_ACCESS_LOST
+        } else if (sendMedia(Media.PHOTO, stopped)) {
+          return true
+        }
       }
-      if (prefs.videos && granted(videoPermission()) && !stopped()) {
-        if (sendMedia(Media.VIDEO, stopped)) return true
+      if (prefs.videos && !stopped()) {
+        if (!mediaAllowed(videoPermission())) {
+          missing = MEDIA_ACCESS_LOST
+        } else if (sendMedia(Media.VIDEO, stopped)) {
+          return true
+        }
       }
       if (prefs.contacts && granted(Manifest.permission.READ_CONTACTS) && !stopped()) {
         if (sendContacts()) return true
       }
       if (sendDeferred(stopped)) return true
-      prefs.lastError = ""
+      prefs.lastError = missing
       return false
     } finally {
       checkWaiting()
@@ -385,7 +409,7 @@ class BackupRunner(private val context: Context) {
       for (media in listOf(Media.PHOTO, Media.VIDEO)) {
         val on = if (media == Media.PHOTO) prefs.photos else prefs.videos
         val permission = if (media == Media.PHOTO) photoPermission() else videoPermission()
-        if (!on || !granted(permission)) continue
+        if (!on || !mediaAllowed(permission)) continue
         val (selection, args) = unsent(media)
         context.contentResolver.query(media.uri, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)
           ?.use { count += it.count }
@@ -560,6 +584,9 @@ class BackupRunner(private val context: Context) {
 
   private fun granted(permission: String) =
     context.checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED
+
+  // Full access, or the photos and videos picked under "Select photos".
+  private fun mediaAllowed(permission: String) = granted(permission) || selectedGranted(context)
 
 }
 

@@ -11,8 +11,15 @@ export function SecurityKeyWait({ touches = 1 }: { touches?: 1 | 2 }) {
   useLocale();
   const [status, setStatus] = useState<SecurityKeyStatus | null>(null);
   const [second, setSecond] = useState(false);
+  const [slow, setSlow] = useState(false);
   useEffect(() => {
     api.securityKeyStatus().then(setStatus, () => setStatus(null));
+  }, []);
+  // No key after about 10 s: some phones keep the USB port shut to a key
+  // until OTG is switched on.
+  useEffect(() => {
+    const timer = setTimeout(() => setSlow(true), 10_000);
+    return () => clearTimeout(timer);
   }, []);
   // Adding a key takes two: told when the first is done.
   useEffect(() => {
@@ -43,6 +50,11 @@ export function SecurityKeyWait({ touches = 1 }: { touches?: 1 | 2 }) {
       {status && status.nfc && !status.nfcOn && (
         <Notice tone="warning" style={{ alignSelf: "stretch" }}>
           {t(isIOS ? "start.key_nfc_off_ios" : "start.key_nfc_off")}
+        </Notice>
+      )}
+      {slow && !second && !isIOS && status?.usb && (
+        <Notice style={{ alignSelf: "stretch" }}>
+          {t("start.key_usb_otg")}
         </Notice>
       )}
       {status && !status.nfc && !status.usb && (

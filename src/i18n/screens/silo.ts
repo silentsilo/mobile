@@ -1170,6 +1170,17 @@ export const silo = {
     "pt-BR": "Uma YubiKey ou outra chave de segurança com NFC. Ela abre este silo aqui e nos seus computadores. Guarde-a longe do iPhone.",
     pl: "YubiKey lub inny klucz bezpieczeństwa z NFC. Otwiera ten silos tutaj i na Twoich komputerach. Trzymaj go osobno od iPhone'a.",
   },
+  "silo.key_add_nfc_only_ios": {
+    note: "iPhone: short line under the text in the Add a security key sheet. The app talks to keys over NFC only on iPhone; a key in the Lightning or USB-C port is not reached. NFC stays as it is.",
+    en: "NFC keys only: SilentSilo on iPhone cannot use a key plugged into the port.",
+    ro: "Doar chei cu NFC: SilentSilo pe iPhone nu poate folosi o cheie conectată în port.",
+    de: "Nur Schlüssel mit NFC: SilentSilo auf dem iPhone kann keinen eingesteckten Schlüssel nutzen.",
+    fr: "Clés NFC uniquement : SilentSilo sur iPhone ne peut pas utiliser une clé branchée sur le port.",
+    es: "Solo llaves NFC: SilentSilo en iPhone no puede usar una llave conectada al puerto.",
+    it: "Solo chiavi NFC: SilentSilo su iPhone non può usare una chiave collegata alla porta.",
+    "pt-BR": "Só chaves NFC: o SilentSilo no iPhone não consegue usar uma chave conectada na porta.",
+    pl: "Tylko klucze NFC: SilentSilo na iPhonie nie może użyć klucza podłączonego do portu.",
+  },
   "silo.key_name_label": {
     note: "Field label in the Add a security key sheet: the name shown for the new key.",
     en: "Name this key",

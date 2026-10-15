@@ -20,6 +20,8 @@ import app.tauri.plugin.Plugin
   permissions = [
     Permission(strings = [Manifest.permission.READ_MEDIA_IMAGES], alias = "photos"),
     Permission(strings = [Manifest.permission.READ_MEDIA_VIDEO], alias = "videos"),
+    // Android 14 and later: "Select photos" grants only this one.
+    Permission(strings = [Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED], alias = "photosSelected"),
     Permission(strings = [Manifest.permission.READ_EXTERNAL_STORAGE], alias = "photosLegacy"),
     Permission(strings = [Manifest.permission.ACCESS_MEDIA_LOCATION], alias = "mediaLocation"),
     Permission(strings = [Manifest.permission.READ_CONTACTS], alias = "contacts"),
@@ -46,9 +48,12 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
       aliases += if (modern) "videos" else "photosLegacy"
       aliases += "mediaLocation"
     }
+    // Asked with the others so "Select photos" is a grant that lasts, not
+    // one Android takes back when the app leaves the screen.
+    if (aliases.isNotEmpty() && BackupRunner.selectedPermission() != null) aliases += "photosSelected"
     if (args.getBoolean("contacts", false)) aliases += "contacts"
     if (args.getBoolean("remind", false) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) aliases += "notifications"
-    if (aliases.isEmpty() || aliases.all { granted(it) }) {
+    if (aliases.isEmpty() || aliases.all { it == "photosSelected" || granted(it) }) {
       invoke.resolve(statusObject())
       return
     }
@@ -65,8 +70,13 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
   @Command
   fun mediaFolders(invoke: Invoke) {
     val modern = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
-    val aliases = if (modern) arrayOf("photos", "videos", "mediaLocation") else arrayOf("photosLegacy", "mediaLocation")
-    if (aliases.all { it == "mediaLocation" || granted(it) }) {
+    val aliases = when {
+      BackupRunner.selectedPermission() != null -> arrayOf("photos", "videos", "photosSelected", "mediaLocation")
+      modern -> arrayOf("photos", "videos", "mediaLocation")
+      else -> arrayOf("photosLegacy", "mediaLocation")
+    }
+    // The picked photos are enough to list: the folders they sit in.
+    if (BackupRunner.selectedGranted(activity) || aliases.all { it == "mediaLocation" || it == "photosSelected" || granted(it) }) {
       listFolders(invoke)
     } else {
       requestPermissionForAliases(aliases, invoke, "listFolders")
@@ -202,7 +212,10 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     result.put("photos", prefs.photos)
     result.put("videos", prefs.videos)
     result.put("folders", JSArray(prefs.folders.split(',').filter { it.isNotBlank() }))
-    result.put("videosAllowed", activity.checkSelfPermission(BackupRunner.videoPermission()) == PackageManager.PERMISSION_GRANTED)
+    val photosFull = activity.checkSelfPermission(BackupRunner.photoPermission()) == PackageManager.PERMISSION_GRANTED
+    val videosFull = activity.checkSelfPermission(BackupRunner.videoPermission()) == PackageManager.PERMISSION_GRANTED
+    val selected = BackupRunner.selectedGranted(activity)
+    result.put("videosAllowed", videosFull || selected)
     result.put("contacts", prefs.contacts)
     result.put("wifiOnly", prefs.wifiOnly)
     result.put("chargingOnly", prefs.chargingOnly)
@@ -211,9 +224,10 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     result.put("lastError", prefs.lastError)
     result.put("remind", prefs.remind)
     result.put("waiting", prefs.waiting)
-    result.put("photosAllowed", activity.checkSelfPermission(BackupRunner.photoPermission()) == PackageManager.PERMISSION_GRANTED)
+    result.put("photosAllowed", photosFull || selected)
     result.put("contactsAllowed", granted("contacts"))
-    result.put("photosLimited", false)
+    // "Select photos": only the picked ones are seen, so only those go.
+    result.put("photosLimited", selected && ((prefs.photos && !photosFull) || (prefs.videos && !videosFull)))
     result.put("pending", BackupRunner(activity).pendingCount())
     result.put(
       "notificationsAllowed",
@@ -226,6 +240,7 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     val permission = when (alias) {
       "photos" -> Manifest.permission.READ_MEDIA_IMAGES
       "videos" -> Manifest.permission.READ_MEDIA_VIDEO
+      "photosSelected" -> Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
       "photosLegacy" -> Manifest.permission.READ_EXTERNAL_STORAGE
       "mediaLocation" -> Manifest.permission.ACCESS_MEDIA_LOCATION
       "notifications" -> Manifest.permission.POST_NOTIFICATIONS

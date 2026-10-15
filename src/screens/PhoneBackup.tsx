@@ -1,10 +1,10 @@
 import { Check, ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type BackupSettings, type BackupStatus, type MediaFolder } from "../api";
-import { formatAppError } from "../shared/errors";
+import { decodeAppError, formatAppError, plainError } from "../shared/errors";
 import { formatBytes } from "../shared/format";
 import { Notice, Sheet, Skeleton, ToggleRow, TopBar, useToast } from "../ui/chrome";
-import { dateLocale, t, useLocale } from "../i18n";
+import { dateLocale, hasKey, t, useLocale } from "../i18n";
 import { isIOS } from "../ui/platform";
 
 /** The silo folder backups land in; its name stays as the phone writes it. */
@@ -23,6 +23,13 @@ function ago(seconds: number) {
   if (hours < 24) return t("files.age_hours", { count: hours });
   const days = Math.round(hours / 24);
   return days === 1 ? t("files.age_yesterday") : t("files.age_days", { count: days });
+}
+
+/** What the last run wrote: a reason the phone gave a code for, in the
+ * app's language; anything else (a file and why it failed) as written. */
+function lastRunError(text: string) {
+  const { code, params } = decodeAppError(text);
+  return code?.startsWith("files.backup_") && hasKey(code) ? t(code, params) : plainError(text);
 }
 
 export function PhoneBackup({ onBack }: { onBack: () => void }) {
@@ -230,7 +237,7 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
                   <span className="muted">{t("files.backup_last_run")}</span>
                   <span>{ago(status.lastRun)}</span>
                 </div>
-                {status.lastError && <Notice tone="error">{status.lastError}</Notice>}
+                {status.lastError && <Notice tone="error">{lastRunError(status.lastError)}</Notice>}
                 <button className="btn secondary" onClick={runNow} disabled={busy || sending} aria-busy={sending}>
                   <RefreshCw size={18} />
                   {t("files.backup_now")}
