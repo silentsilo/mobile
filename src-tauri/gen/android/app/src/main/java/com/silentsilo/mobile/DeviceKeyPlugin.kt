@@ -289,7 +289,14 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
         // inside the first prompt's callback, and some phones cancel a
         // second prompt asked for while the first is still closing.
         Handler(Looper.getMainLooper()).postDelayed(
-          { enrolIn(invoke, vaultId, title, tag, strongBox = false) },
+          {
+            // The app may have closed in the meantime: nothing to prompt on.
+            if (activity.isFinishing || activity.isDestroyed) {
+              invoke.reject(message)
+            } else {
+              enrolIn(invoke, vaultId, title, tag, strongBox = false)
+            }
+          },
           RETRY_DELAY_MS,
         )
       } else {

@@ -618,16 +618,30 @@ pub async fn vault_join_with_security_key(
         if pin.is_none() && ctap2::get_info(dev)?.pin_set {
             return Err(CtapError::PinRequired);
         }
-        let found = ctap2::unlock_candidates(dev, &ids, &vault_id, pin, true)?;
-        let id = hex::encode(&found.credential_id);
-        let hit = envelopes.get(&id).and_then(|wrapped| {
-            found.wrap_keys.iter().find_map(|(_, key)| {
-                silentsilo_vault::unwrap_dek_hex(wrapped, key)
-                    .ok()
-                    .map(|_| (id.clone(), key.clone(), found.verified))
+        let opens = |c: &ctap2::UnlockCandidates| {
+            let id = hex::encode(&c.credential_id);
+            envelopes.get(&id).and_then(|wrapped| {
+                c.wrap_keys.iter().find_map(|(_, key)| {
+                    silentsilo_vault::unwrap_dek_hex(wrapped, key)
+                        .ok()
+                        .map(|_| (id.clone(), key.clone(), c.verified))
+                })
             })
-        });
-        Ok(hit.ok_or(NOT_OPENED))
+        };
+        let found = ctap2::unlock_candidates(dev, &ids, &vault_id, pin, true)?;
+        if let Some(hit) = opens(&found) {
+            return Ok(Ok(hit));
+        }
+        // A key added somewhere that did not use its PIN, as at unlock.
+        if found.verified {
+            let only = std::slice::from_ref(&found.credential_id);
+            return match ctap2::unlock_candidates(dev, only, &vault_id, None, false) {
+                Ok(unverified) => Ok(opens(&unverified).ok_or(NOT_OPENED)),
+                Err(CtapError::NoCredentials) => Ok(Err(NOT_OPENED)),
+                Err(_) => Ok(Err(ADDED_WITHOUT_PIN)),
+            };
+        }
+        Ok(Err(NOT_OPENED))
     };
     let (found, _) = with_pin(&app, None, ceremony).await?;
     let (credential_id, wrap_key, verified) = found.map_err(str::to_string)?;

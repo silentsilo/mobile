@@ -465,7 +465,12 @@ class BackupRunner(private val context: Context) {
         val key = "${media.kind}:$id:$dateAdded"
         // Sent while only the picked items were allowed.
         if (key in sentSelected) {
-          if (!selectedOnly) setMarks(media, dateAdded, id)
+          if (!selectedOnly) {
+            // Past the marks now: the key has done its job.
+            setMarks(media, dateAdded, id)
+            sentSelected -= key
+            prefs.selectedSent = sentSelected.joinToString(",")
+          }
           continue
         }
         // Started by three runs and never through: the job's time ends
