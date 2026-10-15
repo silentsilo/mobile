@@ -16,6 +16,8 @@ import android.hardware.biometrics.BiometricManager
 import android.hardware.biometrics.BiometricPrompt
 import android.os.Build
 import android.os.CancellationSignal
+import android.os.Handler
+import android.os.Looper
 import android.os.PersistableBundle
 import android.os.StatFs
 import android.security.keystore.KeyGenParameterSpec
@@ -48,6 +50,9 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     const val ID_LEN = TAG_LEN + NONCE_LEN + WRAPPED_LEN
     const val TRANSFORM = "AES/GCM/NoPadding"
     const val MIN_WEBVIEW_MAJOR = 105
+    // Before the enrolment starts over in the TEE: long enough for the first
+    // prompt to finish closing.
+    const val RETRY_DELAY_MS = 400L
     const val PROBE_ALIAS = "silentsilo-probe"
     const val CLIP_LABEL = ClipClear.LABEL
     const val CLIP_TTL_MS = 45_000L
@@ -279,7 +284,17 @@ class DeviceKeyPlugin(private val activity: Activity) : Plugin(activity) {
     val alias = ALIAS_PREFIX + hex(tag)
     val fail = { message: String ->
       deleteAlias(alias)
-      if (strongBox) enrolIn(invoke, vaultId, title, tag, strongBox = false) else invoke.reject(message)
+      if (strongBox) {
+        // Posted, not called: a failure after the fingerprint lands here
+        // inside the first prompt's callback, and some phones cancel a
+        // second prompt asked for while the first is still closing.
+        Handler(Looper.getMainLooper()).postDelayed(
+          { enrolIn(invoke, vaultId, title, tag, strongBox = false) },
+          RETRY_DELAY_MS,
+        )
+      } else {
+        invoke.reject(message)
+      }
     }
 
     try {

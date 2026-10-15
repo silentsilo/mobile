@@ -65,6 +65,10 @@ class BackupPrefs(context: Context) {
   var stuckRuns: Long by long("stuckRuns")
   // Items moved behind the rest after that, "kind:id:added", comma separated.
   var deferred: String by string("deferred")
+  // Sent while only "Select photos" was allowed, "kind:id:added", comma
+  // separated. The marks do not move then (see sendMedia), so these are what
+  // keeps the picked items from going twice.
+  var selectedSent: String by string("selectedSent")
 
   fun clear() = prefs.edit().clear().apply()
 
@@ -411,8 +415,13 @@ class BackupRunner(private val context: Context) {
         val permission = if (media == Media.PHOTO) photoPermission() else videoPermission()
         if (!on || !mediaAllowed(permission)) continue
         val (selection, args) = unsent(media)
-        context.contentResolver.query(media.uri, arrayOf(MediaStore.MediaColumns._ID), selection, args, null)
-          ?.use { count += it.count }
+        val sentSelected = prefs.selectedSent.split(',').filter { it.isNotBlank() }.toSet()
+        val columns = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DATE_ADDED)
+        context.contentResolver.query(media.uri, columns, selection, args, null)?.use { rows ->
+          while (rows.moveToNext()) {
+            if ("${media.kind}:${rows.getLong(0)}:${rows.getLong(1)}" !in sentSelected) count++
+          }
+        }
       }
       count
     } catch (_: Exception) {
@@ -432,6 +441,20 @@ class BackupRunner(private val context: Context) {
     val rowId = MediaStore.MediaColumns._ID
     val (selection, args) = unsent(media)
     val order = "$added ASC, $rowId ASC"
+    // Under "Select photos" the gallery shows only the picked items. Moving
+    // the marks past them would skip, for good, every older photo left out
+    // of the selection once all access is allowed: the marks stay, and what
+    // was sent is remembered by key instead.
+    val selectedOnly = !granted(if (media == Media.PHOTO) photoPermission() else videoPermission())
+    val sentSelected = prefs.selectedSent.split(',').filter { it.isNotBlank() }.toMutableSet()
+    fun advance(dateAdded: Long, id: Long, key: String) {
+      if (selectedOnly) {
+        sentSelected += key
+        prefs.selectedSent = sentSelected.joinToString(",")
+      } else {
+        setMarks(media, dateAdded, id)
+      }
+    }
     context.contentResolver.query(media.uri, columns, selection, args, order)?.use { rows ->
       while (rows.moveToNext()) {
         if (stopped()) return true
@@ -439,10 +462,15 @@ class BackupRunner(private val context: Context) {
         val name = rows.getString(1) ?: "${media.kind}-$id"
         val mime = rows.getString(2) ?: ""
         val dateAdded = rows.getLong(4)
+        val key = "${media.kind}:$id:$dateAdded"
+        // Sent while only the picked items were allowed.
+        if (key in sentSelected) {
+          if (!selectedOnly) setMarks(media, dateAdded, id)
+          continue
+        }
         // Started by three runs and never through: the job's time ends
         // before it does. Moved behind everything else, so the photos after
         // it are not held up, and tried again at the end of each run.
-        val key = "${media.kind}:$id:$dateAdded"
         if (prefs.stuckItem == key) {
           prefs.stuckRuns = prefs.stuckRuns + 1
         } else {
@@ -452,7 +480,7 @@ class BackupRunner(private val context: Context) {
         if (prefs.stuckRuns > 3) {
           prefs.deferred = (prefs.deferred.split(',').filter { it.isNotBlank() } + key).distinct().joinToString(",")
           prefs.stuckItem = ""
-          setMarks(media, dateAdded, id)
+          advance(dateAdded, id, key)
           continue
         }
         val outcome = send(media, id, dateAdded, name, mime, rows.getLong(3))
@@ -470,7 +498,7 @@ class BackupRunner(private val context: Context) {
         } else {
           prefs.lastError = "$name: ${outcome.removePrefix("skip: ")}"
         }
-        setMarks(media, dateAdded, id)
+        advance(dateAdded, id, key)
       }
     }
     return false

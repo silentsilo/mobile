@@ -53,7 +53,14 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     if (aliases.isNotEmpty() && BackupRunner.selectedPermission() != null) aliases += "photosSelected"
     if (args.getBoolean("contacts", false)) aliases += "contacts"
     if (args.getBoolean("remind", false) && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) aliases += "notifications"
-    if (aliases.isEmpty() || aliases.all { it == "photosSelected" || granted(it) }) {
+    // Picked photos count as an answer: asking again would reopen Android's
+    // "select more" sheet at every settings change.
+    val selected = BackupRunner.selectedGranted(activity)
+    val answered = { alias: String ->
+      alias == "photosSelected" || granted(alias) ||
+        (selected && (alias == "photos" || alias == "videos" || alias == "mediaLocation"))
+    }
+    if (aliases.isEmpty() || aliases.all(answered)) {
       invoke.resolve(statusObject())
       return
     }
