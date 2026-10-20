@@ -23,6 +23,7 @@ mod passkeys;
 mod paths;
 mod presence;
 mod pwned;
+mod qr;
 #[cfg(mobile)]
 mod secrets;
 mod security_key;
@@ -137,6 +138,9 @@ pub fn run() {
             commands::vault_read_passwords,
             commands::vault_upsert_password,
             commands::vault_delete_password,
+            commands::vault_password_trash,
+            qr::qr_from_pixels,
+            commands::vault_restore_password,
             commands::copy_secret_to_clipboard,
             audit::audit_note,
             audit::audit_status,

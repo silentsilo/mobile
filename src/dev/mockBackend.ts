@@ -150,6 +150,9 @@ const entry = (id: string, service: string, username: string, url: string, extra
   ...extra,
 });
 
+/** Entries deleted in this session, for Recently deleted. */
+let trashed: { entry: PasswordEntry; at: number }[] = [];
+
 let entries: PasswordEntry[] = [
   entry("e1", "GitHub", "you@example.com", "https://github.com", { totp_secret: "JBSWY3DPEHPK3PXP", category: "Development", favorite: true }),
   entry("e2", "Hetzner Cloud", "you@example.com", "https://console.hetzner.cloud", { category: "Development" }),
@@ -411,8 +414,25 @@ const handlers: Record<string, Handler> = {
     entries = entries.some((e) => e.id === next.id) ? entries.map((e) => (e.id === next.id ? next : e)) : [...entries, next];
   },
   vault_delete_password: (args) => {
+    const gone = entries.find((e) => e.id === args.id);
+    if (gone) trashed = [{ entry: gone, at: Math.floor(Date.now() / 1000) }, ...trashed];
     entries = entries.filter((e) => e.id !== args.id);
   },
+  vault_password_trash: () =>
+    trashed.map(({ entry, at }) => ({
+      id: entry.id,
+      deleted_at: at,
+      service: entry.service,
+      username: entry.username,
+      kind: entry.type ?? "login",
+    })),
+  vault_restore_password: (args) => {
+    const back = trashed.find((t) => t.entry.id === args.id);
+    if (back) entries = [...entries, back.entry];
+    trashed = trashed.filter((t) => t.entry.id !== args.id);
+  },
+  // Any picture or camera frame reads as a two-factor QR code.
+  qr_from_pixels: () => "otpauth://totp/Example:you@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Example",
   copy_secret_to_clipboard: () => undefined,
   audit_note: () => undefined,
   audit_status: () => audit,

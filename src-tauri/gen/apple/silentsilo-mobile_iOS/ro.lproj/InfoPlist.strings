@@ -1,7 +1,7 @@
 /* Why iOS asks: shown in its own permission prompts. */
 "NSFaceIDUsageDescription" = "SilentSilo folosește Face ID ca să-ți deschidă silozurile pe acest iPhone.";
 "NFCReaderUsageDescription" = "SilentSilo citește o cheie de securitate ținută lângă iPhone ca să-ți deschidă silozurile.";
-"NSCameraUsageDescription" = "SilentSilo face o poză direct în siloz, criptată pe acest iPhone.";
+"NSCameraUsageDescription" = "SilentSilo face poze direct în siloz, criptate pe acest iPhone, și citește codul QR pe care un site îl arată pentru autentificarea în doi pași.";
 "NSPhotoLibraryAddUsageDescription" = "SilentSilo salvează un fișier din siloz în Poze când alegi asta.";
 "NSPhotoLibraryUsageDescription" = "SilentSilo face backup în siloz pozelor și videoclipurilor pe care le alegi, criptate pe acest iPhone.";
 "NSContactsUsageDescription" = "SilentSilo face backup în siloz contactelor tale, criptate pe acest iPhone.";

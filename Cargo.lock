@@ -415,7 +415,7 @@ dependencies = [
  "http 0.2.12",
  "http 1.4.2",
  "http-body 1.1.0",
- "lru",
+ "lru 0.16.4",
  "percent-encoding",
  "regex-lite",
  "sha2 0.11.0",
@@ -2119,6 +2119,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "g2gen"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5a7e0eb46f83a20260b850117d204366674e85d3a908d90865c78df9a6b1dfc"
+dependencies = [
+ "g2poly",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "g2p"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "539e2644c030d3bf4cd208cb842d2ce2f80e82e6e8472390bcef83ceba0d80ad"
+dependencies = [
+ "g2gen",
+ "g2poly",
+]
+
+[[package]]
+name = "g2poly"
+version = "1.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "312d2295c7302019c395cfb90dacd00a82a2eabd700429bba9c7a3f38dbbe11b"
+
+[[package]]
 name = "gdk"
 version = "0.18.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2760,9 +2788,11 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "socket2",
+ "system-configuration",
  "tokio",
  "tower-service",
  "tracing",
+ "windows-registry",
 ]
 
 [[package]]
@@ -3273,6 +3303,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f66e8d5d03f609abc3a39e6f08e4164ebf1447a732906d39eb9b99b7919ef39"
 dependencies = [
  "hashbrown 0.16.1",
+]
+
+[[package]]
+name = "lru"
+version = "0.18.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef9ac18847474e638e3702b76c65d4eb93428471a74778ef0f1be711717f89b5"
+dependencies = [
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -4373,6 +4412,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33cb294fe86a74cbcf50d4445b37da762029549ebeea341421c7c70370f86cac"
 
 [[package]]
+name = "qrcode"
+version = "0.14.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d68782463e408eb1e668cf6152704bd856c78c5b6417adaee3203d8f4c1fc9ec"
+
+[[package]]
 name = "quick-xml"
 version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4687,6 +4732,16 @@ dependencies = [
  "libc",
  "untrusted 0.9.0",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rqrr"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d084c50c5cfa397a081850da329566c8667b0b6c4e81da16abff1fef27de93b"
+dependencies = [
+ "g2p",
+ "lru 0.18.5",
 ]
 
 [[package]]
@@ -5435,8 +5490,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-app"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "hex",
  "serde",
@@ -5454,8 +5509,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-audit"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "blake3",
  "hex",
@@ -5471,7 +5526,7 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-autofill"
-version = "1.4.1"
+version = "1.4.2"
 dependencies = [
  "aes-gcm 0.10.3",
  "hex",
@@ -5487,8 +5542,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-cloud"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "async-trait",
  "base64 0.22.1",
@@ -5508,8 +5563,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-core"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "serde",
  "thiserror 2.0.19",
@@ -5518,8 +5573,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-crypto"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "aes-gcm 0.10.3",
  "blake3",
@@ -5536,8 +5591,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-fido"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "aes 0.8.4",
  "base64 0.22.1",
@@ -5564,14 +5619,16 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-mobile"
-version = "1.4.1"
+version = "1.4.2"
 dependencies = [
  "aes-gcm 0.10.3",
  "hex",
  "jni 0.21.1",
  "libc",
+ "qrcode",
  "rand 0.9.5",
  "reqwest",
+ "rqrr",
  "security-framework 3.7.0",
  "serde",
  "serde_json",
@@ -5594,8 +5651,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-s3"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "aws-credential-types",
  "aws-sdk-s3",
@@ -5613,8 +5670,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-store"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "async-trait",
  "objc2-foundation",
@@ -5636,8 +5693,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-sync"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "blake3",
  "hex",
@@ -5658,8 +5715,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-vault"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "aes-gcm 0.10.3",
  "argon2 0.5.3",
@@ -5687,8 +5744,8 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-vfs"
-version = "1.10.0"
-source = "git+https://github.com/silentsilo/core?tag=v1.10.0#b8b126aab9e5bf247a71967bd855cc8e27856824"
+version = "1.10.1"
+source = "git+https://github.com/silentsilo/core?tag=v1.10.1#d6d6684ac17e9bf5eb7987e7ab417cac598d3279"
 dependencies = [
  "base64 0.22.1",
  "blake3",
@@ -6004,6 +6061,27 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "system-configuration"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a13f3d0daba03132c0aa9767f98351b3488edc2c100cda2d2ec2b04f3d8d3c8b"
+dependencies = [
+ "bitflags 2.13.1",
+ "core-foundation 0.9.4",
+ "system-configuration-sys",
+]
+
+[[package]]
+name = "system-configuration-sys"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e1d1b10ced5ca923a1fcb8d03e96b8d3268065d724548c0211415ff6ac6bac4"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
 ]
 
 [[package]]
@@ -7237,6 +7315,17 @@ checksum = "6e2e40844ac143cdb44aead537bbf727de9b044e107a0f1220392177d15b0f26"
 dependencies = [
  "windows-core 0.62.2",
  "windows-link 0.2.1",
+]
+
+[[package]]
+name = "windows-registry"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "02752bf7fbdcce7f2a27a742f798510f3e5ad88dbe84871e5168e2120c3d5720"
+dependencies = [
+ "windows-link 0.2.1",
+ "windows-result 0.4.1",
+ "windows-strings 0.5.1",
 ]
 
 [[package]]

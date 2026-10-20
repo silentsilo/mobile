@@ -47,6 +47,17 @@ export const activity = {
     "pt-BR": "Histórico de {object} apagado",
     pl: "Wyczyszczono historię {object}",
   },
+  "dlg.activity_undeleted": {
+    note: "Activity event: a deleted password entry was put back from Recently deleted. {object} is its name (bold).",
+    en: "Put {object} back from Recently deleted",
+    ro: "S-a pus înapoi {object} din Șterse recent",
+    de: "{object} aus Zuletzt gelöscht zurückgeholt",
+    fr: "{object} remis depuis Supprimés récemment",
+    es: "Se recuperó {object} de Eliminados recientemente",
+    it: "{object} ripristinato da Eliminati di recente",
+    "pt-BR": "{object} recuperado de Excluídos recentemente",
+    pl: "Przywrócono {object} z Ostatnio usuniętych",
+  },
   "dlg.activity_code_copied": {
     note: "Activity event: a two-factor (TOTP) code was copied. {object} is the entry's name (bold).",
     en: "Copied a one-time code from {object}",

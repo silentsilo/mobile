@@ -863,6 +863,64 @@ a {
   color: var(--ink);
 }
 
+/* The QR scanner: the camera full screen, a square to aim with, the way
+   out on top and the picture choice at the bottom. */
+.qr-scanner {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: #000;
+  color: #fff;
+}
+
+.qr-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qr-frame {
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: min(68vw, 300px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 24px;
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.45);
+}
+
+.qr-top {
+  position: absolute;
+  top: calc(8px + var(--safe-top));
+  left: calc(8px + var(--safe-left));
+}
+
+.qr-close {
+  color: #fff;
+}
+
+.qr-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px calc(20px + var(--safe-right)) calc(20px + var(--safe-bottom)) calc(20px + var(--safe-left));
+}
+
+.qr-say {
+  margin: 0;
+  text-align: center;
+  font-size: var(--fs-small);
+  line-height: 1.4;
+}
+
 /* Toasts: above the tab bar, tap to dismiss. */
 .toast-region {
   position: fixed;

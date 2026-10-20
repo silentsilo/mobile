@@ -19,9 +19,9 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.4.1</string>
+	<string>1.4.2</string>
 	<key>CFBundleVersion</key>
-	<string>1.4.1</string>
+	<string>1.4.2</string>
 	<key>NSUbiquitousContainers</key>
 	<dict>
 		<key>iCloud.com.silentsilo.mobile</key>
@@ -39,7 +39,7 @@
 	<key>NFCReaderUsageDescription</key>
 	<string>SilentSilo reads a security key held to the iPhone to open your silos.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>SilentSilo takes a photo straight into your silo, encrypted on this iPhone.</string>
+	<string>SilentSilo takes photos straight into your silo, encrypted on this iPhone, and reads the QR code a site shows for two-factor sign-in.</string>
 	<key>NSContactsUsageDescription</key>
 	<string>SilentSilo backs up your contacts to your silo, encrypted on this iPhone.</string>
 	<key>NSFaceIDUsageDescription</key>

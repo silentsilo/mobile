@@ -1,15 +1,16 @@
-import { Eye, EyeOff, Paperclip, Plus, Trash2, WandSparkles, X } from "lucide-react";
+import { Eye, EyeOff, Paperclip, Plus, ScanQrCode, Trash2, WandSparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api, type SyncStatus } from "../api";
 import { formatAppError } from "../shared/errors";
 import { withEdits } from "../shared/passwordEntry";
-import { categoryChoices, categoryLabel, FALLBACK_CATEGORY, hashColor, resolveCategories, typeOf } from "../shared/passwordUtil";
-import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, parseTotpInput } from "../shared/totp";
+import { categoryChoices, categoryLabel, FALLBACK_CATEGORY, generateUsername, hashColor, resolveCategories, typeOf } from "../shared/passwordUtil";
+import { DEFAULT_TOTP_ALGORITHM, DEFAULT_TOTP_DIGITS, DEFAULT_TOTP_PERIOD, generateTotp, parseTotpInput } from "../shared/totp";
 import type { CredentialType, CustomField, PasswordAttachment, PasswordCategory, PasswordEntry } from "../shared/types";
 import { formatBytes } from "../shared/format";
 import { useBackLayer } from "../ui/back";
 import { Field, Notice, Sheet } from "../ui/chrome";
 import { GeneratorSheet } from "../ui/GeneratorSheet";
+import { QrScanner } from "../ui/QrScanner";
 import { haptic } from "../ui/haptics";
 import { t, useLocale, type Key } from "../i18n";
 
@@ -151,6 +152,10 @@ export function EntryEdit({
   const [fields, setFields] = useState<CustomField[]>(original.fields ?? []);
   const [showPassword, setShowPassword] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  /// What scanning a QR code came to, under the field: the code it makes
+  /// now, so it can be typed on the site before saving, or why it failed.
+  const [scanNote, setScanNote] = useState<{ error: boolean; text: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -343,7 +348,21 @@ export function EntryEdit({
         ))}
         {type === "login" && (
           <>
-        <Field label={t("pw.field_username")}>{input(username, setUsername, { inputMode: "email" })}</Field>
+        <Field label={t("pw.field_username")}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>{input(username, setUsername, { inputMode: "email" })}</div>
+            <button
+              className="icon-btn framed"
+              aria-label={t("pw.generate_username")}
+              onClick={(e) => {
+                e.preventDefault();
+                setUsername(generateUsername());
+              }}
+            >
+              <WandSparkles size={20} />
+            </button>
+          </div>
+        </Field>
         <Field label={t("pw.field_password")}>
           <div style={{ display: "flex", gap: 8 }}>
             <div className="input" style={{ flex: 1 }}>
@@ -364,7 +383,35 @@ export function EntryEdit({
         </Field>
         <Field label={t("pw.field_website")}>{input(url, setUrl, { inputMode: "url", placeholder: "example.com" })}</Field>
         <Field label={t("pw.totp_setup_key")} error={errorFor("totp")} errorId="totp-error">
-          {input(totp, setTotp, { placeholder: t("pw.optional") }, "totp")}
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              {input(
+                totp,
+                (v) => {
+                  setScanNote(null);
+                  setTotp(v);
+                },
+                { placeholder: t("pw.optional") },
+                "totp",
+              )}
+            </div>
+            <button
+              className="icon-btn framed accent"
+              aria-label={t("pw.totp_scan")}
+              onClick={(e) => {
+                e.preventDefault();
+                setScanNote(null);
+                setScanning(true);
+              }}
+            >
+              <ScanQrCode size={20} />
+            </button>
+          </div>
+          {scanNote && (
+            <p className="hint" role="status" style={{ marginTop: 6, color: scanNote.error ? "var(--danger-text)" : undefined }}>
+              {scanNote.text}
+            </p>
+          )}
         </Field>
           </>
         )}
@@ -453,6 +500,29 @@ export function EntryEdit({
         )}
       </div>
 
+      {scanning && (
+        <QrScanner
+          onClose={() => setScanning(false)}
+          onCode={(text, fromPicture) => {
+            setScanning(false);
+            const params = parseTotpInput(text);
+            if (!params) {
+              setScanNote({ error: true, text: t("pw.totp_qr_not_otp") });
+              return;
+            }
+            setTotp(text);
+            if (fieldError?.field === "totp") setFieldError(null);
+            void generateTotp(params).then((code) => {
+              const now = t("pw.totp_code_now", { code: `${code.slice(0, 3)} ${code.slice(3)}` });
+              setScanNote({
+                error: false,
+                text: fromPicture ? `${now} ${t("pw.totp_qr_delete_picture")}` : now,
+              });
+            });
+          }}
+        />
+      )}
+
       <GeneratorSheet
         open={generating}
         onClose={() => setGenerating(false)}
@@ -465,7 +535,7 @@ export function EntryEdit({
 
       <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t("pw.delete_title", { name: original.service })}>
         <p className="hint">
-          {sync?.configured ? t("pw.delete_synced") : t("pw.delete_local")} {t("pw.delete_no_trash")}
+          {sync?.configured ? t("pw.delete_synced") : t("pw.delete_local")} {t("pw.delete_to_trash")}
           {sync?.configured && sync.archive_targets > 0 && ` ${t("pw.delete_archive")}`}
         </p>
         <button className="btn danger" onClick={remove} disabled={busy}>

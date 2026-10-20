@@ -1,6 +1,7 @@
-import { Check, ChevronDown, Contact, Copy, CreditCard, FolderInput, KeyRound, Paperclip, RefreshCw, Search, Star, StickyNote, TerminalSquare, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, Contact, Copy, CreditCard, FolderInput, KeyRound, Paperclip, RefreshCw, RotateCcw, Search, Star, StickyNote, TerminalSquare, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, type SyncStatus } from "../api";
+import { api, type SyncStatus, type TrashedEntry } from "../api";
+import { formatDay } from "../shared/format";
 import { formatAppError } from "../shared/errors";
 import { avatarColor, categoryLabel, inkOn, resolveCategories, searchTextFor, serviceInitials, subtitleFor } from "../shared/passwordUtil";
 import { withEdits } from "../shared/passwordEntry";
@@ -82,8 +83,34 @@ export function Passwords({
   const addCategory = showing.kind === "category" ? showing.name : null;
   const [query, setQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [trash, setTrash] = useState<TrashedEntry[] | null>(null);
+  const [restoring, setRestoring] = useState<string | null>(null);
+  const [reloadHere, setReloadHere] = useState(0);
   const toast = useToast();
   useLocale();
+
+  const openTrash = () => {
+    setTrash([]);
+    api.passwordTrash().then(setTrash, (e) => {
+      setTrash(null);
+      toast(formatAppError(e));
+    });
+  };
+
+  const restore = async (item: TrashedEntry) => {
+    haptic("tick");
+    setRestoring(item.id);
+    try {
+      await api.restorePassword(item);
+      setTrash((held) => (held ?? []).filter((i) => i.id !== item.id));
+      setReloadHere((n) => n + 1);
+      toast(t("pw.trash_restored", { name: item.service || t("pw.trash_unnamed") }));
+    } catch (e) {
+      toast(formatAppError(e));
+    } finally {
+      setRestoring(null);
+    }
+  };
 
   useEffect(() => {
     api.readPasswordStore().then(
@@ -93,7 +120,7 @@ export function Passwords({
       },
       (e) => setError(formatAppError(e)),
     );
-  }, [reloadKey]);
+  }, [reloadKey, reloadHere]);
 
   const categories = useMemo(() => resolveCategories(stored, entries ?? []), [stored, entries]);
   const counts = useMemo(() => {
@@ -328,6 +355,14 @@ export function Passwords({
               </div>
             );
           })}
+          {entries && !selecting && !query && (
+            <button className="row" style={{ minHeight: 52, width: "100%", color: "var(--text-dim)" }} onClick={openTrash}>
+              <Trash2 size={20} aria-hidden />
+              <span className="row-text">
+                <span className="row-title">{t("pw.trash_title")}</span>
+              </span>
+            </button>
+          )}
         </div>
         {!isIOS && !selecting && <AddButton label={t("pw.new_entry")} onClick={add} />}
       </div>
@@ -369,9 +404,41 @@ export function Passwords({
         </button>
       </Sheet>
 
+      <Sheet open={trash !== null} onClose={() => setTrash(null)} title={t("pw.trash_title")}>
+        <p className="hint">{t("pw.trash_hint")}</p>
+        {trash && trash.length === 0 ? (
+          <p className="hint">{t("pw.trash_empty")}</p>
+        ) : (
+          <div className="panel">
+            {(trash ?? []).map((item, i) => (
+              <div key={item.id} className={`row split${i > 0 ? " divide" : ""}`}>
+                <span className="row-text" style={{ padding: "10px 0 10px 16px" }}>
+                  <span className="row-title">{item.service || t("pw.trash_unnamed")}</span>
+                  <span className="row-sub">
+                    {[item.username, t("pw.trash_deleted_on", { date: formatDay(item.deleted_at) })].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <button
+                  className="icon-btn"
+                  aria-label={`${t("pw.trash_restore")}: ${item.service || t("pw.trash_unnamed")}`}
+                  aria-busy={restoring === item.id}
+                  disabled={restoring !== null}
+                  onClick={() => void restore(item)}
+                >
+                  <RotateCcw size={20} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <button className="btn secondary" onClick={() => setTrash(null)}>
+          {t("common.close")}
+        </button>
+      </Sheet>
+
       <Sheet open={confirmDelete} onClose={() => setConfirmDelete(false)} title={t("pw.bulk_delete_title", { count: selected.size })}>
         <p className="hint">
-          {sync?.configured ? t("pw.bulk_delete_synced") : t("pw.bulk_delete_local")} {t("pw.delete_no_trash")}
+          {sync?.configured ? t("pw.bulk_delete_synced") : t("pw.bulk_delete_local")} {t("pw.delete_to_trash")}
           {sync?.configured && sync.archive_targets > 0 && ` ${t("pw.delete_archive")}`}
         </p>
         <button className="btn danger" aria-busy={deleting} disabled={deleting} onClick={() => void deleteSelected()}>

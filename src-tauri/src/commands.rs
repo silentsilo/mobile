@@ -610,6 +610,73 @@ pub async fn vault_delete_password(
     state.with_vfs(|_session, vfs| vfs.delete_password(id))
 }
 
+/// The password trash, newest delete first: for each entry only what the
+/// list shows (name, username, kind) and when it was deleted. The secrets
+/// stay in the silo; a restore puts the entry back whole.
+#[tauri::command]
+pub async fn vault_password_trash(
+    state: State<'_, AppState>,
+) -> Result<Vec<serde_json::Value>, String> {
+    let trash = state.with_vfs(|_session, vfs| vfs.list_password_trash())?;
+    Ok(trash
+        .into_iter()
+        .filter_map(|mut item| {
+            let parsed: Option<serde_json::Value> = serde_json::from_str(&item.data).ok();
+            zeroize::Zeroize::zeroize(&mut item.data);
+            let parsed = parsed?;
+            let field = |name: &str| {
+                parsed
+                    .get(name)
+                    .and_then(|v| v.as_str())
+                    .unwrap_or_default()
+                    .to_string()
+            };
+            let kind = field("type");
+            // The category list is stored as a row; it is no one's entry.
+            if kind.starts_with("meta:") {
+                return None;
+            }
+            Some(serde_json::json!({
+                "id": item.id.to_string(),
+                "deleted_at": item.deleted_at,
+                "service": field("service"),
+                "username": field("username"),
+                "kind": kind,
+            }))
+        })
+        .collect())
+}
+
+/// Puts an entry from the password trash back, as it was when deleted.
+#[tauri::command]
+pub async fn vault_restore_password(
+    app: AppHandle,
+    id: String,
+    label: Option<String>,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let id = Uuid::parse_str(&id).map_err(|e| format!("This entry's id is not valid ({e})."))?;
+    crate::audit::record_off_thread(
+        &app,
+        crate::audit::event(crate::audit::codes::ENTRY_UNDELETED)
+            .on(id.to_string(), label.unwrap_or_default()),
+    )
+    .await?;
+    state
+        .with_vfs(|_session, vfs| vfs.restore_password(id))
+        .map_err(|e| {
+            if e.contains("no longer in the trash") {
+                silentsilo_core::coded!(
+                    "err.entry_not_in_trash",
+                    "This entry is no longer in Recently deleted."
+                )
+                .to_string()
+            } else {
+                e
+            }
+        })
+}
+
 /// `audit` says what the secret was, for the silo's activity log; it is
 /// written before the clipboard holds anything.
 #[tauri::command]

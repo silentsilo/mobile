@@ -55,6 +55,15 @@ export type StoreConfigInput =
   | { kind: "icloud"; folder: string };
 
 /** iCloud Drive on this phone, as `icloud_status` answers. */
+/** One entry in the password trash, as `vault_password_trash` sends it. */
+export type TrashedEntry = {
+  id: string;
+  deleted_at: number;
+  service: string;
+  username: string;
+  kind: string;
+};
+
 export type ICloudStatus = { supported: boolean; found: boolean; folders: string[] };
 
 export type CloudKind = "onedrive" | "dropbox" | "google-drive";
@@ -294,6 +303,10 @@ export const api = {
   setHistoryPolicy: (policy: HistoryPolicy) => invoke<void>("history_policy_set", { policy: String(policy) }),
   deletePassword: (entry: PasswordEntry) =>
     invoke<void>("vault_delete_password", { id: entry.id, label: entry.service }),
+  /** Entries deleted in the last 30 days: names and dates, never secrets. */
+  passwordTrash: () => invoke<TrashedEntry[]>("vault_password_trash"),
+  restorePassword: (entry: TrashedEntry) =>
+    invoke<void>("vault_restore_password", { id: entry.id, label: entry.service || null }),
   /** `field` names what was copied for the silo's activity log, which records
    * it before the clipboard holds anything. */
   copySecret: (entry: PasswordEntry, text: string, field: string) =>

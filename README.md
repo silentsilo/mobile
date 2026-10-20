@@ -22,7 +22,11 @@ hardware (Android Keystore, StrongBox where the phone has it) behind its
 fingerprint, or with a security key over NFC or USB. The recovery code opens the silo when every key is gone.
 
 Passwords carry custom fields and their earlier versions, as on the
-desktop, and a password autofill replaces stays in the entry's history.
+desktop, and a password autofill replaces stays in the entry's history. A
+one-time code is set up by scanning the site's QR code with the camera, or
+from a picture; the frames are read on the phone and not kept. The
+generator makes random characters or random words, and random usernames. A deleted
+entry waits 30 days in Recently deleted, at the end of the list.
 
 A silo's activity log records on the phone too: unlocking, secrets shown
 or copied, files opened, and changes to entries, files, keys and the
