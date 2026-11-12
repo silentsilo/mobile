@@ -1342,6 +1342,17 @@ export const files = {
     "pt-BR": "Backup concluído.",
     pl: "Kopia zakończona.",
   },
+  "files.backup_already_running": {
+    note: "Message after tapping Back up now on Android when a backup run was already going (started by the phone or earlier from the app). That run sends the new items too, so nothing else starts.",
+    en: "A backup run is already going. It sends the new items too.",
+    ro: "Un backup rulează deja. Trimite și elementele noi.",
+    de: "Eine Sicherung läuft bereits. Sie sendet auch die neuen Elemente.",
+    fr: "Une sauvegarde est déjà en cours. Elle envoie aussi les nouveaux éléments.",
+    es: "Ya hay una copia en curso. También envía los elementos nuevos.",
+    it: "Un backup è già in corso. Invia anche i nuovi elementi.",
+    "pt-BR": "Um backup já está em andamento. Ele envia os itens novos também.",
+    pl: "Kopia już trwa. Wyśle też nowe elementy.",
+  },
   "files.backup_waiting": {
     note: "Row label; at its right, how many sent items are in backup storage but not yet added to the silo (that happens when the silo is next opened).",
     en: "Waiting to join the silo",

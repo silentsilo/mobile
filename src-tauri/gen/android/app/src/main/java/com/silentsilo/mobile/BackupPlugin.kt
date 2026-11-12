@@ -185,6 +185,13 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
   fun runNow(invoke: Invoke) {
     val context = activity.applicationContext
     val prefs = BackupPrefs(context)
+    // The run going on sends whatever this one would have; the screen says so.
+    if (BackupRunner.isRunning()) {
+      val answer = JSObject()
+      answer.put("alreadyRunning", true)
+      invoke.resolve(answer)
+      return
+    }
     Thread {
       try {
         BackupRunner(context).backUp { prefs.wifiOnly && !unmetered(context) }
@@ -200,6 +207,20 @@ class BackupPlugin(private val activity: Activity) : Plugin(activity) {
     val network = connectivity.activeNetwork ?: return false
     val caps = connectivity.getNetworkCapabilities(network) ?: return false
     return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
+  }
+
+  // The app's own pass added items this phone sent: the reminder goes, and
+  // the count the job keeps is the one just read. -1 when it was not.
+  @Command
+  fun settleWaiting(invoke: Invoke) {
+    val count = invoke.getArgs().optLong("waiting", -1)
+    val prefs = BackupPrefs(activity)
+    BackupReminder.cancel(activity)
+    if (count >= 0) {
+      prefs.waiting = count
+      prefs.waitingSince = if (count == 0L) 0L else System.currentTimeMillis() / 1000
+    }
+    invoke.resolve()
   }
 
   @Command

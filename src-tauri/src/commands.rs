@@ -269,6 +269,7 @@ pub(crate) async fn finish_join(
     let _ = std::fs::remove_file(crate::paths::joining_marker(&root));
     *state.active_silo.lock().map_err(|e| e.to_string())? = Some(entry.clone());
     state.open_session(&host(app), entry.id, session)?;
+    wake_sync(app, [entry.id]);
     app.state::<crate::presence::Presence>().opened(entry.id);
     crate::audit::set_unlocked_with(entry.id, None);
     Ok(meta)
@@ -426,6 +427,7 @@ pub async fn vault_unlock(app: AppHandle, state: State<'_, AppState>) -> Result<
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    wake_sync(&app, [silo.id]);
     app.state::<crate::presence::Presence>().opened(silo.id);
     crate::audit::set_unlocked_with(silo.id, Some(crate::audit::VIA_PHONE_KEY.into()));
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
@@ -454,6 +456,7 @@ pub async fn vault_unlock_with_recovery(
     .map_err(|e| e.to_string())??;
     silentsilo_app::wipe_open_scratch(&silo.path);
     state.open_session(&host(&app), silo.id, session)?;
+    wake_sync(&app, [silo.id]);
     app.state::<crate::presence::Presence>().opened(silo.id);
     crate::audit::set_unlocked_with(silo.id, Some(crate::audit::VIA_RECOVERY_CODE.into()));
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
@@ -480,8 +483,12 @@ pub async fn vault_lock(
         Some(id) => vec![Uuid::parse_str(&id).map_err(|e| e.to_string())?],
         None => state.open_silo_ids(),
     };
-    // What was saved and not sent yet goes before the key does.
-    let unsent: Vec<Uuid> = crate::background::with_unsent(&state)
+    // What was saved and not sent yet goes before the key does. Someone is
+    // there and asked: a copy resting after a failure gets a try too.
+    for id in &ids {
+        silentsilo_app::clear_backoff(&state, &host(&app), *id);
+    }
+    let unsent: Vec<Uuid> = crate::background::with_unsent(&app)
         .into_iter()
         .filter(|id| ids.contains(id))
         .collect();
@@ -839,7 +846,15 @@ pub fn sync_status(state: State<AppState>) -> Result<SyncStatus, String> {
 #[tauri::command]
 pub async fn sync_now(app: AppHandle, state: State<'_, AppState>) -> Result<SyncReport, String> {
     let silo = active_silo(&state)?;
-    silentsilo_app::sync_now(&state, &host(&app), &silo).await
+    crate::background::run_pass(&app, crate::background::PassKind::Foreground, &silo, true)
+        .await
+        .unwrap_or_else(|| {
+            Err(silentsilo_core::coded!(
+                "err.sync_stopped_away",
+                "Sync stopped when the app left the screen. It starts again by itself."
+            )
+            .into())
+        })
 }
 
 #[derive(serde::Serialize)]
@@ -950,31 +965,98 @@ pub fn recovery_status(state: State<AppState>) -> Result<RecoveryStatus, String>
     })
 }
 
-/// Syncs every open silo that has changes waiting or has not pulled for two
-/// minutes, for as long as the app runs. Quiet on failure: a phone is often
-/// offline.
+/// Wakes the auto-sync loop before its next tick, for a silo someone just
+/// unlocked or came back to.
+#[derive(Default)]
+pub struct SyncWake {
+    notify: tokio::sync::Notify,
+    silos: std::sync::Mutex<std::collections::HashSet<Uuid>>,
+    /// Every open silo: set from the main thread, which must not wait on the
+    /// session lock to list them.
+    all: std::sync::atomic::AtomicBool,
+}
+
+/// A pass for `silos` now, with their copies' waits cleared and their last
+/// pull forgotten: someone is there to see it.
+pub(crate) fn wake_sync(app: &AppHandle, silos: impl IntoIterator<Item = Uuid>) {
+    let wake = app.state::<SyncWake>();
+    if let Ok(mut woken) = wake.silos.lock() {
+        woken.extend(silos);
+    }
+    wake.notify.notify_one();
+}
+
+/// The same for every open silo, when the app comes back to the screen.
+pub(crate) fn wake_sync_all(app: &AppHandle) {
+    let wake = app.state::<SyncWake>();
+    wake.all.store(true, std::sync::atomic::Ordering::SeqCst);
+    wake.notify.notify_one();
+}
+
+/// Syncs every open silo that owes a copy something due now, has more left
+/// from its last pass, or has not pulled for two minutes, for as long as the
+/// app runs. Quiet on failure: a phone is often offline.
 pub fn spawn_auto_sync(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         // On the clock that only goes forward: the wall clock set back an
         // hour stopped these passes for that hour.
         let mut last_pull: std::collections::HashMap<Uuid, std::time::Duration> =
             Default::default();
+        // Silos whose last pass left work for the next one.
+        let mut more: std::collections::HashSet<Uuid> = Default::default();
+        // Silos someone unlocked or came back to, and when: they get a pass
+        // that ran, not one that stood down for another, within two minutes.
+        let mut wanted: std::collections::HashMap<Uuid, std::time::Duration> = Default::default();
+        // Silos that stopped before reaching a copy (rebuild, rejoin, a
+        // replaced key), held until their next pull: they still owe records,
+        // and nothing else would stop a pass every tick.
+        let mut held: std::collections::HashMap<Uuid, std::time::Duration> = Default::default();
         // Silos told this phone's name since the app started.
         let mut announced: std::collections::HashSet<Uuid> = Default::default();
         let mut first = true;
+        let mut soon = false;
         loop {
             // The first tick straight away: what changed elsewhere while the
             // app was closed should show up now, not a quarter minute later.
             if !first {
-                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
+                let tick = std::time::Duration::from_secs(if soon { 2 } else { 15 });
+                let wake = app.state::<SyncWake>();
+                tokio::select! {
+                    _ = tokio::time::sleep(tick) => {}
+                    _ = wake.notify.notified() => {}
+                }
             }
             first = false;
+            soon = false;
             let state = app.state::<AppState>();
+            let host = host(&app);
+            let mut woken: std::collections::HashSet<Uuid> = {
+                let wake = app.state::<SyncWake>();
+                let mut woken = wake
+                    .silos
+                    .lock()
+                    .map(|mut s| std::mem::take(&mut *s))
+                    .unwrap_or_default();
+                if wake.all.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                    woken.extend(state.open_silo_ids());
+                }
+                woken
+            };
+            woken.retain(|id| state.session_is_open(*id));
+            let now = crate::background::since_boot();
+            for id in woken {
+                last_pull.remove(&id);
+                held.remove(&id);
+                wanted.insert(id, now);
+            }
+            wanted.retain(|id, at| {
+                state.session_is_open(*id)
+                    && now.saturating_sub(*at) < std::time::Duration::from_secs(120)
+            });
             let Ok(app_data) = app_data(&app) else {
                 continue;
             };
             let registry = load_registry(&app_data);
-            let now = crate::background::since_boot();
             for id in state.open_silo_ids() {
                 let Some(silo) = registry.get(id).cloned() else {
                     continue;
@@ -982,16 +1064,20 @@ pub fn spawn_auto_sync(app: AppHandle) {
                 if announced.insert(id) {
                     announce_this_phone(&app, &silo).await;
                 }
-                let waiting = state
-                    .sessions
-                    .lock()
-                    .ok()
-                    .and_then(|s| {
-                        s.get(&id)
-                            .and_then(|s| silentsilo_vfs::pending_count(&s.conn).ok())
-                    })
-                    .unwrap_or(0);
-                if waiting == 0
+                let asked = wanted.contains_key(&id);
+                if !asked && held.get(&id).is_some_and(|until| now < *until) {
+                    continue;
+                }
+                // Cleared right before the pass, as Sync does: a pass waited
+                // out in between could have set it again.
+                if asked {
+                    silentsilo_app::clear_backoff(&state, &host, id);
+                }
+                // Owed to a copy that is due now, not merely "not on every
+                // copy": a disk in a drawer kept this at a pass every tick.
+                let work =
+                    asked || silentsilo_app::owed_now(&state, &host, id) > 0 || more.contains(&id);
+                if !work
                     && last_pull.get(&id).is_some_and(|at| {
                         now.saturating_sub(*at) < std::time::Duration::from_secs(120)
                     })
@@ -1001,21 +1087,46 @@ pub fn spawn_auto_sync(app: AppHandle) {
                 // Away from the screen Android keeps the app off the network,
                 // and a pass only to look for news would fail at every
                 // provider. Changes still waiting are tried all the same.
-                if waiting == 0
+                if !work
                     && !app
                         .state::<crate::background::BackgroundLock>()
                         .is_visible()
                 {
                     continue;
                 }
-                match silentsilo_app::run_sync_pass(&state, &host(&app), &silo).await {
-                    Ok(report) if report.skipped => {}
-                    Ok(_) => {
-                        last_pull.insert(id, now);
-                        crate::backup::confirm_sent(&app, &silo).await;
+                let outcome = crate::background::run_pass(
+                    &app,
+                    crate::background::PassKind::Foreground,
+                    &silo,
+                    false,
+                )
+                .await;
+                match outcome {
+                    // Stopped with the app, or another pass runs there: tried
+                    // again soon if someone is waiting for it.
+                    None | Some(Ok(SyncReport { skipped: true, .. })) => {
+                        soon |= asked;
                     }
-                    Err(_) => {
+                    Some(Ok(report)) if report.error.is_none() => {
+                        wanted.remove(&id);
                         last_pull.insert(id, now);
+                        if report.more_to_do {
+                            more.insert(id);
+                        } else {
+                            more.remove(&id);
+                        }
+                        if report.needs_rebuild
+                            || report.needs_rejoin
+                            || report.key_material_replaced
+                        {
+                            held.insert(id, now + std::time::Duration::from_secs(120));
+                        }
+                    }
+                    // A failure holds the silo until its next pull is due.
+                    _ => {
+                        wanted.remove(&id);
+                        last_pull.insert(id, now);
+                        more.remove(&id);
                     }
                 }
             }
@@ -1104,18 +1215,13 @@ pub async fn vault_rebuild(app: AppHandle, state: State<'_, AppState>) -> Result
     Ok(applied)
 }
 
-/// Holds off sync passes while it lives: waits for one running to finish,
-/// then marks one as running.
+/// Holds off every sync pass while it lives: waits for the running ones to
+/// finish, then takes core's hold.
 pub(crate) struct SyncHold<'a>(&'a AppState);
 
 impl<'a> SyncHold<'a> {
     pub(crate) async fn take(state: &'a AppState) -> SyncHold<'a> {
-        use std::sync::atomic::Ordering;
-        while state
-            .sync_in_flight
-            .compare_exchange(false, true, Ordering::SeqCst, Ordering::SeqCst)
-            .is_err()
-        {
+        while !state.try_hold_sync() {
             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
         }
         SyncHold(state)
@@ -1124,9 +1230,7 @@ impl<'a> SyncHold<'a> {
 
 impl Drop for SyncHold<'_> {
     fn drop(&mut self) {
-        self.0
-            .sync_in_flight
-            .store(false, std::sync::atomic::Ordering::SeqCst);
+        self.0.release_sync_hold();
     }
 }
 

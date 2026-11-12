@@ -19,7 +19,7 @@
     <string name="cancel">Anulează</string>
     <string name="cancelled">Anulat.</string>
     <string name="backup_channel">Backup care așteaptă silozul</string>
-    <string name="backup_title">Deschide SilentSilo ca să termini backupul</string>
+    <string name="backup_title">Deblochează silozul ca să termini backupul</string>
     <string name="lock_tile">Blochează SilentSilo</string>
     <string name="passkey_no_silo">Pe acest telefon nu există niciun siloz.</string>
     <string name="passkey_description">Salvată în siloz și sincronizată cu backupul lui</string>

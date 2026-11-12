@@ -8,10 +8,10 @@ Each is listed with its version and its licence, and the full text of every
 licence follows, once per distinct text. Where a component ships its own
 copyright or NOTICE file, that file is what is reproduced here.
 
-Generated from the resolved dependency graph on 2026-10-20, for aarch64-linux-android, aarch64-apple-ios.
+Generated from the resolved dependency graph on 2026-11-12, for aarch64-linux-android, aarch64-apple-ios.
 Regenerate with: npm run notices
 
-Components: 513
+Components: 514
 
 ==============================================================================
 COMPONENTS
@@ -537,7 +537,7 @@ crossbeam-utils 0.8.22 (crate)
   source:  https://github.com/crossbeam-rs/crossbeam
   text:    see [24] [72]
 
-crypto-bigint 0.7.5 (crate)
+crypto-bigint 0.7.11 (crate)
   licence: Apache-2.0 OR MIT
   source:  https://github.com/RustCrypto/crypto-bigint
   text:    see [8] [74]
@@ -582,7 +582,7 @@ ctr 0.10.1 (crate)
   source:  https://github.com/RustCrypto/block-modes
   text:    see [8] [51]
 
-ctutils 0.4.2 (crate)
+ctutils 0.4.8 (crate)
   licence: Apache-2.0 OR MIT
   source:  https://github.com/RustCrypto/utils
   text:    see [56] [80]
@@ -1657,7 +1657,7 @@ primeorder 0.14.0 (crate)
   source:  https://github.com/RustCrypto/elliptic-curves
   text:    see [8] [193]
 
-proc-macro-crate 3.5.0 (crate)
+proc-macro-crate 1.3.1 (crate)
   licence: MIT OR Apache-2.0
   source:  https://github.com/bkchr/proc-macro-crate
   text:    see [6] [7]
@@ -1817,7 +1817,7 @@ rusqlite 0.40.1 (crate)
   source:  https://github.com/rusqlite/rusqlite
   text:    see [167]
 
-russh 0.63.3 (crate)
+russh 0.65.1 (crate)
   licence: Apache-2.0
   source:  https://github.com/warp-tech/russh
   text:    declares Apache-2.0 and ships no file; the standard text is at [2]
@@ -1847,7 +1847,7 @@ rustc-hash 2.1.3 (crate)
   source:  https://github.com/rust-lang/rustc-hash
   text:    see [23] [7]
 
-rustix 1.1.4 (crate)
+rustix 1.1.6 (crate)
   licence: Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT
   source:  https://github.com/bytecodealliance/rustix
   text:    see [24] [169] [7]
@@ -1877,7 +1877,7 @@ rustls-platform-verifier-android 0.2.0 (crate)
   source:  https://github.com/rustls/rustls-platform-verifier
   text:    declares Apache-2.0 and ships no file; the standard text is at [2]
 
-rustls-webpki 0.103.15 (crate)
+rustls-webpki 0.103.16 (crate)
   licence: ISC
   source:  https://github.com/rustls/webpki
   text:    see [235]
@@ -2307,7 +2307,7 @@ tinyvec_macros 0.1.1 (crate)
   source:  https://github.com/Soveu/tinyvec_macros
   text:    see [270] [271] [272]
 
-tokio 1.53.0 (crate)
+tokio 1.54.1 (crate)
   licence: MIT
   source:  https://github.com/tokio-rs/tokio
   text:    see [273]
@@ -2332,12 +2332,17 @@ toml 1.1.3+spec-1.1.0 (crate)
   source:  https://github.com/toml-rs/toml
   text:    see [70] [242]
 
+toml_datetime 0.6.3 (crate)
+  licence: MIT OR Apache-2.0
+  source:  https://github.com/toml-rs/toml
+  text:    see [24] [52]
+
 toml_datetime 1.1.1+spec-1.1.0 (crate)
   licence: MIT OR Apache-2.0
   source:  https://github.com/toml-rs/toml
   text:    see [70] [242]
 
-toml_edit 0.25.13+spec-1.1.0 (crate)
+toml_edit 0.19.15 (crate)
   licence: MIT OR Apache-2.0
   source:  https://github.com/toml-rs/toml
   text:    see [70] [242]
@@ -2427,11 +2432,6 @@ universal-hash 0.6.1 (crate)
   source:  https://github.com/RustCrypto/traits
   text:    see [8] [286]
 
-untrusted 0.7.1 (crate)
-  licence: ISC
-  source:  https://github.com/briansmith/untrusted
-  text:    see [287]
-
 untrusted 0.9.0 (crate)
   licence: ISC
   source:  https://github.com/briansmith/untrusted
@@ -2491,6 +2491,11 @@ web-time 1.1.0 (crate)
   licence: MIT OR Apache-2.0
   source:  https://github.com/daxpedda/web-time
   text:    see [295] [296]
+
+winnow 0.5.40 (crate)
+  licence: MIT
+  source:  https://github.com/winnow-rs/winnow
+  text:    see [297]
 
 winnow 1.0.4 (crate)
   licence: MIT

@@ -19,7 +19,7 @@
     <string name="cancel">Abbrechen</string>
     <string name="cancelled">Abgebrochen.</string>
     <string name="backup_channel">Sicherung wartet auf das Silo</string>
-    <string name="backup_title">Öffne SilentSilo, um die Sicherung abzuschließen</string>
+    <string name="backup_title">Entsperre dein Silo, um die Sicherung abzuschließen</string>
     <string name="lock_tile">SilentSilo sperren</string>
     <string name="passkey_no_silo">Auf diesem Telefon gibt es kein Silo.</string>
     <string name="passkey_description">Im Silo gespeichert und mit seiner Sicherung synchronisiert</string>

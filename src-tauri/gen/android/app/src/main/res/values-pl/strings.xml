@@ -19,7 +19,7 @@
     <string name="cancel">Anuluj</string>
     <string name="cancelled">Anulowano.</string>
     <string name="backup_channel">Kopia zapasowa czeka na silos</string>
-    <string name="backup_title">Otwórz SilentSilo, aby dokończyć kopię zapasową</string>
+    <string name="backup_title">Odblokuj silos, aby dokończyć kopię zapasową</string>
     <string name="lock_tile">Zablokuj SilentSilo</string>
     <string name="passkey_no_silo">Na tym telefonie nie ma silosu.</string>
     <string name="passkey_description">Zapisany w silosie i synchronizowany z jego kopią zapasową</string>

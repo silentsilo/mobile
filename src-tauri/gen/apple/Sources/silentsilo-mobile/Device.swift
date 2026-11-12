@@ -94,6 +94,15 @@ public func ssGroupDir() -> UnsafeMutablePointer<CChar>? {
   return strdup(container.appendingPathComponent("Data", isDirectory: true).path)
 }
 
+/// Sync tasks begun and not ended yet, by raw id. iOS's deadline and Rust
+/// may both end one; only the first does. Main thread only.
+private var liveTasks = Set<Int>()
+
+private func endOnce(_ task: UIBackgroundTaskIdentifier) {
+  guard liveTasks.remove(task.rawValue) != nil else { return }
+  UIApplication.shared.endBackgroundTask(task)
+}
+
 /// Asks iOS for time to finish work after the app leaves the screen, up to
 /// about 30 seconds: a sync of what was saved just before. Returns the
 /// task's id for `ss_background_end`; iOS's own deadline ends it too.
@@ -102,8 +111,11 @@ public func ssBackgroundBegin() -> Int {
   onMain {
     var task = UIBackgroundTaskIdentifier.invalid
     task = UIApplication.shared.beginBackgroundTask(withName: "sync") {
-      UIApplication.shared.endBackgroundTask(task)
+      // Time is up: the passes stop before iOS freezes them mid-request.
+      ss_background_expiring()
+      endOnce(task)
     }
+    if task != .invalid { liveTasks.insert(task.rawValue) }
     return task.rawValue
   }
 }
@@ -112,7 +124,7 @@ public func ssBackgroundBegin() -> Int {
 public func ssBackgroundEnd(_ raw: Int) {
   let task = UIBackgroundTaskIdentifier(rawValue: raw)
   guard task != .invalid else { return }
-  DispatchQueue.main.async { UIApplication.shared.endBackgroundTask(task) }
+  DispatchQueue.main.async { endOnce(task) }
 }
 
 /// While long work runs: the screen stays on, and if the app is left anyway
@@ -125,6 +137,7 @@ public func ssKeepAwake(_ on: Bool) {
     UIApplication.shared.isIdleTimerDisabled = on
     if on, awakeTask == .invalid {
       awakeTask = UIApplication.shared.beginBackgroundTask(withName: "work") {
+        ss_background_expiring()
         UIApplication.shared.endBackgroundTask(awakeTask)
         awakeTask = .invalid
       }

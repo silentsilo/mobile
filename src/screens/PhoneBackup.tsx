@@ -1,3 +1,4 @@
+import { listen } from "@tauri-apps/api/event";
 import { Check, ChevronRight, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type BackupSettings, type BackupStatus, type MediaFolder } from "../api";
@@ -56,11 +57,17 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
   // this screen is open.
   useEffect(() => {
     load();
-    api.backupWaiting().then(setWaiting, () => setWaiting(null));
+    const readWaiting = () => api.backupWaiting().then(setWaiting, () => setWaiting(null));
+    readWaiting();
     const timer = window.setInterval(() => {
       api.backupStatus().then((s) => !saving.current && setStatus(s), () => {});
     }, 5000);
-    return () => window.clearInterval(timer);
+    // A pass may have added what was waiting.
+    const stop = listen("sync-report", () => void readWaiting());
+    return () => {
+      window.clearInterval(timer);
+      void stop.then((unlisten) => unlisten());
+    };
   }, [load]);
 
   const apply = async (change: Partial<BackupSettings>) => {
@@ -148,8 +155,8 @@ export function PhoneBackup({ onBack }: { onBack: () => void }) {
     await api.setBusy(true).catch(() => undefined);
     if (!isIOS) toast(t("files.backup_running_here"));
     try {
-      await api.runBackupNow();
-      toast(t(isIOS ? "files.backup_run_soon" : "files.backup_run_done"));
+      const already = await api.runBackupNow();
+      toast(t(already ? "files.backup_already_running" : isIOS ? "files.backup_run_soon" : "files.backup_run_done"));
     } catch (e) {
       toast(formatAppError(e));
     } finally {

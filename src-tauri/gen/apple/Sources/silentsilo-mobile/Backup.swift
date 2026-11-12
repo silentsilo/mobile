@@ -659,6 +659,7 @@ final class BackupRunner {
     if count == 0 {
       BackupPrefs.waiting = 0
       BackupPrefs.waitingSince = 0
+      removeWaitingReminder()
       return
     }
     if BackupPrefs.waitingSince == 0 { BackupPrefs.waitingSince = now }
@@ -693,6 +694,11 @@ final class BackupRunner {
   private func contactsAllowed() -> Bool {
     contactsReadable()
   }
+}
+
+/// Items were added, or none wait: a reminder already shown is out of date.
+func removeWaitingReminder() {
+  UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["backup-waiting"])
 }
 
 /// The same item id Android's `UUID.nameUUIDFromBytes` makes: MD5, version 3.
@@ -735,6 +741,15 @@ public func ssBackupCall(_ command: UnsafePointer<CChar>, _ payload: UnsafePoint
     answer = backupStatus()
   case "runNow":
     BackupScheduler.runNow()
+    answer = [:]
+  case "settleWaiting":
+    // The app's own pass added items: the reminder goes, the count is new.
+    let count = (args["waiting"] as? NSNumber)?.intValue ?? -1
+    removeWaitingReminder()
+    if count >= 0 {
+      BackupPrefs.waiting = count
+      BackupPrefs.waitingSince = count == 0 ? 0 : Int(Date().timeIntervalSince1970)
+    }
     answer = [:]
   case "disable":
     BackupScheduler.cancel()

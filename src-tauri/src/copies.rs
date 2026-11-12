@@ -9,7 +9,7 @@ use silentsilo_app::{AppState, StoreConfigInput, StoreConfigView};
 use silentsilo_vault::{BackupTarget, TargetRole};
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::commands::{SyncHold, active_silo, host};
+use crate::commands::{SyncHold, active_silo};
 
 /// One copy as the screen lists it: never a secret.
 #[derive(Serialize)]
@@ -176,8 +176,13 @@ pub async fn backup_target_fill(app: AppHandle, id: String) -> Result<usize, Str
     // The pass after it settles what this device still thinks it owes there.
     let pass = app.clone();
     tauri::async_runtime::spawn(async move {
-        let state = pass.state::<AppState>();
-        let _ = silentsilo_app::run_sync_pass(&state, &host(&pass), &silo).await;
+        let _ = crate::background::run_pass(
+            &pass,
+            crate::background::PassKind::Foreground,
+            &silo,
+            false,
+        )
+        .await;
     });
     Ok(outcome.copied)
 }

@@ -13,7 +13,7 @@ import { applyTheme, readTheme, type ThemeChoice } from "../ui/theme";
 import { SiloHeader } from "./Passwords";
 import { announceSilo } from "./SiloSwitcher";
 import { haptic } from "../ui/haptics";
-import { useBehind, useLeftOut } from "../ui/syncActivity";
+import { describeProgress, useBehind, useLeftOut, useSyncNow, useSyncProgress, useSyncRunning, useSyncTrouble } from "../ui/syncActivity";
 import { syncSay } from "../ui/syncSay";
 import { isIOS } from "../ui/platform";
 
@@ -93,6 +93,10 @@ export function Silo({
   const [screenOff, setScreenOff] = useState<boolean | null>(null);
   const [removing, setRemoving] = useState(false);
   const leftOut = useLeftOut();
+  const passRunning = useSyncRunning();
+  const trouble = useSyncTrouble();
+  const progress = useSyncProgress();
+  const runSync = useSyncNow();
   const behindNow = useBehind();
   const [behindSaid, setBehindSaid] = useState(false);
   const behind = behindNow || behindSaid;
@@ -169,7 +173,7 @@ export function Silo({
   const syncNow = async () => {
     setSyncing(true);
     try {
-      const report = await api.syncNow();
+      const report = await runSync();
       if (report.needs_rebuild) setBehindSaid(true);
       const said = syncSay(report);
       if (said) toast(said);
@@ -235,6 +239,8 @@ export function Silo({
   };
 
   const waiting = sync?.pending_ops ?? 0;
+  // A pass the app started by itself is the one Sync would run.
+  const busy = syncing || passRunning;
   const navRow = (Icon: typeof KeyRound, title: string, value: string, onClick: () => void, first = false) => (
     <button className={`row${first ? "" : " divide"}`} style={{ minHeight: 60 }} onClick={onClick}>
       <Icon size={20} color="var(--accent-text)" />
@@ -253,13 +259,20 @@ export function Silo({
             <span className="label" style={{ padding: "0 4px" }}>{t("silo.section_backup")}</span>
             <div className="panel" style={{ gap: 12, padding: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <Cloud size={20} color={waiting || leftOut || behind ? "var(--warning)" : "var(--success)"} />
+                <Cloud
+                  size={20}
+                  color={leftOut || behind || trouble ? "var(--warning)" : waiting || busy ? "var(--accent-text)" : "var(--success)"}
+                />
                 <span style={{ flex: 1 }}>
                   {leftOut || behind
                     ? t("silo.status_not_syncing")
-                    : waiting
-                      ? t("silo.status_waiting", { count: waiting })
-                      : t("silo.status_synced")}
+                    : busy
+                      ? describeProgress(progress)
+                      : trouble
+                        ? trouble
+                        : waiting
+                          ? t("silo.status_waiting", { count: waiting })
+                          : t("silo.status_synced")}
                 </span>
               </div>
               {behind && (
@@ -271,9 +284,9 @@ export function Silo({
                   </button>
                 </>
               )}
-              <button className="btn secondary" aria-busy={syncing} onClick={syncNow} disabled={syncing}>
-                {!syncing && <RefreshCw size={18} />}
-                {syncing ? t("silo.syncing") : t("silo.sync_now")}
+              <button className="btn secondary" aria-busy={busy} onClick={syncNow} disabled={busy}>
+                {!busy && <RefreshCw size={18} />}
+                {t("silo.sync_now")}
               </button>
             </div>
           </div>

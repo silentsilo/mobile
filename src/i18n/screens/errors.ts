@@ -685,6 +685,17 @@ export const errors = {
     "pt-BR": "O armazenamento seguro de chaves deste celular ainda não está acessível. Desbloqueie o celular e tente de novo.",
     pl: "Bezpieczny magazyn kluczy tego telefonu nie jest jeszcze dostępny. Odblokuj telefon i spróbuj ponownie.",
   },
+  "err.sync_stopped_away": {
+    note: "Error from the app's backend after Sync now: the phone stopped the sync when the app left the screen. The app syncs again by itself now that it is back.",
+    en: "Sync stopped when the app left the screen. It starts again by itself.",
+    ro: "Sincronizarea s-a oprit când aplicația a ieșit de pe ecran. Pornește din nou singură.",
+    de: "Die Synchronisierung wurde angehalten, als die App den Bildschirm verließ. Sie startet von selbst neu.",
+    fr: "La synchronisation s’est arrêtée quand l’application a quitté l’écran. Elle reprend d’elle-même.",
+    es: "La sincronización se detuvo cuando la app salió de la pantalla. Vuelve a empezar sola.",
+    it: "La sincronizzazione si è fermata quando l’app ha lasciato lo schermo. Riparte da sola.",
+    "pt-BR": "A sincronização parou quando o app saiu da tela. Ela recomeça sozinha.",
+    pl: "Synchronizacja zatrzymała się, gdy aplikacja zniknęła z ekranu. Uruchomi się ponownie sama.",
+  },
   "err.confirm_by_unlocking": {
     note: "Error from the app's backend: a change that lets someone into the silo later (a new recovery code, a key added or removed, a new backup copy) needs proof the owner is here, and this phone has no key of its own to ask with. 'Lock' and 'unlock' as in the glossary.",
     en: "Confirm it is you first: lock the silo, unlock it again, then try again.",

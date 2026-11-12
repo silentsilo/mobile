@@ -483,8 +483,60 @@ pub fn resolve_resend(data_dir: &Path, kind: &str, reference: &str) {
     save_ledger(data_dir, &ledger);
 }
 
+/// After every pass that ran on this phone: what the ledger says was sent,
+/// and the reminder about items waiting once some were added.
+pub async fn after_pass(
+    app: &AppHandle,
+    silo: &silentsilo_vault::SiloEntry,
+    report: &silentsilo_app::SyncReport,
+) {
+    if report.skipped {
+        return;
+    }
+    if report.inbox_imported > 0 {
+        // Bounded as a whole: the inbox listing is a network call too.
+        let _ = tokio::time::timeout(std::time::Duration::from_secs(5), settle_waiting(app, silo))
+            .await;
+    }
+    // Only on a pass that read every record it fetched, the copy this phone
+    // sends to among them: an import another device recorded and this one
+    // could not see or apply would look like a lost item, and be sent again.
+    let send_copy_read = send_target(silo.id).is_some_and(|target| {
+        let id = target.config.target_id().to_string();
+        report
+            .targets
+            .iter()
+            .any(|t| t.id == id && t.failed.is_none() && !t.waiting)
+    });
+    if report.error.is_none()
+        && send_copy_read
+        && !report.needs_update
+        && report.held_back == 0
+        && report.unreadable.is_empty()
+    {
+        confirm_sent(app, silo).await;
+    }
+}
+
+/// Items this phone sent were just added: the reminder goes, and the job's
+/// stored count is read again.
+async fn settle_waiting(app: &AppHandle, silo: &silentsilo_vault::SiloEntry) {
+    let Some(data_dir) = crate::background::data_dir() else {
+        return;
+    };
+    if sender_vault(data_dir) != Some(silo.id) {
+        return;
+    }
+    let waiting = waiting_for(silo.id).await.map(|n| n as i64).unwrap_or(-1);
+    // The caller bounds it: Android runs plugin calls through the activity,
+    // which the service may be syncing without.
+    let _ = plugin(app)
+        .call::<serde_json::Value>("settleWaiting", serde_json::json!({ "waiting": waiting }))
+        .await;
+}
+
 /// After a sync pass on this phone: settles what the ledger says was sent.
-pub async fn confirm_sent(app: &AppHandle, silo: &silentsilo_vault::SiloEntry) {
+async fn confirm_sent(app: &AppHandle, silo: &silentsilo_vault::SiloEntry) {
     let Some(data_dir) = crate::background::data_dir() else {
         return;
     };
@@ -618,12 +670,18 @@ pub async fn backup_media_folders(app: AppHandle) -> Result<Vec<MediaFolder>, St
     Ok(listed.folders)
 }
 
+/// True when a run was already going, so this one did nothing.
 #[tauri::command]
-pub async fn backup_run_now(app: AppHandle) -> Result<(), String> {
+pub async fn backup_run_now(app: AppHandle) -> Result<bool, String> {
     plugin(&app)
         .call::<serde_json::Value>("runNow", serde_json::json!({}))
         .await
-        .map(|_| ())
+        .map(|answer| {
+            answer
+                .get("alreadyRunning")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false)
+        })
 }
 
 /// One item as the job hands it over.

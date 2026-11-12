@@ -32,7 +32,7 @@ import type { Bootstrap, CredentialType, FileEntry, PasswordEntry } from "./shar
 import icon from "./assets/icon.svg";
 import { EmptyState, Notice, ToastProvider, useToast } from "./ui/chrome";
 import { RecoveryCodeKeeper } from "./ui/RecoveryCodeShow";
-import { SyncActivityProvider, useLeftOut } from "./ui/syncActivity";
+import { SyncActivityProvider, useLeftOut, useSyncNow } from "./ui/syncActivity";
 import { useBackLayer } from "./ui/back";
 import { forgetVerified, keepVerified } from "./ui/reverify";
 import { useWide } from "./ui/useWide";
@@ -362,6 +362,7 @@ function OpenSiloScreens({
   const toast = useToast();
   const wide = useWide();
   const leftOut = useLeftOut();
+  const runSync = useSyncNow();
   // Back from another tab goes to Passwords first, then leaves the app.
   useBackLayer(tab !== "passwords", () => setTab("passwords"));
 
@@ -464,7 +465,7 @@ function OpenSiloScreens({
   // Pull down on any tab: one pass now, as the Sync button on Silo does.
   const pullSync = async () => {
     try {
-      const said = syncSay(await api.syncNow());
+      const said = syncSay(await runSync());
       if (said) toast(said);
       refreshSync();
     } catch (e) {

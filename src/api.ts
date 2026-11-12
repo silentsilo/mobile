@@ -135,6 +135,42 @@ export type SyncReport = {
   /** Records missing from the middle of another device's history. */
   chain_holes?: string[];
   skipped: boolean;
+  /** One per copy the silo backs up to. */
+  targets?: TargetStatus[];
+  /** Items Phone backup kept in the inbox that this pass added to the silo. */
+  inbox_imported?: number;
+  /** Items left in the inbox, with why. */
+  inbox_refused?: string[];
+  /** Why the pass stopped part way, when it did. */
+  error?: string | null;
+  /** Another device wrote a change only a newer release understands. */
+  needs_update?: boolean;
+  /** Copies this pass reached. 0 with copies set up means none was checked. */
+  reached?: number;
+  /** Work left for the next pass, which comes at once. */
+  more_to_do?: boolean;
+  /** Up to 3 "copy: reason" lines for content that would not upload. */
+  blob_errors?: string[];
+};
+
+/** How one copy fared in a pass. */
+export type TargetStatus = {
+  id: string;
+  label: string;
+  ops_pushed: number;
+  blobs_uploaded: number;
+  /** Why this copy got nothing this pass; null when it kept up. */
+  failed: string | null;
+  /** Unix seconds of the last pass it took everything, 0 for never. */
+  last_success: number;
+  /** Seconds until it is tried again, 0 when due now. */
+  retry_in: number;
+  /** Left alone this pass because it rests after a failure. */
+  waiting: boolean;
+  /** Left under a replaced key: it takes nothing new until removed and added again. */
+  retired?: boolean;
+  /** Records it is still owed. */
+  ops_behind: number;
 };
 
 export type BackupStatus = {
@@ -359,7 +395,8 @@ export const api = {
 
   backupStatus: () => invoke<BackupStatus>("backup_status"),
   configureBackup: (settings: BackupSettings) => invoke<BackupStatus>("backup_configure", { settings }),
-  runBackupNow: () => invoke<void>("backup_run_now"),
+  /** True when a run was already going, so this one did nothing. */
+  runBackupNow: () => invoke<boolean>("backup_run_now"),
   pickFiles: () => invoke<Offered[]>("files_pick"),
   openLink: (url: string) => invoke<void>("app_open_link", { url }),
   /** Long work starts or ends: the screen stays on and a lock waits for it. */

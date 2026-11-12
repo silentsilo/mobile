@@ -208,6 +208,8 @@ class BackupRunner(private val context: Context) {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
       else null
 
+    fun isRunning(): Boolean = running.get()
+
     fun selectedGranted(context: Context): Boolean =
       selectedPermission()?.let { context.checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED } == true
 
@@ -359,6 +361,7 @@ class BackupRunner(private val context: Context) {
     if (count == 0L) {
       prefs.waiting = 0
       prefs.waitingSince = 0
+      BackupReminder.cancel(context)
       return
     }
     if (prefs.waitingSince == 0L) prefs.waitingSince = now
@@ -649,5 +652,10 @@ object BackupReminder {
       .build()
     manager.notify(ID, notification)
     return true
+  }
+
+  // The items were added, or none wait: a reminder shown is out of date.
+  fun cancel(context: Context) {
+    context.getSystemService(NotificationManager::class.java)?.cancel(ID)
   }
 }

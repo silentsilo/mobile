@@ -485,6 +485,7 @@ pub async fn vault_unlock_with_security_key(
     .await
     .map_err(|e| e.to_string())??;
     state.open_session(&host(&app), silo.id, session)?;
+    crate::commands::wake_sync(&app, [silo.id]);
     app.state::<crate::presence::Presence>().opened(silo.id);
     crate::audit::set_unlocked_with(silo.id, Some(via));
     crate::audit::start_by_default_off_thread(&app, silo.id).await;

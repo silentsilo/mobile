@@ -19,7 +19,7 @@
     <string name="cancel">Cancelar</string>
     <string name="cancelled">Cancelado.</string>
     <string name="backup_channel">Copia de seguridad a la espera del silo</string>
-    <string name="backup_title">Abre SilentSilo para terminar la copia de seguridad</string>
+    <string name="backup_title">Desbloquea tu silo para terminar la copia de seguridad</string>
     <string name="lock_tile">Bloquear SilentSilo</string>
     <string name="passkey_no_silo">No hay ningún silo en este teléfono.</string>
     <string name="passkey_description">Guardada en tu silo y sincronizada con su copia de seguridad</string>

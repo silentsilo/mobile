@@ -9,7 +9,7 @@ import type { CredentialType, PasswordCategory, PasswordEntry } from "../shared/
 import { AddButton, EmptyState, Notice, Sheet, Skeleton, useToast } from "../ui/chrome";
 import { useBackLayer } from "../ui/back";
 import { isIOS } from "../ui/platform";
-import { describeProgress, useLeftOut, useSyncProgress } from "../ui/syncActivity";
+import { describeProgress, useLeftOut, useSyncProgress, useSyncRunning, useSyncTrouble } from "../ui/syncActivity";
 import { confirmForMany, revealed } from "../ui/reverify";
 import { SiloSwitcher } from "./SiloSwitcher";
 import { haptic } from "../ui/haptics";
@@ -20,7 +20,12 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
   const waiting = sync?.pending_ops ?? 0;
   const [switching, setSwitching] = useState(false);
   const progress = useSyncProgress();
+  const running = useSyncRunning();
   const leftOut = useLeftOut();
+  // From the last pass: a copy out of reach is not "Synced".
+  const trouble = useSyncTrouble();
+  // Changes made since the last pass go with the next one, seconds away: not a problem.
+  const dot = leftOut || trouble ? "var(--warning)" : waiting ? "var(--accent-text)" : "var(--success)";
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 16px 14px" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
@@ -36,19 +41,21 @@ export function SiloHeader({ siloName, sync, action }: { siloName: string; sync:
         <SiloSwitcher open={switching} onClose={() => setSwitching(false)} />
         {sync?.configured && (
           <div className="muted caption" style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-            {progress ? (
+            {running ? (
               <RefreshCw size={12} className="spin" color="var(--accent-text)" style={{ flex: "none" }} />
             ) : (
-              <span style={{ width: 7, height: 7, borderRadius: "50%", flex: "none", background: waiting || leftOut ? "var(--warning)" : "var(--success)" }} />
+              <span style={{ width: 7, height: 7, borderRadius: "50%", flex: "none", background: dot }} />
             )}
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {progress
+              {running
                 ? describeProgress(progress)
                 : leftOut
                   ? t("pw.not_syncing")
-                  : waiting
-                  ? t("pw.sync_waiting", { count: waiting })
-                  : t("pw.synced")}
+                  : trouble
+                    ? trouble
+                    : waiting
+                      ? t("pw.sync_waiting", { count: waiting })
+                      : t("pw.synced")}
             </span>
           </div>
         )}

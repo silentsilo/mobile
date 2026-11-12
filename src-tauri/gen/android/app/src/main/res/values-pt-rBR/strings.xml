@@ -19,7 +19,7 @@
     <string name="cancel">Cancelar</string>
     <string name="cancelled">Cancelado.</string>
     <string name="backup_channel">Backup aguardando o silo</string>
-    <string name="backup_title">Abra o SilentSilo para concluir o backup</string>
+    <string name="backup_title">Desbloqueie o silo para concluir o backup</string>
     <string name="lock_tile">Bloquear o SilentSilo</string>
     <string name="passkey_no_silo">Não há nenhum silo neste celular.</string>
     <string name="passkey_description">Salva no seu silo e sincronizada com o backup dele</string>

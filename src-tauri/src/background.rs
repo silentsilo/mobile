@@ -8,7 +8,8 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::time::Duration;
 
-use silentsilo_app::AppState;
+use silentsilo_app::{AppEvent, AppState, Host, SyncReport};
+use silentsilo_vault::SiloEntry;
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::host::MobileHost;
@@ -217,7 +218,7 @@ pub fn lock_after(app: &AppHandle) -> u64 {
 pub fn lock_all(app: &AppHandle) {
     // What was saved and not sent yet goes first: once locked, nothing can
     // send it until the next unlock on this phone, which may be days away.
-    let unsent = with_unsent(&app.state::<AppState>());
+    let unsent = with_unsent(app);
     if !unsent.is_empty() {
         #[cfg(target_os = "ios")]
         let task = crate::ios::background_begin();
@@ -315,6 +316,9 @@ const RESIGN_GRACE: u64 = 60;
 #[cfg_attr(not(target_os = "ios"), allow(dead_code))]
 pub fn entered_background() {
     if let Some(app) = APP.get() {
+        // A pass begun on screen would freeze mid-request with the app. The
+        // one on the way out has background time of its own.
+        app.state::<PassCancel>().left_screen();
         let lock = app.state::<BackgroundLock>();
         if lock_after(app) == 0 && lock.prompts.load(Ordering::SeqCst) == 0 {
             lock_soon(app, true);
@@ -330,10 +334,6 @@ pub fn entered_background() {
 /// the next opening. On iOS the snapshot is written first, off the main
 /// thread: AutoFill opens the silo from it, in another process.
 fn sync_on_the_way_out(app: &AppHandle) {
-    let waiting = with_unsent(&app.state::<AppState>());
-    if waiting.is_empty() && !cfg!(target_os = "ios") {
-        return;
-    }
     #[cfg(target_os = "ios")]
     let task = crate::ios::background_begin();
     let app = app.clone();
@@ -348,56 +348,184 @@ fn sync_on_the_way_out(app: &AppHandle) {
             })
             .await;
         }
-        push_unsent(&app, waiting, PUSH_LIMIT).await;
+        // Here, off the main thread: what is owed is read with the storage
+        // settings, which the phone's key store unseals.
+        let waiting = with_unsent(&app);
+        if !waiting.is_empty() {
+            push_unsent(&app, waiting, PUSH_LIMIT).await;
+        }
         #[cfg(target_os = "ios")]
         crate::ios::background_end(task);
     });
 }
 
-/// The open silos with changes not sent yet.
-pub fn with_unsent(state: &AppState) -> Vec<uuid::Uuid> {
+/// The open silos owing a copy that is due now something not sent yet. A
+/// copy resting after a failure would be skipped by the pass anyway.
+pub fn with_unsent(app: &AppHandle) -> Vec<uuid::Uuid> {
+    let state = app.state::<AppState>();
+    let host = MobileHost(app.clone());
     state
         .open_silo_ids()
         .into_iter()
-        .filter(|id| {
-            state
-                .sessions
-                .lock()
-                .ok()
-                .and_then(|s| {
-                    s.get(id)
-                        .and_then(|s| silentsilo_vfs::pending_count(&s.conn).ok())
-                })
-                .unwrap_or(0)
-                > 0
-        })
+        .filter(|id| silentsilo_app::owed_now(&state, &host, *id) > 0)
         .collect()
 }
 
 /// One sync pass for each silo, within `limit`. A pass already running is
-/// waited out, then this one sends what is left.
+/// waited out, then this one sends what is left. Stops when iOS says the
+/// background time is up.
 pub async fn push_unsent(app: &AppHandle, silos: Vec<uuid::Uuid>, limit: Duration) {
     let Some(data) = data_dir().cloned() else {
         return;
     };
     let registry = silentsilo_vault::load_registry(&data);
-    let state = app.state::<AppState>();
     let _ = tokio::time::timeout(limit, async {
         for id in silos {
             let Some(silo) = registry.get(id).cloned() else {
                 continue;
             };
             loop {
-                match silentsilo_app::run_sync_pass(&state, &MobileHost(app.clone()), &silo).await {
-                    Ok(report) if report.skipped => {
+                match run_pass(app, PassKind::WayOut, &silo, false).await {
+                    Some(Ok(report)) if report.skipped => {
                         tokio::time::sleep(Duration::from_millis(300)).await;
                     }
+                    None => return,
                     _ => break,
                 }
             }
         }
     })
     .await;
+}
+
+/// Which passes leaving the screen stops: one begun on screen, or one begun
+/// for the way out, which holds background time of its own.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PassKind {
+    Foreground,
+    WayOut,
+}
+
+/// Stops passes iOS would otherwise freeze mid-request, each one holding its
+/// silo's pass slot until timeouts the frozen clock never counted run out.
+/// Dropping a pass is safe: record pushes are idempotent and downloads go
+/// through `.part` files.
+pub struct PassCancel {
+    /// Bumped on every stop; a pass remembers the value it started under.
+    epoch: AtomicU64,
+    stops: tokio::sync::watch::Sender<Stops>,
+    /// The app went to the background since it was last on screen.
+    left: AtomicBool,
+}
+
+/// Passes started under an epoch below these are stopped.
+#[derive(Clone, Copy, Default)]
+struct Stops {
+    foreground: u64,
+    all: u64,
+}
+
+impl Default for PassCancel {
+    fn default() -> Self {
+        Self {
+            epoch: AtomicU64::new(0),
+            stops: tokio::sync::watch::Sender::new(Stops::default()),
+            left: AtomicBool::new(false),
+        }
+    }
+}
+
+impl PassCancel {
+    /// `pass`, unless a stop for its kind comes first: then `None`.
+    async fn run<T>(
+        &self,
+        kind: PassKind,
+        pass: impl std::future::Future<Output = T>,
+    ) -> Option<T> {
+        // Begun while the app is away: it would freeze with the app as soon
+        // as the background time ends. The way-out push has its own.
+        if kind == PassKind::Foreground && self.left.load(Ordering::SeqCst) {
+            return None;
+        }
+        let started = self.epoch.load(Ordering::SeqCst);
+        let mut stops = self.stops.subscribe();
+        let stopped = move |s: &Stops| {
+            s.all > started || (kind == PassKind::Foreground && s.foreground > started)
+        };
+        tokio::select! {
+            out = pass => Some(out),
+            _ = stops.wait_for(stopped) => None,
+        }
+    }
+
+    fn stop(&self, all: bool) {
+        let epoch = self.epoch.fetch_add(1, Ordering::SeqCst) + 1;
+        self.stops.send_modify(|s| {
+            s.foreground = epoch;
+            if all {
+                s.all = epoch;
+            }
+        });
+    }
+
+    /// iOS: the app entered the background.
+    fn left_screen(&self) {
+        self.left.store(true, Ordering::SeqCst);
+        self.stop(false);
+    }
+
+    /// Back on screen after a trip to the background: whatever was running
+    /// may have been frozen, and a fresh pass follows at once.
+    fn back_on_screen(&self) {
+        if self.left.swap(false, Ordering::SeqCst) {
+            self.stop(true);
+        }
+    }
+}
+
+/// iOS's background time ran out: every pass stops now.
+#[cfg_attr(not(target_os = "ios"), allow(dead_code))]
+pub fn time_is_up() {
+    if let Some(app) = APP.get() {
+        app.state::<PassCancel>().stop(true);
+    }
+}
+
+/// One pass over `silo` (`manual`: as the Sync button asks, every wait
+/// cleared), then what follows a pass that ran. `None` when the app's
+/// suspension stopped it; the screen hears a skipped report, so its
+/// progress line ends.
+pub async fn run_pass(
+    app: &AppHandle,
+    kind: PassKind,
+    silo: &SiloEntry,
+    manual: bool,
+) -> Option<Result<SyncReport, String>> {
+    let state = app.state::<AppState>();
+    let host = MobileHost(app.clone());
+    let pass = async {
+        if manual {
+            silentsilo_app::sync_now(&state, &host, silo).await
+        } else {
+            silentsilo_app::run_sync_pass(&state, &host, silo).await
+        }
+    };
+    let outcome = app.state::<PassCancel>().run(kind, pass).await;
+    match &outcome {
+        // Outside the cancel: a pass that finished stays finished. Not on
+        // the way out, whose time is for the push.
+        Some(Ok(report)) if kind == PassKind::Foreground => {
+            crate::backup::after_pass(app, silo, report).await;
+        }
+        Some(_) => {}
+        None => host.emit(AppEvent::SyncReport(SyncReport {
+            silo_id: silo.id.to_string(),
+            configured: true,
+            skipped: true,
+            ..SyncReport::default()
+        })),
+    }
+    outcome
 }
 
 /// Long work starts or ends, from the page: a join, an import of many
@@ -514,6 +642,7 @@ pub fn opened_while_away(app: &AppHandle) {
 #[cfg_attr(not(mobile), allow(dead_code))]
 pub fn resumed(app: &AppHandle) {
     let lock = app.state::<BackgroundLock>();
+    app.state::<PassCancel>().back_on_screen();
     lock.generation.fetch_add(1, Ordering::SeqCst);
     lock.foreground.store(true, Ordering::SeqCst);
     lock.visible.store(true, Ordering::SeqCst);
@@ -542,6 +671,10 @@ pub fn resumed(app: &AppHandle) {
         // Back after the lock fell due: closed before anything shows, and
         // what was not sent goes at the next unlock.
         lock_soon(app, false);
+    } else if away.is_some() {
+        // Back from elsewhere with the silo open: a pass now, past any wait
+        // the copies collected while the system kept the app offline.
+        crate::commands::wake_sync_all(app);
     }
 }
 
@@ -721,4 +854,55 @@ pub fn lock_on_screen_off_get(app: AppHandle) -> bool {
 pub fn lock_on_screen_off_set(app: AppHandle, on: bool) -> Result<(), String> {
     let path = screen_off_path(&app).ok_or_else(|| "No place to save the setting.".to_string())?;
     std::fs::write(path, if on { "1" } else { "0" }).map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod pass_cancel_tests {
+    use super::*;
+
+    /// A pass that runs until stopped, as one frozen mid-request does.
+    async fn hangs() {
+        std::future::pending::<()>().await
+    }
+
+    #[test]
+    fn leaving_the_screen_stops_only_a_pass_begun_on_it() {
+        tauri::async_runtime::block_on(async {
+            let cancel = std::sync::Arc::new(PassCancel::default());
+            let (on_screen, way_out) = {
+                let a = cancel.clone();
+                let b = cancel.clone();
+                let on_screen = tauri::async_runtime::spawn(async move {
+                    a.run(PassKind::Foreground, hangs()).await
+                });
+                let way_out =
+                    tauri::async_runtime::spawn(
+                        async move { b.run(PassKind::WayOut, hangs()).await },
+                    );
+                (on_screen, way_out)
+            };
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            cancel.left_screen();
+            assert_eq!(on_screen.await.unwrap(), None);
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            assert!(
+                !way_out.inner().is_finished(),
+                "the way-out pass keeps its time"
+            );
+            cancel.back_on_screen();
+            assert_eq!(way_out.await.unwrap(), None);
+        });
+    }
+
+    #[test]
+    fn a_pass_begun_after_a_stop_runs() {
+        tauri::async_runtime::block_on(async {
+            let cancel = PassCancel::default();
+            cancel.stop(true);
+            assert_eq!(cancel.run(PassKind::Foreground, async { 7 }).await, Some(7));
+            // Coming back without having left stops nothing.
+            cancel.back_on_screen();
+            assert_eq!(cancel.run(PassKind::WayOut, async { 8 }).await, Some(8));
+        });
+    }
 }

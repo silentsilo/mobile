@@ -43,6 +43,8 @@ pub fn run() {
         .plugin(security_key::init())
         .manage(silentsilo_app::AppState::default())
         .manage(background::BackgroundLock::default())
+        .manage(background::PassCancel::default())
+        .manage(commands::SyncWake::default())
         .manage(presence::Presence::default())
         .manage(cloud::SignInSlot::default())
         .register_asynchronous_uri_scheme_protocol("silo", |ctx, request, responder| {

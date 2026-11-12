@@ -76,6 +76,24 @@ async function runMockSyncPass() {
     needs_rejoin: syncOutcome === "rejoin",
     key_material_replaced: syncOutcome === "replaced",
     skipped: syncOutcome === "skipped",
+    // `?sync=offline`: the copy did not answer and rests for a few minutes.
+    reached: syncOutcome === "offline" ? 0 : 1,
+    targets: [
+      {
+        id: "t1",
+        label: "Google Drive",
+        ops_pushed: 3,
+        blobs_uploaded: MOCK_UPLOADS.length,
+        failed: syncOutcome === "offline" ? "network unreachable" : null,
+        last_success: 0,
+        retry_in: syncOutcome === "offline" ? 240 : 0,
+        waiting: false,
+        ops_behind: 0,
+      },
+    ],
+    inbox_imported: syncOutcome === "imported" ? 4 : 0,
+    needs_update: syncOutcome === "update",
+    error: null,
   };
   emit("sync-report", report);
   return report;
@@ -527,6 +545,7 @@ const handlers: Record<string, Handler> = {
   ],
   backup_run_now: () => {
     backup = { ...backup, lastRun: Math.floor(Date.now() / 1000) };
+    return false;
   },
   lock_after_get: () => settings[silo.id].lockAfter,
   lock_on_screen_off_get: () => settings[silo.id].screenOff,

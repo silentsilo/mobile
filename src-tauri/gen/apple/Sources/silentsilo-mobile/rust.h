@@ -18,5 +18,7 @@ int64_t ss_backup_waiting(void);
 void ss_entered_background(void);
 // The iPhone locked: the silo locks too, unless that is turned off.
 void ss_protected_data_going(void);
+// Background time ran out: running sync passes stop.
+void ss_background_expiring(void);
 // Frees a string Rust returned.
 void ss_rust_free(char *text);

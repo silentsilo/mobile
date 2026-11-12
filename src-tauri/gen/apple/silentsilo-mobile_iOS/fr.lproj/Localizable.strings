@@ -6,6 +6,6 @@
 "pin_cancel" = "Annuler";
 /* Phone backup reminder (Backup.swift): items waited for days. */
 "backup_title" = "Sauvegarde du téléphone";
-"backup_waiting" = "Des photos et des contacts de cet iPhone sont en attente. Ouvrez SilentSilo pour les ajouter à votre silo.";
+"backup_waiting" = "Des photos et des contacts de cet iPhone sont en attente. Ouvrez SilentSilo et déverrouillez votre silo pour les ajouter.";
 /* The app switcher card while the app is away (Platform.swift). */
 "privacy_cover" = "Contenu masqué";

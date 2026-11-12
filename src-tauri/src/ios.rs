@@ -394,6 +394,13 @@ pub fn background_end(task: isize) {
     unsafe { ss_background_end(task) }
 }
 
+/// Called by Swift when iOS's background time runs out: the sync passes
+/// stop now rather than freeze mid-request.
+#[unsafe(no_mangle)]
+pub extern "C" fn ss_background_expiring() {
+    crate::background::time_is_up();
+}
+
 /// The screen stays on, and the app keeps running for a while if it is
 /// left, while long work runs.
 pub fn keep_awake(on: bool) {
