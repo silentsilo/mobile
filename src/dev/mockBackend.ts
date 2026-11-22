@@ -307,7 +307,7 @@ const handlers: Record<string, Handler> = {
     {
       id: "22222222-2222-2222-2222-222222222222",
       label: "",
-      config: { kind: "google-drive", account: "alex@gmail.com", folder: "Silo" },
+      config: { kind: "google-drive", account: "sam@gmail.com", folder: "Silo" },
       primary: false,
       lastSuccess: Math.floor(Date.now() / 1000) - 3600,
       archive: false,
@@ -372,7 +372,7 @@ const handlers: Record<string, Handler> = {
       id: "5b0f3a2e-9c1d-4e8f-a7b6-2d4c6e8f0a1b",
       account: {
         id: `${String(args.kind)}-account`,
-        label: args.kind === "google-drive" ? "alex@gmail.com" : "alex@outlook.com",
+        label: args.kind === "google-drive" ? "sam@gmail.com" : "sam@outlook.com",
         freeBytes: 812 * 1024 ** 3,
         totalBytes: 1024 ** 4,
       },

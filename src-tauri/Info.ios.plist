@@ -36,7 +36,7 @@
 	     a code exists only once Apple approves documentation (for France).
 	     Without the key, App Store Connect asks about export for each build:
 	     standard algorithms (AES-GCM, Argon2id, HKDF, ECDH), not for France. -->
-	<!-- iCloud Drive as backup storage (planuri/icloud.md): the container's
+	<!-- iCloud Drive as backup storage: the container's
 	     Documents show as a "SilentSilo" folder in Files, in Finder and in
 	     iCloud for Windows. -->
 	<key>NSUbiquitousContainers</key>

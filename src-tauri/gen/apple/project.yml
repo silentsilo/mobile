@@ -69,7 +69,7 @@ targets:
         BGTaskSchedulerPermittedIdentifiers: [com.silentsilo.mobile.backup]
         UIBackgroundModes: [processing]
         # No ITSAppUsesNonExemptEncryption: see src-tauri/Info.ios.plist.
-        # iCloud Drive as backup storage (planuri/icloud.md): the container's
+        # iCloud Drive as backup storage: the container's
         # Documents show as a "SilentSilo" folder in Files and in Finder.
         NSUbiquitousContainers:
           iCloud.com.silentsilo.mobile:
