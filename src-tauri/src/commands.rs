@@ -714,7 +714,22 @@ pub fn vault_list_folder(
     state: State<AppState>,
 ) -> Result<Vec<VaultEntry>, String> {
     let folder_id = Uuid::parse_str(&folder_id).map_err(|e| e.to_string())?;
-    state.with_vfs(|_session, vfs| vfs.list_folder(folder_id))
+    state
+        .with_vfs(|_session, vfs| vfs.list_folder(folder_id))
+        .map(|entries| entries.into_iter().map(for_screen).collect())
+}
+
+/// An entry as the screen shows it: its name without direction overrides,
+/// which made `invoice<U+202E>fdp.exe` read as `invoiceexe.pdf`. Replay
+/// keeps them, as every release did, so this is done where names are shown.
+pub(crate) fn for_screen(mut entry: VaultEntry) -> VaultEntry {
+    match &mut entry {
+        VaultEntry::Folder(folder) => {
+            folder.name = silentsilo_vfs::without_reordering(&folder.name)
+        }
+        VaultEntry::File(file) => file.name = silentsilo_vfs::without_reordering(&file.name),
+    }
+    entry
 }
 
 /// The most a preview holds in memory. Past this the file is described,

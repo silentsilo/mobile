@@ -110,7 +110,16 @@ pub fn vault_list_all_folders(state: State<'_, AppState>) -> Result<Vec<FolderEn
 /// Names across the whole silo, capped as on the desktop.
 #[tauri::command(async)]
 pub fn vault_search(state: State<'_, AppState>, query: String) -> Result<Vec<SearchHit>, String> {
-    state.with_vfs(|_session, vfs| vfs.search_entries(&query, 50))
+    state
+        .with_vfs(|_session, vfs| vfs.search_entries(&query, 50))
+        .map(|hits| {
+            hits.into_iter()
+                .map(|mut hit| {
+                    hit.entry = crate::commands::for_screen(hit.entry);
+                    hit
+                })
+                .collect()
+        })
 }
 
 #[tauri::command(async)]
@@ -145,7 +154,17 @@ pub fn vault_trash_folder(
 
 #[tauri::command(async)]
 pub fn vault_list_trash(state: State<'_, AppState>) -> Result<Vec<TrashItem>, String> {
-    state.with_vfs(|_session, vfs| vfs.list_trash())
+    state
+        .with_vfs(|_session, vfs| vfs.list_trash())
+        .map(|items| {
+            items
+                .into_iter()
+                .map(|mut item| {
+                    item.entry = crate::commands::for_screen(item.entry);
+                    item
+                })
+                .collect()
+        })
 }
 
 #[tauri::command(async)]
@@ -327,7 +346,16 @@ pub fn vault_set_favorite(
 pub fn vault_list_favorites(
     state: State<'_, AppState>,
 ) -> Result<Vec<silentsilo_core::SearchHit>, String> {
-    state.with_vfs(|_session, vfs| vfs.list_favorites())
+    state
+        .with_vfs(|_session, vfs| vfs.list_favorites())
+        .map(|hits| {
+            hits.into_iter()
+                .map(|mut hit| {
+                    hit.entry = crate::commands::for_screen(hit.entry);
+                    hit
+                })
+                .collect()
+        })
 }
 
 /// Every device that has changed this silo, this phone among them.
