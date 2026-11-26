@@ -707,6 +707,17 @@ export const errors = {
     "pt-BR": "Primeiro confirme que é você: bloqueie o silo, desbloqueie de novo e tente outra vez.",
     pl: "Najpierw potwierdź, że to ty: zablokuj silos, odblokuj go ponownie i spróbuj jeszcze raz.",
   },
+  "err.org_code_on_computer": {
+    note: "Error when the user tries to make a new recovery code on the phone for a silo an organisation manages: that needs the organisation's security key, which only the desktop app can ask for.",
+    en: "An organisation manages this silo. Make a new recovery code on a computer, with the organisation's key.",
+    ro: "Silozul e administrat de o organizație. Fă un cod de recuperare nou pe un calculator, cu cheia organizației.",
+    de: "Dieses Silo wird von einer Organisation verwaltet. Erstelle einen neuen Wiederherstellungscode auf einem Computer, mit dem Schlüssel der Organisation.",
+    fr: "Ce silo est géré par une organisation. Créez un nouveau code de récupération sur un ordinateur, avec la clé de l’organisation.",
+    es: "Una organización gestiona este silo. Crea un código de recuperación nuevo en un ordenador, con la llave de la organización.",
+    it: "Questo silo è gestito da un’organizzazione. Crea un nuovo codice di recupero su un computer, con la chiave dell’organizzazione.",
+    "pt-BR": "Uma organização gerencia este silo. Crie um novo código de recuperação em um computador, com a chave da organização.",
+    pl: "Tym silosem zarządza organizacja. Utwórz nowy kod odzyskiwania na komputerze, kluczem organizacji.",
+  },
   "err.entry_protected": {
     note: "Error from the app's backend: an entry that asks for the fingerprint or face was saved from a copy without its secrets. Entry as in the glossary.",
     en: "This entry is protected. Open it and confirm it is you first.",

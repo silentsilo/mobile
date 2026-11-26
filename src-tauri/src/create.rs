@@ -131,16 +131,51 @@ pub async fn recovery_create(
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let silo = active_silo(&state)?;
+    // On a silo an organisation administers, a new code cuts off the one in
+    // the organisation's safe. Desktop asks for the organisation's key; the
+    // phone has no way to, so it refuses.
+    if silentsilo_vault::load_fido_keys(&silo.path).is_ok_and(|keys| keys.is_org_controlled()) {
+        return Err(silentsilo_core::coded!(
+            "err.org_code_on_computer",
+            "An organisation manages this silo. Make a new recovery code on a computer, with the organisation's key."
+        )
+        .into());
+    }
     crate::presence::require(&app, &state, &silo).await?;
     crate::audit::record_off_thread(
         &app,
         crate::audit::event(crate::audit::codes::RECOVERY_CODE_CHANGED).with("now", "new code"),
     )
     .await?;
+    let (dek, kek) = state.with_session_id(silo.id, |session, _vfs| {
+        Ok((session.dek.clone(), session.kek.clone()))
+    })?;
+    // Dated after the code before it and after any "turned off", even on a
+    // phone whose clock is behind the device that made them: the passes keep
+    // the newer code and drop any made before a "turned off".
+    let mut earliest = silentsilo_vault::load_recovery_envelope(&silo.path)
+        .map(|e| e.created_at.saturating_add(1))
+        .unwrap_or(0);
+    for target in silentsilo_vault::load_targets(silo.id) {
+        let Ok(store) = target.config.open() else {
+            continue;
+        };
+        if let Ok(Some(off)) =
+            silentsilo_sync::revoked_at(&*store, &kek, silentsilo_sync::RECOVERY_MARKER_ID).await
+        {
+            earliest = earliest.max(off.saturating_add(1));
+        }
+        if let Ok(Some(stored)) = silentsilo_sync::fetch_recovery_envelope(&*store).await
+            && (stored.auth_dek.is_none() || stored.is_authentic_now(&kek, &dek))
+        {
+            earliest = earliest.max(stored.created_at.saturating_add(1));
+        }
+    }
     state.with_session_id(silo.id, |session, _vfs| {
-        let (code, envelope) =
+        let (code, mut envelope) =
             silentsilo_vault::create_recovery_envelope(&session.dek, &session.kek)
                 .map_err(|e| silentsilo_core::CoreError::Invalid(e.to_string()))?;
+        envelope.date_after(earliest, &session.kek, &session.dek);
         silentsilo_vault::save_recovery_envelope(&session.paths.root, &envelope)
             .map_err(|e| silentsilo_core::CoreError::Invalid(e.to_string()))?;
         Ok(code)

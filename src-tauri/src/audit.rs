@@ -10,7 +10,7 @@
 //! the logins and the person picks one in Android's own list, so this side
 //! never learns which was filled.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;
 
 use silentsilo_app::{AppState, Host};
@@ -42,6 +42,10 @@ pub fn record(app: &AppHandle, event: Event) -> Result<(), String> {
 /// event the silo records while open carries it as `via`, as on desktop.
 static UNLOCKED_WITH: Mutex<Option<HashMap<Uuid, String>>> = Mutex::new(None);
 
+/// Silos open in a session the recovery code opened, kept apart from the
+/// names above: a key can be labelled anything, "recovery code" included.
+static OPENED_BY_CODE: Mutex<Option<HashSet<Uuid>>> = Mutex::new(None);
+
 /// What the log calls this phone's own key.
 pub const VIA_PHONE_KEY: &str = "phone key";
 /// What the log calls an unlock with the recovery code.
@@ -50,6 +54,11 @@ pub const VIA_RECOVERY_CODE: &str = "recovery code";
 /// Set where a session opens: `None` for one opened without a key the log
 /// can name (a new silo, a join), so an earlier session's key never sticks.
 pub fn set_unlocked_with(id: Uuid, via: Option<String>) {
+    if let Ok(mut opened) = OPENED_BY_CODE.lock()
+        && let Some(opened) = opened.as_mut()
+    {
+        opened.remove(&id);
+    }
     let Ok(mut map) = UNLOCKED_WITH.lock() else {
         return;
     };
@@ -64,6 +73,25 @@ fn unlocked_with(id: Uuid) -> Option<String> {
     UNLOCKED_WITH.lock().ok()?.as_ref()?.get(&id).cloned()
 }
 
+/// Marks silo `id` as opened by the recovery code, after the session opened.
+pub fn set_unlocked_with_code(id: Uuid) {
+    set_unlocked_with(id, Some(VIA_RECOVERY_CODE.into()));
+    if let Ok(mut opened) = OPENED_BY_CODE.lock() {
+        opened.get_or_insert_with(HashSet::new).insert(id);
+    }
+}
+
+/// Whether silo `id` is open in a session the recovery code opened. That is
+/// the way back in when the phone's key is lost, so it is not asked for the
+/// key again, as on desktop.
+pub fn opened_with_recovery_code(id: Uuid) -> bool {
+    OPENED_BY_CODE
+        .lock()
+        .ok()
+        .and_then(|opened| opened.as_ref().map(|o| o.contains(&id)))
+        .unwrap_or(false)
+}
+
 /// A security key as the log names it: its label, or its slot.
 pub fn key_name(root: &std::path::Path, credential_id: &str) -> String {
     silentsilo_vault::load_fido_keys(root)
@@ -74,7 +102,10 @@ pub fn key_name(root: &std::path::Path, credential_id: &str) -> String {
                 .find(|k| k.credential_id == credential_id)
         })
         .map(|k| {
-            if k.label.is_empty() {
+            if k.label.trim().eq_ignore_ascii_case(VIA_RECOVERY_CODE) {
+                // Read as the code in the log, it would hide which key it was.
+                format!("{} (key)", k.label)
+            } else if k.label.is_empty() {
                 format!("Security key {}", k.key_slot)
             } else {
                 k.label
@@ -254,14 +285,20 @@ pub async fn audit_status(app: AppHandle) -> Result<silentsilo_app::AuditStatus,
 
 /// Turns the open silo's own log on or off, here at once and on the copies
 /// at the next sync. An organisation's log is not turned on or off here.
+/// Off asks for the phone's key first, as on desktop: it is how someone
+/// holding the unlocked phone would hide what they do next.
 #[tauri::command]
 pub async fn audit_set_enabled(
     app: AppHandle,
     enabled: bool,
 ) -> Result<silentsilo_app::AuditStatus, String> {
+    let silo = active_silo(&app.state::<AppState>())?;
+    if !enabled {
+        crate::presence::require(&app, &app.state::<AppState>(), &silo).await?;
+    }
     tauri::async_runtime::spawn_blocking(move || {
         let state = app.state::<AppState>();
-        let id = active_silo(&state)?.id;
+        let id = silo.id;
         state.set_audit_log(id, enabled)?;
         state.audit_status(id)
     })

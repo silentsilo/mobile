@@ -155,7 +155,10 @@ pub async fn confirm(app: &AppHandle, state: &AppState, silo: &SiloEntry) -> Res
 pub async fn require(app: &AppHandle, state: &AppState, silo: &SiloEntry) -> Result<(), String> {
     silo_is_open(state, silo.id)?;
     let presence = app.state::<Presence>();
-    if presence.fresh(silo.id) || crate::create::keyless(silo) {
+    if presence.fresh(silo.id)
+        || crate::create::keyless(silo)
+        || crate::audit::opened_with_recovery_code(silo.id)
+    {
         return Ok(());
     }
     if flows::device_key_ids(&silo.path, crate::device_key::KIND).is_empty() {

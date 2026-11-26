@@ -458,7 +458,7 @@ pub async fn vault_unlock_with_recovery(
     state.open_session(&host(&app), silo.id, session)?;
     wake_sync(&app, [silo.id]);
     app.state::<crate::presence::Presence>().opened(silo.id);
-    crate::audit::set_unlocked_with(silo.id, Some(crate::audit::VIA_RECOVERY_CODE.into()));
+    crate::audit::set_unlocked_with_code(silo.id);
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
         &app,

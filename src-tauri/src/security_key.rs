@@ -479,6 +479,7 @@ pub async fn vault_unlock_with_security_key(
     remember_pin_key(&credential_id, verified);
     let root = silo.path.clone();
     let via = crate::audit::key_name(&silo.path, &credential_id);
+    let key_label = via.clone();
     let (session, meta) = tauri::async_runtime::spawn_blocking(move || {
         flows::open_with_device_key(root, &credential_id, &wrap_key, silo.id)
     })
@@ -491,7 +492,9 @@ pub async fn vault_unlock_with_security_key(
     crate::audit::start_by_default_off_thread(&app, silo.id).await;
     crate::audit::record_off_thread(
         &app,
-        crate::audit::event(crate::audit::codes::UNLOCKED).with("by", "security key"),
+        crate::audit::event(crate::audit::codes::UNLOCKED)
+            .with("by", "security key")
+            .with("key", key_label),
     )
     .await?;
     Ok(meta)

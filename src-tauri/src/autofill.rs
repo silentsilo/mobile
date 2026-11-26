@@ -205,6 +205,29 @@ pub(crate) fn host_of(url: &str) -> Option<String> {
     (!host.is_empty()).then(|| host.trim_start_matches("www.").to_string())
 }
 
+/// Scheme, host (as [`host_of`]) and port, with the scheme's default port
+/// when none is written. Autofill fills only where all three match, so a
+/// save that updated an `http://` login from an `https://` page left it
+/// unable to fill there.
+pub(crate) fn origin_of(url: &str) -> Option<(String, String, u16)> {
+    let host = host_of(url)?;
+    let scheme = url
+        .split_once("://")
+        .map_or("https".to_string(), |(s, _)| s.trim().to_lowercase());
+    let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let authority = authority.rsplit_once('@').map_or(authority, |(_, a)| a);
+    let written = authority
+        .rsplit_once(':')
+        .and_then(|(_, p)| p.parse::<u16>().ok());
+    let port = written.unwrap_or(match scheme.as_str() {
+        "https" => 443,
+        "http" => 80,
+        _ => 0,
+    });
+    Some((scheme, host, port))
+}
+
 /// `Native.autofillSave`: stores a login typed into another app. Updates
 /// the password of a login for the same account when there is one, so a
 /// changed password does not leave a stale twin behind.
@@ -258,9 +281,9 @@ fn save(
 
     with_front_silo(data_dir, credential_id, wrap_hex, |vfs| {
         let same_account = |entry: &serde_json::Value| {
-            // The same host or its www. twin, never a subdomain, as autofill
-            // matches it.
-            let same_place = match (host_of(&url), host_of(field(entry, "url"))) {
+            // The same scheme, port and host or its www. twin, never a
+            // subdomain, as autofill matches it.
+            let same_place = match (origin_of(&url), origin_of(field(entry, "url"))) {
                 (Some(asked), Some(stored)) => asked == stored,
                 _ => !service.is_empty() && field(entry, "service").eq_ignore_ascii_case(&service),
             };
@@ -310,7 +333,28 @@ fn save(
 
 #[cfg(test)]
 mod tests {
-    use super::host_of;
+
+    #[test]
+    fn a_save_updates_only_a_login_for_the_same_scheme_and_port() {
+        assert_eq!(
+            origin_of("https://www.bank.example/login"),
+            origin_of("https://bank.example")
+        );
+        assert_eq!(
+            origin_of("https://bank.example:443/"),
+            origin_of("https://bank.example")
+        );
+        assert_ne!(
+            origin_of("https://bank.example"),
+            origin_of("http://bank.example")
+        );
+        assert_ne!(
+            origin_of("https://bank.example"),
+            origin_of("https://bank.example:8443")
+        );
+        assert_eq!(origin_of("bank.example"), origin_of("https://bank.example"));
+    }
+    use super::{host_of, origin_of};
 
     #[test]
     fn hosts() {
