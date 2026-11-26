@@ -31,9 +31,9 @@ entry waits 30 days in Recently deleted, at the end of the list.
 A silo's activity log records on the phone too: unlocking, secrets shown
 or copied, files opened, and changes to entries, files, keys and the
 recovery code. It is on by default, turned off under Silo, Activity log,
-and read on a computer. Filling with autofill and passkeys are not recorded
-yet: the person picks the login in Android's own list, which the app does
-not see.
+and read there or on a computer. An unlock through autofill, a login saved
+by autofill and a new passkey are recorded; which login autofill or a
+passkey hands over is not yet.
 
 On Android it also fills logins in other apps through the system autofill,
 acts as a passkey provider for browsers, and can back up photos, videos and

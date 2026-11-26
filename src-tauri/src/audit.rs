@@ -6,9 +6,9 @@
 //!
 //! Never call these while holding the sessions lock: recording takes it.
 //!
-//! Not recorded yet: autofill and passkeys. The autofill service is handed
-//! the logins and the person picks one in Android's own list, so this side
-//! never learns which was filled.
+//! Through autofill an unlock, a saved login and a new passkey are recorded
+//! (`autofill::with_front_silo_logged`). Not yet: which login autofill or a
+//! passkey hands over.
 
 use std::collections::{HashMap, HashSet};
 use std::sync::Mutex;

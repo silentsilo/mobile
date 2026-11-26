@@ -95,6 +95,10 @@ pub struct BackgroundLock {
     /// When the armed lock falls due, on the clock that counts sleep. Read on
     /// every way in, because Android may freeze the timer's process past it.
     deadline: Mutex<Option<Duration>>,
+    /// A lock has begun and is sending what was not sent yet. The silos are
+    /// still open for that, up to [`PUSH_LIMIT`], but nothing else may use
+    /// them: autofill opens the silo with its own key instead.
+    locking: AtomicBool,
 }
 
 impl Default for BackgroundLock {
@@ -111,8 +115,15 @@ impl Default for BackgroundLock {
             busy_since: Mutex::new(None),
             lock_held: AtomicBool::new(false),
             deadline: Mutex::new(None),
+            locking: AtomicBool::new(false),
         }
     }
+}
+
+/// Whether a lock is under way, the open sessions kept only to send.
+#[cfg_attr(not(target_os = "android"), allow(dead_code))]
+pub fn locking(app: &AppHandle) -> bool {
+    app.state::<BackgroundLock>().locking.load(Ordering::SeqCst)
 }
 
 /// Held while a system prompt is on screen.
@@ -216,6 +227,9 @@ pub fn lock_after(app: &AppHandle) -> u64 {
 }
 
 pub fn lock_all(app: &AppHandle) {
+    app.state::<BackgroundLock>()
+        .locking
+        .store(true, Ordering::SeqCst);
     // What was saved and not sent yet goes first: once locked, nothing can
     // send it until the next unlock on this phone, which may be days away.
     let unsent = with_unsent(app);
@@ -236,6 +250,17 @@ const PUSH_LIMIT: Duration = Duration::from_secs(20);
 /// the user is looking. What was not sent goes at the next unlock.
 fn close_all(app: &AppHandle) {
     let state = app.state::<AppState>();
+    // Cleared once everything below has closed.
+    struct Done<'a>(&'a AppHandle);
+    impl Drop for Done<'_> {
+        fn drop(&mut self) {
+            self.0
+                .state::<BackgroundLock>()
+                .locking
+                .store(false, Ordering::SeqCst);
+        }
+    }
+    let _done = Done(app);
     let host = MobileHost(app.clone());
     if let Ok(mut deadline) = app.state::<BackgroundLock>().deadline.lock() {
         *deadline = None;

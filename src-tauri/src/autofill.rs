@@ -104,6 +104,20 @@ pub(crate) fn with_front_silo<T>(
     wrap_hex: &str,
     f: impl FnOnce(&silentsilo_vfs::Vfs<'_>) -> silentsilo_core::CoreResult<T>,
 ) -> Result<T, String> {
+    with_front_silo_logged(data_dir, credential_id, wrap_hex, f, |_| None)
+}
+
+/// [`with_front_silo`], then `log` names what changed for the silo's
+/// activity log, as an edit in the app would record it. An unlock it makes
+/// is recorded too. On an organisation's silo a write that fails refuses,
+/// as everywhere else.
+pub(crate) fn with_front_silo_logged<T>(
+    data_dir: &Path,
+    credential_id: &str,
+    wrap_hex: &str,
+    f: impl FnOnce(&silentsilo_vfs::Vfs<'_>) -> silentsilo_core::CoreResult<T>,
+    log: impl FnOnce(&T) -> Option<silentsilo_audit::Event>,
+) -> Result<T, String> {
     let silo = front_silo(data_dir).ok_or("There is no silo on this phone.")?;
     let open = |silo: &SiloEntry| {
         let wrap: [u8; 32] = hex::decode(wrap_hex)
@@ -116,7 +130,9 @@ pub(crate) fn with_front_silo<T>(
 
     // A session past its lock deadline is not used: the fill opens the silo
     // on its own, with the key it was given, as when the app is not running.
-    match crate::background::app().filter(|app| !crate::background::past_deadline(app)) {
+    match crate::background::app()
+        .filter(|app| !crate::background::past_deadline(app) && !crate::background::locking(app))
+    {
         Some(app) => {
             let state = app.state::<AppState>();
             if !state.session_is_open(silo.id) {
@@ -124,16 +140,30 @@ pub(crate) fn with_front_silo<T>(
                 state.open_session(&crate::host::MobileHost(app.clone()), silo.id, session)?;
                 crate::audit::set_unlocked_with(silo.id, Some(crate::audit::VIA_PHONE_KEY.into()));
                 crate::audit::start_by_default(app, silo.id);
+                crate::audit::record_in(
+                    app,
+                    silo.id,
+                    crate::audit::event(crate::audit::codes::UNLOCKED).with("by", "autofill"),
+                )?;
                 let _ = tauri::Emitter::emit(app, "vault-changed", ());
                 crate::background::opened_while_away(app);
             }
             state.touch(silo.id);
-            state.with_session_id(silo.id, |_session, vfs| f(vfs))
+            let out = state.with_session_id(silo.id, |_session, vfs| f(vfs))?;
+            if let Some(event) = log(&out) {
+                crate::audit::record_in(app, silo.id, event)?;
+            }
+            Ok(out)
         }
         None => {
             let state = AppState::default();
             state.open_session(&Quiet, silo.id, open(&silo)?)?;
             let result = state.with_session_id(silo.id, |_session, vfs| f(vfs));
+            if let Ok(out) = &result
+                && let Some(event) = log(out)
+            {
+                let _ = state.audit_record(silo.id, event);
+            }
             let _ = state.close_session(&Quiet, silo.id);
             result
         }
@@ -279,56 +309,78 @@ fn save(
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0);
 
-    with_front_silo(data_dir, credential_id, wrap_hex, |vfs| {
-        let same_account = |entry: &serde_json::Value| {
-            // The same scheme, port and host or its www. twin, never a
-            // subdomain, as autofill matches it.
-            let same_place = match (origin_of(&url), origin_of(field(entry, "url"))) {
-                (Some(asked), Some(stored)) => asked == stored,
-                _ => !service.is_empty() && field(entry, "service").eq_ignore_ascii_case(&service),
+    let saved = with_front_silo_logged(
+        data_dir,
+        credential_id,
+        wrap_hex,
+        |vfs| {
+            let same_account = |entry: &serde_json::Value| {
+                // The same scheme, port and host or its www. twin, never a
+                // subdomain, as autofill matches it.
+                let same_place = match (origin_of(&url), origin_of(field(entry, "url"))) {
+                    (Some(asked), Some(stored)) => asked == stored,
+                    _ => {
+                        !service.is_empty()
+                            && field(entry, "service").eq_ignore_ascii_case(&service)
+                    }
+                };
+                is_login(entry) && same_place && field(entry, "username") == username
             };
-            is_login(entry) && same_place && field(entry, "username") == username
-        };
-        let existing = vfs
-            .list_passwords()?
-            .iter()
-            .filter_map(|row| serde_json::from_str::<serde_json::Value>(row).ok())
-            .find(same_account);
+            let existing = vfs
+                .list_passwords()?
+                .iter()
+                .filter_map(|row| serde_json::from_str::<serde_json::Value>(row).ok())
+                .find(same_account);
 
-        let (entry, outcome) = match existing {
-            Some(entry) if field(&entry, "password") == password => return Ok("unchanged"),
-            Some(mut entry) if may_update => {
-                // The password it replaces stays in the entry's history,
-                // as an edit in the app would keep it.
-                crate::history::keep_version(&mut entry, crate::history::policy(data_dir));
-                entry["password"] = password.clone().into();
-                entry["updated_at"] = now.into();
-                (entry, "updated")
-            }
-            _ => (
-                serde_json::json!({
-                    "id": Uuid::new_v4().to_string(),
-                    "service": if service.is_empty() { host_of(&url).unwrap_or_default() } else { service.clone() },
-                    "username": username,
-                    "password": password,
-                    "url": url,
-                    "notes": "",
-                    "category": "General",
-                    "created_at": now,
-                    "updated_at": now,
-                    "type": "login",
-                }),
-                "new",
-            ),
-        };
-        let id = entry
-            .get("id")
-            .and_then(|v| v.as_str())
-            .and_then(|v| Uuid::parse_str(v).ok())
-            .ok_or_else(|| silentsilo_core::CoreError::Database("the entry has no id".into()))?;
-        vfs.upsert_password(id, &entry.to_string())?;
-        Ok(outcome)
-    })
+            let (entry, outcome) = match existing {
+                Some(entry) if field(&entry, "password") == password => {
+                    return Ok(("unchanged", None));
+                }
+                Some(mut entry) if may_update => {
+                    // The password it replaces stays in the entry's history,
+                    // as an edit in the app would keep it.
+                    crate::history::keep_version(&mut entry, crate::history::policy(data_dir));
+                    entry["password"] = password.clone().into();
+                    entry["updated_at"] = now.into();
+                    (entry, "updated")
+                }
+                _ => (
+                    serde_json::json!({
+                        "id": Uuid::new_v4().to_string(),
+                        "service": if service.is_empty() { host_of(&url).unwrap_or_default() } else { service.clone() },
+                        "username": username,
+                        "password": password,
+                        "url": url,
+                        "notes": "",
+                        "category": "General",
+                        "created_at": now,
+                        "updated_at": now,
+                        "type": "login",
+                    }),
+                    "new",
+                ),
+            };
+            let id = entry
+                .get("id")
+                .and_then(|v| v.as_str())
+                .and_then(|v| Uuid::parse_str(v).ok())
+                .ok_or_else(|| {
+                    silentsilo_core::CoreError::Database("the entry has no id".into())
+                })?;
+            vfs.upsert_password(id, &entry.to_string())?;
+            Ok((outcome, Some((id, field(&entry, "service").to_string()))))
+        },
+        |(outcome, changed)| {
+            let (id, label) = changed.as_ref()?;
+            let code = if *outcome == "new" {
+                crate::audit::codes::ENTRY_CREATED
+            } else {
+                crate::audit::codes::ENTRY_EDITED
+            };
+            Some(crate::audit::event(code).on(id.to_string(), label.clone()))
+        },
+    )?;
+    Ok(saved.0)
 }
 
 #[cfg(test)]

@@ -171,27 +171,55 @@ pub extern "system" fn Java_com_silentsilo_mobile_Native_passkeyCreate(
     let mut wrap_hex = text(&mut env, &wrap_key);
     let caller = caller(&origin, &package, &hash);
     let mut outcome = None;
-    let saved = with_front_silo(Path::new(&data_dir), &credential_id, &wrap_hex, |vfs| {
-        let rows = vfs.list_passwords()?;
-        let records = held(&rows);
-        let now = now_ms();
-        let made = match passkey::register(&request, &caller, &records, now) {
-            Ok(made) => made,
-            Err(error) => {
-                outcome = Some(describe(error));
-                return Ok(());
-            }
-        };
-        let entry = entry_for(&rows, &made, now);
-        let id = entry
-            .get("id")
-            .and_then(|v| v.as_str())
-            .and_then(|v| Uuid::parse_str(v).ok())
-            .ok_or_else(|| silentsilo_core::CoreError::Database("the entry has no id".into()))?;
-        vfs.upsert_password(id, &entry.to_string())?;
-        outcome = Some(serde_json::json!({ "response": made.response_json }));
-        Ok(())
-    });
+    let changed: std::cell::RefCell<Option<(Uuid, String, bool)>> = std::cell::RefCell::new(None);
+    let saved = crate::autofill::with_front_silo_logged(
+        Path::new(&data_dir),
+        &credential_id,
+        &wrap_hex,
+        |vfs| {
+            let rows = vfs.list_passwords()?;
+            let records = held(&rows);
+            let now = now_ms();
+            let made = match passkey::register(&request, &caller, &records, now) {
+                Ok(made) => made,
+                Err(error) => {
+                    outcome = Some(describe(error));
+                    return Ok(());
+                }
+            };
+            let entry = entry_for(&rows, &made, now);
+            let id = entry
+                .get("id")
+                .and_then(|v| v.as_str())
+                .and_then(|v| Uuid::parse_str(v).ok())
+                .ok_or_else(|| {
+                    silentsilo_core::CoreError::Database("the entry has no id".into())
+                })?;
+            vfs.upsert_password(id, &entry.to_string())?;
+            let existed = rows.iter().any(|row| row.contains(&id.to_string()));
+            let label = entry
+                .get("service")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string();
+            *changed.borrow_mut() = Some((id, label, existed));
+            outcome = Some(serde_json::json!({ "response": made.response_json }));
+            Ok(())
+        },
+        |_| {
+            let (id, label, existed) = changed.borrow().clone()?;
+            let code = if existed {
+                crate::audit::codes::ENTRY_EDITED
+            } else {
+                crate::audit::codes::ENTRY_CREATED
+            };
+            Some(
+                crate::audit::event(code)
+                    .on(id.to_string(), label)
+                    .with("passkey", true),
+            )
+        },
+    );
     zeroize::Zeroize::zeroize(&mut wrap_hex);
     let json = match saved {
         Ok(()) => outcome.unwrap_or_else(|| serde_json::json!({ "error": "nothing was made" })),
