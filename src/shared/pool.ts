@@ -1,7 +1,7 @@
 // mapPool, copied from silentsilo/desktop src/lib/pool.ts; keep in step.
 /**
  * Run async work over `items` with at most `concurrency` in flight.
- * If `isCancelled` starts returning true, no further items are picked up —
+ * If `isCancelled` starts returning true, no further items are picked up,
  * whatever's already in flight (up to `concurrency` of them) still finishes.
  */
 export async function mapPool<T, R>(
