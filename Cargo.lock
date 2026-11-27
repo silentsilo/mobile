@@ -5524,7 +5524,7 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-autofill"
-version = "1.4.3"
+version = "1.4.4"
 dependencies = [
  "aes-gcm 0.10.3",
  "hex",
@@ -5617,7 +5617,7 @@ dependencies = [
 
 [[package]]
 name = "silentsilo-mobile"
-version = "1.4.3"
+version = "1.4.4"
 dependencies = [
  "aes-gcm 0.10.3",
  "hex",

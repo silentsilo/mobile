@@ -8,7 +8,7 @@ Each is listed with its version and its licence, and the full text of every
 licence follows, once per distinct text. Where a component ships its own
 copyright or NOTICE file, that file is what is reproduced here.
 
-Generated from the resolved dependency graph on 2026-11-12, for aarch64-linux-android, aarch64-apple-ios.
+Generated from the resolved dependency graph on 2026-11-27, for aarch64-linux-android, aarch64-apple-ios.
 Regenerate with: npm run notices
 
 Components: 514
@@ -482,7 +482,7 @@ constant_time_eq 0.4.2 (crate)
   source:  https://github.com/cesarb/constant_time_eq
   text:    see [23] [62] [63]
 
-cookie 0.18.1 (crate)
+cookie 0.18.3 (crate)
   licence: MIT OR Apache-2.0
   source:  https://github.com/SergioBenitez/cookie-rs
   text:    see [64] [65]
@@ -802,7 +802,7 @@ foldhash 0.2.0 (crate)
   source:  https://github.com/orlp/foldhash
   text:    see [112]
 
-form_urlencoded 1.2.2 (crate)
+form_urlencoded 1.2.3 (crate)
   licence: MIT OR Apache-2.0
   source:  https://github.com/servo/rust-url
   text:    see [24] [113]
@@ -1697,7 +1697,7 @@ quinn-proto 0.11.19 (crate)
   source:  https://github.com/quinn-rs/quinn
   text:    see [56] [213]
 
-quinn-udp 0.5.15 (crate)
+quinn-udp 0.5.16 (crate)
   licence: MIT OR Apache-2.0
   source:  https://github.com/quinn-rs/quinn
   text:    see [56] [213]
@@ -2437,7 +2437,7 @@ untrusted 0.9.0 (crate)
   source:  https://github.com/briansmith/untrusted
   text:    see [287]
 
-url 2.5.8 (crate)
+url 2.5.9 (crate)
   licence: MIT OR Apache-2.0
   source:  https://github.com/servo/rust-url
   text:    see [24] [149]
